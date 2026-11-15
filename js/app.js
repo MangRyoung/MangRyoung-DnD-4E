@@ -591,8 +591,45 @@
     return h;
   }
   function short(e) { var sp = e.sp || {}; return sp['Display'] || sp['Short Description'] || (sp['Tier'] ? sp['Tier'] : '') || (e.src ? e.src[0] : ''); }
+  /* ---------- 고르기 창의 걸러 보기 ----------
+   * 후보의 종류에 맞는 것만 몇 개 둔다. 재주: 티어 · 분류 · 출처 / 파워: 키워드 · 행동 유형 · 출처 /
+   * 물품: 레벨대 · 희귀도 · 종류 · 출처 · (세팅에 골드가 있으면) 남은 골드로 살 수 있는 것만. */
+  function buildFilters(all, onChange) {
+    var box = $('mFilter'); box.innerHTML = ''; if (!all || all.length < 8) return function () { return true; };
+    var t0 = all[0].t, isItem = /^(Magic Item|Armor|Weapon|Gear|Superior Implement)$/.test(t0), F = [], st = {};
+    var sp = function (e, k) { return (e.sp || {})[k] || ''; };
+    var band = function (e) { var L = +sp(e, 'Level') || 0; return !L ? '레벨 없음' : (Math.floor((L - 1) / 5) * 5 + 1) + '~' + (Math.floor((L - 1) / 5) * 5 + 5); };
+    if (t0 === 'Feat') { F.push(['tier', '티어', 'chips', function (e) { return TIER_KO[lc(sp(e, 'Tier'))] || sp(e, 'Tier') || '기타'; }, ['영웅', '패러곤', '에픽']]); F.push(['ftype', '분류', 'select', function (e) { return sp(e, 'type') || sp(e, 'Type') || '일반'; }]); }
+    if (t0 === 'Power') { F.push(['kw', '키워드', 'select', function (e) { return String(sp(e, 'Keywords')).split(',').map(function (x) { return x.trim(); }).filter(Boolean); }, null, function (v) { return gloss(v) ? gloss(v) + ' ' + v : v; }]);
+      F.push(['act', '행동', 'select', function (e) { return sp(e, 'Action Type') || '—'; }, null, function (v) { return gloss(v) || ACT_KO[lc(v)] || v; }]); }
+    if (isItem) { F.push(['lv', '레벨', 'chips', band]); F.push(['rar', '희귀도', 'chips', function (e) { return RAR_KO[lc(sp(e, 'Rarity'))] || (e.t === 'Magic Item' ? '일반' : '평범'); }, ['평범', '일반', '비범', '희귀']]);
+      F.push(['kind', '종류', 'select', function (e) { return e.t === 'Magic Item' ? sp(e, 'Magic Item Type') || sp(e, 'Item Slot') || '기타' : e.t === 'Armor' ? sp(e, 'Armor Category') || 'Armor' : e.t === 'Weapon' ? String(sp(e, 'Group')).split(',')[0].trim() || 'Weapon' : e.t; }]); }
+    if (t0 === 'Class' || t0 === 'Hybrid Class') { F.push(['role', '역할', 'chips', function (e) { return String(sp(e, 'Role')).split('.')[0] || '—'; }, null, function (v) { return koName('Role', v) || v; }]); F.push(['psrc', '파워 원천', 'chips', function (e) { return String(sp(e, 'Power Source')).split('.')[0] || '—'; }, null, function (v) { return gloss(v) || v; }]); }
+    if (all.length > 20) F.push(['src', '출처', 'select', function (e) { return (e.src || ['?'])[0]; }]);
+    var gold = isItem && setNow.gold ? { on: false } : null;
+    var vals = function (f, e) { var v = f[3](e); return Array.isArray(v) ? v : [v]; };
+    var num = function (x) { var m = /\d+/.exec(x); return m ? +m[0] : 999; };
+    F.forEach(function (f) {
+      var c = {}; all.forEach(function (e) { vals(f, e).forEach(function (v) { c[v] = (c[v] || 0) + 1; }); });
+      var keys = Object.keys(c); if (keys.length < 2) return;
+      keys.sort(function (a, b) { if (f[4]) { var ia = f[4].indexOf(a), ib = f[4].indexOf(b); return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib); } return f[0] === 'lv' ? num(a) - num(b) : f[2] === 'select' ? (c[b] - c[a] || (a < b ? -1 : 1)) : (a < b ? -1 : 1); });
+      var lab = f[5] || function (v) { return v; }, row = document.createElement('span'); row.className = 'fg'; row.innerHTML = '<small>' + f[1] + '</small>';
+      if (f[2] === 'chips' && keys.length <= 8) { st[f[0]] = {}; keys.forEach(function (k) { var b = document.createElement('button'); b.className = 'opt'; b.textContent = lab(k); b.title = c[k] + '개';
+          b.onclick = function () { if (st[f[0]][k]) delete st[f[0]][k]; else st[f[0]][k] = 1; b.classList.toggle('on'); onChange(); }; row.appendChild(b); }); }
+      else { var sel = document.createElement('select'); sel.innerHTML = '<option value="">전체</option>' + keys.slice(0, 120).map(function (k) { return '<option value="' + esc(k) + '">' + esc(lab(k)) + ' (' + c[k] + ')</option>'; }).join('');
+        sel.onchange = function () { st[f[0]] = sel.value ? (function () { var o = {}; o[sel.value] = 1; return o; })() : {}; onChange(); }; st[f[0]] = {}; row.appendChild(sel); }
+      box.appendChild(row);
+    });
+    if (gold) { var spent = 0; (cur.equip || []).forEach(function (id) { var e = db.byId[id]; if (e && e.t === 'Magic Item') spent += +((e.sp || {})['Gold'] || 0); }); var left = setNow.gold - spent;
+      var gl = document.createElement('label'); gl.className = 'fg'; gl.innerHTML = '<input type="checkbox"> 남은 골드(' + left.toLocaleString() + ') 안에서'; gl.querySelector('input').onchange = function (ev) { gold.on = ev.target.checked; onChange(); }; gold.left = left; box.appendChild(gl); }
+    var cnt = document.createElement('span'); cnt.className = 'fcnt'; box.appendChild(cnt);
+    var test = function (e) { for (var i = 0; i < F.length; i++) { var s0 = st[F[i][0]]; if (!s0 || !Object.keys(s0).length) continue; if (!vals(F[i], e).some(function (v) { return s0[v]; })) return false; }
+      if (gold && gold.on && e.t === 'Magic Item' && +((e.sp || {})['Gold'] || 0) > gold.left) return false; return true; };
+    test.count = function (n) { cnt.textContent = n + '개'; };
+    return test;
+  }
   function openDetail(e) {
-    if (!e) return; $('mOpt').hidden = true;
+    if (!e) return; $('mOpt').hidden = true; $('mFilter').innerHTML = '';
     $('mTitle').textContent = e.n; $('mSearch').hidden = true; $('mList').hidden = true; $('mDetail').innerHTML = fields(e);
     $('modal').querySelector('.mbody').style.gridTemplateColumns = 'minmax(0,1fr)'; $('modal').querySelector('.box').classList.add('fit'); $('modal').hidden = false;
   }
@@ -607,6 +644,7 @@
     $('mOpt').hidden = !nNo; $('mOnly').checked = onlyOk; $('mOnlyN').textContent = '(조건 미달 ' + nNo + '개)';
     $('mOnly').onchange = function () { onlyOk = $('mOnly').checked; localStorage.setItem('d4e_onlyok', onlyOk ? '1' : '0'); list(); };
     $('modal').querySelector('.box').classList.toggle('few', all.length <= 12);
+    var ftest = buildFilters(all, function () { list(); });
     $('mTitle').textContent = selLabel(s) + ' — 후보 ' + all.length + '개' + (nBan ? ' (세팅 금지 ' + nBan + '개 뺌)' : ''); $('mSearch').hidden = false; $('mSearch').value = ''; $('mList').hidden = false;
     $('modal').querySelector('.mbody').style.gridTemplateColumns = ''; $('mDetail').innerHTML = '<p class="hint">왼쪽에서 하나를 누르면 내용이 보여요.</p>';
     function show(e) {
@@ -624,18 +662,20 @@
       list();
     }
     function list() {
-      var q = lc($('mSearch').value), box = $('mList'), n = 0; box.innerHTML = '';
-      for (var i = 0; i < all.length && n < 300; i++) {
+      var q = lc($('mSearch').value), box = $('mList'), n = 0, total = 0; box.innerHTML = '';
+      for (var i = 0; i < all.length; i++) {
         var e = all[i];
         if (q && lc(nm(e)).indexOf(q) < 0 && lc(short(e)).indexOf(q) < 0 && lc(e.pre).indexOf(q) < 0) continue;
         if (onlyOk && pre[e.id] === 'no' && chosen.indexOf(e.id) < 0) continue;
+        if (!ftest(e)) continue; total++; if (n >= 300) continue;
         var d = document.createElement('div'); n++;
         d.className = (active === e ? 'on ' : '') + ((res.owned[e.id] && chosen.indexOf(e.id) < 0) || pre[e.id] === 'no' ? 'dim' : '') + (e.t === 'Power' ? ' pl ' + usageClass(e) : e.t === 'Feat' ? ' fl t-' + (lc((e.sp || {})['Tier']) || 'heroic') : '');
         d.innerHTML = (chosen.indexOf(e.id) >= 0 ? '✔ ' : '') + esc(nm(e)) + PRE_BADGE[pre[e.id]] + '<small>' + esc(short(e)) + (e.pre ? ' · 조건: ' + esc(e.pp || e.pre) : '') + '</small>';
         d.onclick = (function (e) { return function () { show(e); }; })(e);
         box.appendChild(d);
       }
-      if (n >= 300) { var m = document.createElement('div'); m.className = 'dim'; m.textContent = '300개까지만 보여요. 검색으로 좁혀 주세요.'; box.appendChild(m); }
+      if (ftest.count) ftest.count(total);
+      if (total > n) { var m = document.createElement('div'); m.className = 'dim'; m.textContent = total + '개 중 300개만 보여요. 걸러 보기나 검색으로 좁혀 주세요.'; box.appendChild(m); }
       if (!n) box.innerHTML = '<div class="dim">맞는 후보가 없어요.</div>';
     }
     $('mSearch').oninput = list; list(); $('modal').hidden = false;
@@ -644,6 +684,7 @@
   function openSearch(title, actions, given, needQuery) {
     trCtx = { map: {}, edit: false };
     $('mOpt').hidden = true; $('modal').querySelector('.box').classList.remove('few');
+    var ftest2 = given && !needQuery ? buildFilters(given, function () { list(); }) : (($('mFilter').innerHTML = ''), function () { return true; });
     var all = given || Object.keys(db.byId).map(function (k) { return db.byId[k]; });
     $('mTitle').textContent = title; $('mSearch').hidden = false; $('mSearch').value = ''; $('mList').hidden = false;
     $('modal').querySelector('.mbody').style.gridTemplateColumns = ''; $('mDetail').innerHTML = '<p class="hint">찾아서 하나를 누르면 내용이 보여요.</p>';
@@ -655,14 +696,17 @@
     function list() {
       var q = lc($('mSearch').value), box = $('mList'), n = 0; box.innerHTML = '';
       if ((!given || needQuery) && q.length < 2) { box.innerHTML = '<div class="dim">이름을 두 글자 넘게 적어 주세요.</div>'; return; }
-      for (var i = 0; i < all.length && n < 200; i++) {
+      var total = 0;
+      for (var i = 0; i < all.length; i++) {
         var e = all[i]; if (q && lc(nm(e)).indexOf(q) < 0 && lc(given && !needQuery ? eqLine(e) : '').indexOf(q) < 0) continue;
+        if (!ftest2(e)) continue; total++; if (n >= 200) continue;
         var d = document.createElement('div'); n++;
         if (needQuery && e.t === 'Power') d.className = 'pl ' + usageClass(e); else if (given && e.t === 'Magic Item') d.className = 'il r-' + (lc((e.sp || {})['Rarity']) || 'common'); else if (given) d.className = 'il r-mundane';
         d.innerHTML = esc(nm(e)) + '<small>' + esc(given && !needQuery ? eqLine(e) + ((e.sp || {})['Gold'] ? ' · ' + Number(e.sp['Gold']).toLocaleString() + ' gp' : '') : typeKo(e.t) + ' · ' + short(e)) + '</small>';
         d.onclick = (function (e) { return function () { show(e); }; })(e); box.appendChild(d);
       }
-      if (n >= 200) { var m = document.createElement('div'); m.className = 'dim'; m.textContent = '200개까지만 보여요. 검색으로 좁혀 주세요.'; box.appendChild(m); }
+      if (ftest2.count) ftest2.count(total);
+      if (total > n) { var m = document.createElement('div'); m.className = 'dim'; m.textContent = total + '개 중 200개만 보여요. 걸러 보기나 검색으로 좁혀 주세요.'; box.appendChild(m); }
       if (!n) box.innerHTML = '<div class="dim">맞는 요소가 없어요.</div>';
     }
     $('mSearch').oninput = list; list(); $('modal').hidden = false; $('mSearch').focus();
