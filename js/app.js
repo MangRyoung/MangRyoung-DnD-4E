@@ -190,7 +190,8 @@
     var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), Dp = [];
     var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4];
     var cut = hit.search(/damage/i), head = cut >= 0 ? hit.slice(0, cut) : hit, terms = [], maxDice = 0, tk, tre = /(\d+)\[W\]|(\d+)d(\d+)/g;
-    while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; }
+    var rawTerms = [];
+    while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; rawTerms.push(tk[1] ? { w: +tk[1] } : { n: +tk[2], d: +tk[3] }); }
     dice = terms.join('+');
     if (mm) Dp.push({ v: mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' });
     if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
@@ -204,7 +205,7 @@
       if (enh) ex.push(itemEnh >= inh && enhItem && (enhItem.sp || {})['Critical'] ? (enhItem.sp['Critical']) : '+' + enh + 'd6');
       if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
       crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
-    return { atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
+    return { terms: rawTerms, dbonus: dbonus, isW: isW, isI: isI, enh: enh, half: half, prof: prof, die: die[1] + 'd' + die[2], dieMax: +die[1] * +die[2], atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
   }
   function attackInfo(p, ctx) {
     ctx = ctx || calcCtx; if (!ctx) return null; var sp = p.sp || {}, q = ctx.ch.eq || {}, kws = lc(sp['Keywords']);
@@ -229,6 +230,52 @@
     var nx = pa.nextElementSibling; if (nx && nx.classList.contains('pad')) { nx.remove(); return; }
     var ctx = pa.closest('#teamSheet') && teamCalc ? teamCalc : (res ? { r: res, ch: cur } : calcCtx), d = document.createElement('div'); d.className = 'pad'; d.innerHTML = attackDetail(e, ctx); pa.after(d);
   });
+
+  /* ---------- 맵툴로 내보낼 자료 ----------
+   * 4판 맵툴 캠페인(속성 종류 Basic, Lib:Initiative 의 set_ability)에 맞춘 꼴.
+   * 공격은 1d20 + Amod + Hit(또는 Hit2) 로 굴리므로, 제작기가 셈한 합계에서 Hit 을 뺀 값을 Amod 로 준다(합계가 정확히 같아짐). */
+  var MT_SKILL = { 'Acrobatics': ['곡예', 'Dex', 1], 'Arcana': ['비전학', 'Int', 0], 'Athletics': ['운동', 'Str', 1], 'Bluff': ['속임수', 'Cha', 0], 'Diplomacy': ['교섭', 'Cha', 0], 'Dungeoneering': ['던전학', 'Wis', 0],
+    'Endurance': ['인내', 'Con', 1], 'Heal': ['치료', 'Wis', 0], 'History': ['역사학', 'Int', 0], 'Insight': ['통찰', 'Wis', 0], 'Intimidate': ['위협', 'Cha', 0], 'Nature': ['자연학', 'Wis', 0], 'Perception': ['지각', 'Wis', 0],
+    'Religion': ['종교학', 'Int', 0], 'Stealth': ['은밀', 'Dex', 1], 'Streetwise': ['길거리 지식', 'Cha', 0], 'Thievery': ['도둑기술', 'Dex', 1] };
+  var MT_ACT = { 'standard action': '일반', 'move action': '이동', 'minor action': '간략', 'immediate reaction': '즉각 반응', 'immediate interrupt': '즉각 개입', 'opportunity action': '기회 행동', 'free action': '자유 행동', 'no action': '-' };
+  function mtData() {
+    var ch = cur, r = res, st = r.stats, q = ch.eq || {}, ctx = { r: r, ch: ch }, T = ch.tr || {};
+    var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0, hp = st['hit points'] || 0, inh = st['inherent attack'] || 0;
+    var W = db.byId[q.main], Wm = db.byId[q.mainM], I = db.byId[q.impl], O = db.byId[q.off], Om = db.byId[q.offM];
+    var has = function (n) { for (var k in r.owned) if (lc(r.owned[k].n) === n) return true; return false; };
+    var wset = function (w, m) { var wsp = (w && w.sp) || {}, die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4], enh = Math.max(inh, plusN(m));
+      var prof = w && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(w.n) + ')')) ? +(wsp['Proficiency Bonus'] || 0) : 0;
+      return { hit: half + prof + enh, W: die[1] + 'd' + die[2], WMax: +die[1] * +die[2], Dmg: enh, Crit: enh ? enh + 'd6' : '0' }; };
+    var s1 = wset(W, Wm), s2 = I ? { hit: half + Math.max(inh, plusN(I)), W: '1d4', WMax: 4, Dmg: Math.max(inh, plusN(I)), Crit: Math.max(inh, plusN(I)) ? Math.max(inh, plusN(I)) + 'd6' : '0' } : (O && O.t === 'Weapon' ? wset(O, Om) : { hit: half + inh, W: '1d4', WMax: 4, Dmg: inh, Crit: inh ? inh + 'd6' : '0' });
+    /* 캠페인 매크로는 Hit 과 Hit2 를 값으로 견주므로, 둘이 같으면 공격 줄이 두 번 찍힌다. 같을 때는 Hit2 를 1 낮추고 그만큼 능력 쪽 보정에 얹는다 */
+    if (s2.hit === s1.hit) s2.hit -= 1;
+    var P = { Level: ch.level, MaxHP: hp, HP: hp, Temp_HP: 0, AC: st['ac'] || 0, MaxAC: st['ac'] || 0, Fort: st['fortitude defense'] || 0, MaxFort: st['fortitude defense'] || 0, Reflex: st['reflex defense'] || 0, MaxReflex: st['reflex defense'] || 0,
+      Will: st['will defense'] || 0, MaxWill: st['will defense'] || 0, DisplayNAD: (st['fortitude defense'] || 0) + '/' + (st['reflex defense'] || 0) + '/' + (st['will defense'] || 0), Mov: st['speed'] || 0, IniBonus: st['initiative'] || 0,
+      HealingSurgeValue: Math.floor(hp / 4) + (st['healing surge value'] || 0), HealingSurge: st['healing surges'] || 0, MaxSurge: st['healing surges'] || 0, AP: 1, Save: st['saving throws'] || 0,
+      hit: s1.hit, W: s1.W, WMax: s1.WMax, Dmg: s1.Dmg, CritRoll: s1.Crit, Hit2: s2.hit, W2: s2.W, WMax2: s2.WMax, Dmg2: s2.Dmg, CritRoll2: s2.Crit,
+      PInsight: 10 + (st['insight'] || 0), PPerception: 10 + (st['perception'] || 0), ArmorCheckPenalty: st['armor penalty'] || 0 };
+    E.ABILITIES.forEach(function (a) { P[a.slice(0, 3).toUpperCase()] = st[lc(a)] || 10; P[lc(a.slice(0, 3)) + 'mod'] = mod(a); });
+    /* 글: 내 번역이 있으면 그것, 없으면 용어 자동 번역(켜져 있을 때), 아니면 원문. 매크로에서 [ ] { } 는 식으로 읽히므로 바꿔 둔다 */
+    var safe = function (x) { return String(x || '').replace(/\[/g, '&#91;').replace(/\]/g, '&#93;').replace(/\{/g, '&#123;').replace(/\}/g, '&#125;').replace(/'/g, '&#39;').replace(/"/g, '&quot;').replace(/\r?\n/g, '<br>'); };
+    var txt = function (p) { var t = T[p.id], f = (t && t.f) || {}, sp = p.sp || {}; for (var i = 1; i < arguments.length; i++) { var k = arguments[i]; if (f[k] || sp[k]) return safe(f[k] || (glossAuto ? gsub(sp[k]) : sp[k])); } return ''; };
+    var skills = (db.byType['Skill'] || []).slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }).map(function (sk, i) { var m = MT_SKILL[sk.n] || [sk.n, 'Dex', 0], total = st[lc(sk.n)] || 0, tr = (st[lc(sk.n + ' trained')] || 0) > 0;
+      return { name: m[0], abil: m[1], acp: m[2], trained: tr ? 1 : 0, total: total, misc: total - (mod({ Str: 'Strength', Con: 'Constitution', Dex: 'Dexterity', Int: 'Intelligence', Wis: 'Wisdom', Cha: 'Charisma' }[m[1]]) + half + (tr ? 5 : 0) + (m[2] ? P.ArmorCheckPenalty : 0)), sort: i + 1 }; });
+    var powers = [];
+    ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && p.n !== 'Second Wind'; }).forEach(function (p) {
+      var sp = p.sp, u = usageClass(p), t = T[p.id] || {}, ai = attackInfo(p, ctx), m = ai && ai.main;
+      var usage = u === 'day' ? '#404040' : u === 'enc' ? '#704040' : (lc(sp['Power Usage']).indexOf('daily') >= 0 ? '#404040' : lc(sp['Power Usage']).indexOf('encounter') >= 0 ? '#704040' : '#407040');
+      var a = { group: '', pname: (t.n || p.n).replace(/["';]/g, ''), pkind: safe(sp['Display'] || ''), usage: usage, keyword: safe(t.f && t.f['Keywords'] || (glossAuto ? gsub(sp['Keywords'] || '') : sp['Keywords'] || '')), action: MT_ACT[lc(sp['Action Type'])] || '-',
+        range: txt(p, 'Attack Type'), Trigger: txt(p, 'Trigger'), Target: txt(p, 'Target', 'Targets', 'Primary Target') || '-', Effect: txt(p, 'Effect'), Special: [txt(p, 'Special'), txt(p, 'Requirement', 'Requirements') ? '요구 조건: ' + txt(p, 'Requirement', 'Requirements') : '', sp['하우스룰'] ? '하우스룰: ' + safe(sp['하우스룰']) : ''].filter(Boolean).join('<br>'), A_Memo: '', submit: '' };
+      if (!m) { powers.push({ nonatk: 1, args: a }); return; }
+      var set = m.isW ? ['Hit', P.hit] : ['Hit2', P.Hit2], first = m.terms[0], rest = m.terms.slice(1), dmgStr = '', adm = [];
+      if (first && first.w && first.w <= 9) dmgStr = first.w + (m.isW ? 'W' : 'W2'); else if (first && !first.w && first.n <= 9) dmgStr = first.n + 'd' + first.d; else if (first) rest = m.terms;
+      rest.forEach(function (x) { adm.push(x.w ? (x.w * +m.die.split('d')[0]) + 'd' + m.die.split('d')[1] : x.n + 'd' + x.d); }); if (m.dbonus || !adm.length) adm.push(String(m.dbonus));
+      a.AHit = set[0]; a.Attack = { AC: 'AC', Fortitude: 'Fort', Reflex: 'Ref', Will: 'Will' }[m.vs] || 'AC'; a.Amod = String(m.atk - set[1]); a.Damage = dmgStr; a.Dmod = 'None'; a.ADM = adm.join('+').replace(/\+-/g, '-');
+      a.Description = txt(p, 'Hit'); a.Miss = txt(p, 'Miss');
+      powers.push({ nonatk: 0, args: a });
+    });
+    return { name: ch.name || '이름 없음', port: ch.port || '', props: P, skills: skills, powers: powers };
+  }
 
   /* ---------- 파워 카드 ---------- */
   var USE_KO = { 'at-will': '무제한', 'encounter': '조우', 'daily': '일일' };
@@ -273,8 +320,10 @@
     var race = ownedOf(r, 'Race')[0], cls = ownedOf(r, 'Class')[0];
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
     var h = '<div class="shead">' + (ch.port ? '<img class="port" src="' + esc(ch.port) + '" alt="">' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
-    h += '<div class="vit">' + st('hit points', 'HP') + '<div><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></div><div data-why="healing surge value"><small>원기 수치</small><b>' + (Math.floor(hp / 4) + (s['healing surge value'] || 0)) + '</b></div>' +
-      st('healing surges', '원기 횟수') + (race ? st('speed', '이동 속도') : '<div title="이동 속도는 종족에서 와요. 종족을 고르면 채워져요"><small>이동 속도</small><b>—</b></div>') + st('initiative', '우선권') + '</div>';
+    var hsv = Math.floor(hp / 4) + (s['healing surge value'] || 0);
+    h += '<div class="hpbar" data-why="hit points" title="눌러서 HP 내역 보기"><div class="hpfill"></div><div class="hpmid"></div><span class="hpl"><small>HP</small><b>' + hp + '</b></span><span class="hpb"><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></span></div>';
+    h += '<div class="vrow"><div class="surge"><span class="sgt">원기 <small>Healing Surge</small></span><span data-why="healing surge value"><small>한 번에 회복</small><b>' + hsv + '</b></span><span data-why="healing surges"><small>하루 횟수</small><b>' + (s['healing surges'] || 0) + '<i>회</i></b></span></div>' +
+      '<div class="vit mv">' + (race ? st('speed', '이동 속도') : '<div title="이동 속도는 종족에서 와요. 종족을 고르면 채워져요"><small>이동 속도</small><b>—</b></div>') + st('initiative', '우선권') + '</div></div>';
     h += '<div class="vit def">' + st('ac', 'AC') + st('fortitude defense', 'Fort') + st('reflex defense', 'Ref') + st('will defense', 'Will') + '</div></div></div>';
     if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격 굴림과 피해 굴림 +' + (s['inherent attack'] || 0) + ' (치명타 +' + (s['inherent attack'] || 0) + 'd6) · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요</span></p>';
     h += '<div class="why" id="why" hidden></div>';
@@ -950,7 +999,7 @@
       try { var size = await D4EData.exportPack(); $('dataExportMsg').textContent = '내보냈어요 (' + (size / 1048576).toFixed(1) + 'MB).'; }
       catch (e) { $('dataExportMsg').textContent = e.message; }
     };
-    window.D4EApp = { gsub: gsub, vocab: function (key, n) {
+    window.D4EApp = { mtData: mtData, hasChar: function () { return !!(db && cur && res); }, gsub: gsub, vocab: function (key, n) {
         var V = vocabCache[key]; if (!V) { var c = {}; (db.byType['Power'] || []).forEach(function (p) { var v = (p.sp || {})[key]; if (!v) return; (key === 'Keywords' ? String(v).split(',') : [String(v)]).forEach(function (x) { x = x.trim(); if (x && x.length < 60) c[x] = (c[x] || 0) + 1; }); });
           V = vocabCache[key] = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }); }
         return V.slice(0, n || 30); }, canGM: canGM, me: function () { return ME; }, card: function (e) { return fields(e); }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,

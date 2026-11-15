@@ -1,0 +1,146 @@
+/* 맵툴로 내보내기 — 4판 맵툴 캠페인(PC 기본 토큰, Lib:Initiative 의 능력 제작)에 맞춘 토큰 파일과 붙여 넣기용 글.
+ * 틀은 js/mt_tpl.js (tools/extract_maptool.py 로 캠페인에서 뽑음). 캠페인이 바뀌면 그 스크립트를 다시 돌린다. */
+(function () {
+  'use strict';
+  var A = function () { return window.D4EApp; }, T = function () { return window.D4E_MT; };
+  var xe = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;'); };
+  var he = function (s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); };
+
+  /* ----- MD5 (바이트 배열) ----- */
+  function md5(bytes) {
+    var K = [], S = [7, 12, 17, 22, 5, 9, 14, 20, 4, 11, 16, 23, 6, 10, 15, 21], i;
+    for (i = 0; i < 64; i++) K[i] = Math.floor(Math.abs(Math.sin(i + 1)) * 4294967296) >>> 0;
+    var n = bytes.length, len = ((n + 8) >> 6) + 1, buf = new Uint8Array(len * 64); buf.set(bytes); buf[n] = 0x80;
+    var dv = new DataView(buf.buffer); dv.setUint32(len * 64 - 8, (n * 8) >>> 0, true); dv.setUint32(len * 64 - 4, Math.floor(n / 536870912), true);
+    var a0 = 0x67452301, b0 = 0xefcdab89, c0 = 0x98badcfe, d0 = 0x10325476;
+    for (var o = 0; o < buf.length; o += 64) {
+      var a = a0, b = b0, c = c0, d = d0;
+      for (i = 0; i < 64; i++) {
+        var f, g, r = i >> 4;
+        if (r === 0) { f = (b & c) | (~b & d); g = i; } else if (r === 1) { f = (d & b) | (~d & c); g = (5 * i + 1) % 16; } else if (r === 2) { f = b ^ c ^ d; g = (3 * i + 5) % 16; } else { f = c ^ (b | ~d); g = (7 * i) % 16; }
+        var t = d; d = c; c = b; var x = (a + f + K[i] + dv.getUint32(o + g * 4, true)) >>> 0, s = S[r * 4 + (i % 4)];
+        b = (b + ((x << s) | (x >>> (32 - s)))) >>> 0; a = t;
+      }
+      a0 = (a0 + a) >>> 0; b0 = (b0 + b) >>> 0; c0 = (c0 + c) >>> 0; d0 = (d0 + d) >>> 0;
+    }
+    return [a0, b0, c0, d0].map(function (v) { var h = ''; for (var j = 0; j < 4; j++) h += ('0' + ((v >>> (j * 8)) & 255).toString(16)).slice(-2); return h; }).join('');
+  }
+  function guid() { var b = new Uint8Array(16); crypto.getRandomValues(b); var s = ''; b.forEach(function (x) { s += String.fromCharCode(x); }); return btoa(s); }
+  function uuid() { return crypto.randomUUID ? crypto.randomUUID() : 'xxxxxxxx-xxxx-4xxx-8xxx-xxxxxxxxxxxx'.replace(/x/g, function () { return (Math.random() * 16 | 0).toString(16); }); }
+
+  /* ----- 능력 제작(set_ability)이 하는 일을 그대로 옮김 ----- */
+  var ACT = { '일반': ['1. 기본 행동', '기본 행동'], '이동': ['2. 이동 행동', '이동 행동'], '간략': ['3. 간략 행동', '간략 행동'], '즉각 반응': ['4. 즉각 행동', '즉시 반응'], '즉각 개입': ['4. 즉각 행동', '즉시 개입'], '기회 행동': ['4. 즉각 행동', '기회 행동'], '자유 행동': ['5. 자유 행동', '자유 행동'], '-': ['6. 행동 없음', '행동 없음'] };
+  var USE = { '#407040': ['669966', '상시', '1', 'teal'], '#704040': ['990033', '조우', '2', 'red'], '#404040': ['333333', '일일', '3', 'gray25'] };
+  function powerMacro(p) {
+    var a = p.args, act = ACT[a.action] || ACT['-'], use = USE[a.usage] || USE['#407040'], range = a.range || '근접 무기';
+    var v = { power_table_color: use[0], power_usage: use[1], action_type: act[1], trigger_entry: a.Trigger ? 1 : 0, target_entry: a.Target === '-' ? 0 : 1, effect_entry: a.Effect ? 1 : 0, special_entry: a.Special ? 1 : 0,
+      power_name: a.pname, power_kind: a.pkind, power_keywords: a.keyword, attack_type_and_range: range, trigger_description: a.Trigger, target_description: a.Target === '' ? '한 개체' : a.Target, effect_description: a.Effect, special_description: a.Special };
+    var tip = [a.Trigger && '트리거: ' + a.Trigger, '사거리: ' + range];
+    if (!p.nonatk) {
+      var atk = a.Attack !== '-';
+      v.attack_entry = atk ? 1 : 0; v.hit_entry = atk ? 1 : 0; v.attack_defense = atk ? a.Attack : 'AC'; v.attack_modifier = a.Amod === '' ? '0' : a.Amod;
+      v.no_damage_type = a.Damage ? 0 : 1; v.damage_roll_times = a.Damage ? a.Damage.charAt(0) : '1'; v.damage_roll_dice = a.Damage ? a.Damage.slice(1) : 'W'; v.damage_modifier = a.ADM === '' ? '0' : a.ADM;
+      v.miss_entry = a.Miss ? 1 : 0; v.Ahit = a.AHit; v.Dmod = '0'; v.hit_description = a.Description; v.miss_description = a.Miss;
+      tip.push(atk && '공격: vs ' + a.Attack);
+    }
+    tip.push(v.target_description && '대상: ' + v.target_description);
+    if (!p.nonatk) tip.push(a.Damage && '피해 주사위: ' + a.Damage, a.Description && '명중시: ' + a.Description, a.Miss && '빗나감: ' + a.Miss);
+    tip.push(a.Effect && '효과: ' + a.Effect, a.Special && '특수: ' + a.Special);
+    var cmd = T()[p.nonatk ? 'nonatk' : 'attack'].replace(/"\+(\w+)\+"/g, function (m, k) { return v[k] == null ? '' : String(v[k]); });
+    return { label: a.pname, group: act[0], color: use[3], font: 'white', sort: use[2], command: cmd, tip: tip.filter(Boolean).join('\n').replace(/<br>/g, '\n').replace(/&#(\d+);/g, function (m, c) { return String.fromCharCode(+c); }) };
+  }
+  function skillMacro(s) {
+    var c = T().skill.replace(/\bDex\b/g, s.abil).replace(/is_skill_trained = \d+/, 'is_skill_trained = ' + s.trained).replace(/trained_bonus = \d+/, 'trained_bonus = ' + (s.trained ? 5 : 0))
+      .replace(/is_applicable_armor_check_penalty = \d+/, 'is_applicable_armor_check_penalty = ' + s.acp).replace(/misc_bonus = -?\d+/, 'misc_bonus = ' + s.misc).replace(/&nbsp;[^<(]*\(\w+\)<\/b>/, '&nbsp;' + s.name + ' (' + s.abil + ')</b>');
+    return { label: s.name + ' (' + (s.total >= 0 ? '+' : '') + s.total + ')', group: 'Skills', color: s.trained ? 'blue' : 'gray', font: 'white', sort: String(s.sort), command: c, tip: '' };
+  }
+  function allMacros(d) { return d.powers.map(powerMacro).concat(d.skills.map(skillMacro)); }
+
+  /* ----- 토큰 그림: 초상이 있으면 PNG 로, 없으면 이름 첫 글자 동그라미 ----- */
+  function tokenImage(d) {
+    return new Promise(function (ok) {
+      var cv = document.createElement('canvas'), done = function () { cv.toBlob(function (b) { b.arrayBuffer().then(function (ab) { ok({ bytes: new Uint8Array(ab), w: cv.width, h: cv.height }); }); }, 'image/png'); };
+      var blank = function () { cv.width = cv.height = 256; var x = cv.getContext('2d'); x.fillStyle = '#5b7aa8'; x.beginPath(); x.arc(128, 128, 124, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 130px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((d.name || '?').charAt(0), 128, 138); done(); };
+      if (!d.port) return blank();
+      var im = new Image(); im.onload = function () { var k = Math.min(1, 512 / Math.max(im.width, im.height)); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); done(); };
+      im.onerror = blank; im.src = d.port;
+    });
+  }
+  function loadZip() { return window.JSZip ? Promise.resolve() : new Promise(function (ok, no) { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; s.onload = ok; s.onerror = function () { no(new Error('압축 도구를 불러오지 못했어요')); }; document.head.appendChild(s); }); }
+
+  function tokenXml(d, img, hash) {
+    var t = T(), props = '<propertyMapCI>\n<store>\n' + Object.keys(d.props).map(function (k) {
+      return '<entry>\n<string>' + xe(k.toLowerCase()) + '</string>\n<net.rptools.CaseInsensitiveHashMap_-KeyValue>\n<key>' + xe(k) + '</key>\n<value class="string">' + xe(d.props[k]) + '</value>\n</net.rptools.CaseInsensitiveHashMap_-KeyValue>\n</entry>'; }).join('\n') + '\n</store>\n</propertyMapCI>';
+    var idx = t.nextIndex, macros = allMacros(d).map(function (m) { var i = idx++;
+      return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
+        .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + t.token.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
+      .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
+      .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
+  }
+  async function saveToken() {
+    var d = A().mtData(); await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), zip = new window.JSZip();
+    zip.file('content.xml', tokenXml(d, img, hash));
+    zip.file('properties.xml', '<map>\n  <entry>\n    <string>version</string>\n    <string>' + T().version + '</string>\n  </entry>\n</map>');
+    zip.file('assets/' + hash, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + hash + '</id>\n  </id>\n  <name>' + xe(d.name) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>');
+    zip.file('assets/' + hash + '.png', img.bytes); zip.file('thumbnail', img.bytes); zip.file('thumbnail_large', img.bytes);
+    var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = (d.name || 'token').replace(/[\\/:*?"'<>|\s]+/g, '_') + '.rptok'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000);
+    return d;
+  }
+  /* 붙여 넣기용 글: 맵툴의 decode() 로 풀 수 있게 주소 인코딩 */
+  function pasteText() { var d = A().mtData(); return encodeURIComponent(JSON.stringify({ v: 1, name: d.name, props: d.props, powers: d.powers.map(function (p) { return { nonatk: p.nonatk, args: p.args }; }), macros: d.skills.map(skillMacro) })); }
+
+  /* 캠페인에 한 번 넣어 두는 매크로 (캠페인 매크로나 GM 매크로로) */
+  var LOADER = [
+    '[h: assert(listCount(getSelected()) == 1, "토큰을 하나만 고르고 눌러 주세요.", 0)]',
+    '[h: switchToken(getSelected())]',
+    '[h: ok = input("d4e||제작기에서 복사한 글|TEXT|WIDTH=50")]',
+    '[h: abort(ok)]',
+    '[h: d = decode(d4e)]',
+    '[h: props = json.get(d, "props")]',
+    '[h, foreach(k, json.fields(props)): setProperty(k, json.get(props, k))]',
+    '[h: made = 0]',
+    '[h, foreach(p, json.get(d, "powers")), code: {',
+    '  [h: a = json.get(p, "args")]',
+    '  [h, foreach(i, getMacroIndexes(json.get(a, "pname"))): removeMacro(i)]',
+    '  [h, if(json.get(p, "nonatk") == 1), code: { [h, macro("set_nonatk_ability@Lib:Initiative"): a] }; { [h, macro("set_ability@Lib:Initiative"): a] }]',
+    '  [h: made = made + 1]',
+    '}]',
+    '[h, foreach(m, json.get(d, "macros")), code: {',
+    '  [h: lab = json.get(m, "label")]',
+    '  [h: nm = substring(lab, 0, indexOf(lab, " ("))]',
+    '  [h, foreach(i, getMacros()), if(startsWith(i, nm + " (")): removeMacro(listGet(getMacroIndexes(i), 0))]',
+    '  [h: mp = "autoexec=true;"]',
+    '  [h: mp = setStrProp(mp, "group", json.get(m, "group"))]',
+    '  [h: mp = setStrProp(mp, "color", json.get(m, "color"))]',
+    '  [h: mp = setStrProp(mp, "fontColor", json.get(m, "font"))]',
+    '  [h: mp = setStrProp(mp, "sortBy", json.get(m, "sort"))]',
+    '  [h: createMacro(lab, json.get(m, "command"), mp)]',
+    '}]',
+    '<b>[r: getName()]</b> — 시트를 불러왔어요. 능력 [r: made]개.'
+  ].join('\n');
+
+  function open() {
+    if (!A() || !A().hasChar()) { alert('먼저 데이터를 불러오고 캐릭터를 골라 주세요.'); return; }
+    var d = A().mtData(), box = document.getElementById('mtBox');
+    if (!box) { box = document.createElement('div'); box.id = 'mtBox'; box.className = 'mtbox'; document.body.appendChild(box); }
+    var atk = d.powers.filter(function (p) { return !p.nonatk; }).length;
+    box.innerHTML = '<div class="mtin"><button class="mtx" data-mt="close" title="닫기">×</button><h3>맵툴로 내보내기</h3>' +
+      '<p class="hint">' + he(d.name) + ' · 능력 ' + d.powers.length + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
+      '<div class="mtrow"><div><b>가) 토큰 파일</b><p class="hint">.rptok 을 받아 맵 위로 끌어다 놓으면 돼요. 「PC 기본」 토큰의 매크로가 그대로 들어 있어요.</p><button data-mt="tok">토큰 파일 받기</button></div>' +
+      '<div><b>나) 있는 토큰에 덮어쓰기</b><p class="hint">캠페인에 「시트 불러오기」 매크로를 한 번 넣어 두고, 토큰을 고른 뒤 그 매크로에 글을 붙여 넣어요. 수치와 능력 버튼만 바뀌어요.</p><button data-mt="copy">시트 글 복사</button> <button data-mt="loader">불러오기 매크로 복사</button></div></div>' +
+      '<details><summary>수치 미리 보기</summary><div class="mtprev">' + Object.keys(d.props).map(function (k) { return '<span>' + he(k) + ' <b>' + he(d.props[k]) + '</b></span>'; }).join('') + '</div>' +
+      '<table class="mttab"><tr><th>능력</th><th>공격</th><th>피해</th></tr>' + d.powers.map(function (p) { var a = p.args; return '<tr><td>' + he(a.pname) + '</td><td>' + (p.nonatk ? '—' : '1d20 + ' + (+a.Amod + d.props[a.AHit === 'Hit' ? 'hit' : 'Hit2']) + ' vs ' + he(a.Attack)) + '</td><td>' + (p.nonatk || !a.Damage ? '—' : he(a.Damage) + ' + ' + he(a.ADM)) + '</td></tr>'; }).join('') + '</table></details>' +
+      '<p class="hint" id="mtMsg"></p></div>';
+    box.style.display = 'flex';
+    var msg = function (t) { document.getElementById('mtMsg').textContent = t; }, copy = function (t, okMsg) { navigator.clipboard.writeText(t).then(function () { msg(okMsg); }, function () { var ta = document.createElement('textarea'); ta.value = t; box.firstChild.appendChild(ta); ta.select(); msg('자동 복사가 막혀서 글을 아래에 띄웠어요. 직접 복사해 주세요.'); }); };
+    box.onclick = function (e) { var k = e.target.getAttribute && e.target.getAttribute('data-mt');
+      if (e.target === box || k === 'close') box.style.display = 'none';
+      else if (k === 'tok') { msg('만드는 중…'); saveToken().then(function () { msg('토큰 파일을 받았어요. 맵툴 맵 위로 끌어다 놓아 보세요.'); }, function (er) { msg('만들지 못했어요: ' + er.message); }); }
+      else if (k === 'copy') copy(pasteText(), '시트 글을 복사했어요. 맵툴에서 토큰을 고르고 「시트 불러오기」에 붙여 넣으세요.');
+      else if (k === 'loader') copy(LOADER, '매크로를 복사했어요. 캠페인 매크로 창에서 새 매크로를 만들고 붙여 넣으세요(이름은 「시트 불러오기」).'); };
+  }
+  window.D4EMt = { open: open, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
+  document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; });
+})();
