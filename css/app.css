@@ -348,3 +348,11 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .pas-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
 @media(max-width:520px){.pasl{grid-template-columns:1fr}}
 .sklang{float:right;font-size:13px;font-weight:400;color:var(--ink)}.sklang small{color:var(--sub);margin-right:2px}.sklang i{font-style:normal;cursor:pointer}.sklang i:hover{text-decoration:underline}
+
+/* 접속 중인 사람 · GM 권한 */
+.online{display:inline-flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:12.5px;margin-right:8px}.on-n{color:var(--sub);margin-right:2px}
+.on-p{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:999px;padding:1px 9px;background:var(--card)}.on-p i{width:7px;height:7px;border-radius:50%;background:#4caf6a;display:inline-block}
+.on-p.gm{border-color:var(--acc);color:var(--acc)}.on-p.gm b{font-size:10.5px}.on-p.guest{color:var(--sub)}.on-p.guest i{background:#b9b2a3}
+.gmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;margin-top:8px}.gmgrid>div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+.gmrow{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px dashed var(--line)}.gmrow span{flex:1;min-width:0}.gmrow select{flex:1;min-width:0}.gmgrid b+.gmrow{border-top:0}
+@media(max-width:700px){.gmgrid{grid-template-columns:1fr}.online{width:100%;order:9}}

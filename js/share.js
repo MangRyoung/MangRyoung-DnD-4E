@@ -25,5 +25,5 @@
     var r = await c.from(cfg.table).delete().eq('kind', kind || cfg.kind).eq('id', id);
     if (r.error) throw new Error(r.error.message);
   }
-  window.D4EShare = { list: list, put: put, del: del, ready: function () { return !!cl(); } };
+  window.D4EShare = { list: list, put: put, del: del, ready: function () { return !!cl(); }, client: cl };
 })();

@@ -626,7 +626,7 @@
     var tabs = [];
     groups.forEach(function (list, g) { if (list.length) tabs.push({ key: 'g' + g, label: SEL_GROUPS[g][0], list: list, left: list.filter(function (x) { return x[1]; }).length }); });
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
-    var hbEvery = D4EHouse.custom(db), hbAll = isGM() ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
+    var hbEvery = D4EHouse.custom(db), hbAll = (ME.gm || !D4EHouse.gm().hashes.length) ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
     tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length + (cur.hbx || []).length });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
@@ -1044,6 +1044,7 @@
     $('me').value = ME.name; localStorage.setItem('d4e_me', ME.name);
     $('signBtn').textContent = ME.hash ? ME.name + (ME.gm ? ' · GM' : '') : '서명하기'; $('signBtn').className = ME.hash ? 'ghost' : '';
     document.body.classList.toggle('is-gm', ME.gm || !g.hashes.length);
+    if (window.D4EPresence) D4EPresence.refresh(); if (!$('tab-house').hidden) renderGm();
   }
   /* 홈브류의 분류 · 단계 · 대상 캐릭터 */
   var HB_ORDER = ['공격', '생존', '활용'], hbEditing = '';
@@ -1089,8 +1090,30 @@
     var bar = mine ? '<div class="pas-bar"><button class="mini' + (ed ? '' : ' ghost') + '" data-pasedit="1">' + (ed ? '편집 끝내기' : '묶음 편집') + '</button>' + (ed ? '<button class="mini ghost" data-pasgadd="1">+ 새 묶음</button>' : '') + '<span class="hint">' + (ed ? '효과마다 묶음을 옮기거나 글을 고칠 수 있어요. 묶음은 맵툴 토큰에 「패시브」 버튼으로 나가요' : '') + '</span></div>' : '';
     return { html: bar + h, n: total };
   }
-  function isGM() { var g = D4EHouse.gm(); return !g.hashes.length || !!ME.gm; }
-  function canGM(what) { var g = D4EHouse.gm(); if (!g.hashes.length || ME.gm) return true; alert((what || '이것') + '은(는) GM 만 고칠 수 있어요. GM 서명으로 들어와 주세요.'); return false; }
+  /* GM 이 정하는 권한: gm 문서의 perm = { house, set, team, gloss, hb } — true 면 PL 도 할 수 있다 */
+  var PERMS = [['house', '하우스룰 · 자작 요소 만들고 고치기'], ['hb', '공용 홈브류 만들고 고치기'], ['set', '세팅(메이킹 룰) 고치기'], ['gloss', '용어집 고치기'], ['team', '팀 만들기 · 이름 바꾸기 · 지우기']];
+  var PERM_OF = { '하우스룰': 'house', '세팅': 'set', '용어집': 'gloss', '팀': 'team' };
+  function perm(k) { var g = D4EHouse.gm(); return !!(g.perm && g.perm[k]); }
+  function isGM(k) { var g = D4EHouse.gm(); return !g.hashes.length || !!ME.gm || perm(k || 'hb'); }
+  function renderGm() {
+    var box = $('gmPanel'); if (!box) return; var g = D4EHouse.gm(), real = !!ME.gm, open0 = !g.hashes.length;
+    box.innerHTML = '<div class="bar"><strong>GM · 권한</strong><span class="hint">' + (g.hashes.length ? 'GM: ' + (g.names || []).map(esc).join(', ') : '아직 GM 이 없어요. 지금은 누구나 전부 고칠 수 있어요') + '</span><span class="sp"></span>' +
+        (ME.hash && !real && open0 ? '<button class="mini" data-gm="add">내 서명을 GM 으로 등록</button>' : '') + (!ME.hash ? '<button class="mini ghost" data-gm="sign">서명하기</button>' : '') + '</div>' +
+      (g.hashes.length ? '<div class="gmgrid"><div><b>GM 목록</b>' + (g.names || []).map(function (n, i) { return '<div class="gmrow"><span>' + esc(n) + (g.hashes[i] === ME.hash ? ' <span class="hint">(나)</span>' : '') + '</span>' + (real ? '<button class="mini ghost" data-gm="del" data-i="' + i + '">GM 풀기</button>' : '') + '</div>'; }).join('') +
+          (real ? '<p class="hint">다른 사람을 GM 으로 올리려면, 그 사람이 서명한 뒤 접속해 있을 때 아래에서 골라요.</p><div class="gmrow"><select id="gmPick"><option value="">접속 중인 서명 고르기</option></select><button class="mini ghost" data-gm="promote">GM 으로 올리기</button></div>' : '') + '</div>' +
+        '<div><b>PL 에게 허용할 것</b>' + PERMS.map(function (p) { return '<label class="gmrow"><span>' + p[1] + '</span><input type="checkbox" data-perm="' + p[0] + '"' + (perm(p[0]) ? ' checked' : '') + (real ? '' : ' disabled') + '></label>'; }).join('') +
+          '<p class="hint">' + (real ? '끄면 GM 만 할 수 있어요. 자기 시트를 고치고 올리는 것은 언제나 누구나 돼요.' : 'GM 만 바꿀 수 있어요.') + '</p></div></div>' : '');
+    var pk = $('gmPick'); if (pk && window.D4EPresence && D4EPresence.signed) D4EPresence.signed().forEach(function (p) { if (g.hashes.indexOf(p.hash) >= 0 || !p.hash) return; var o = document.createElement('option'); o.value = p.hash + '|' + p.name; o.textContent = p.name; pk.appendChild(o); });
+    box.onclick = async function (ev) { var k = ev.target.getAttribute && ev.target.getAttribute('data-gm'); if (!k) return; var g2 = D4EHouse.gm();
+      try { if (k === 'sign') { openSign(); return; }
+        if (k === 'add') { if (g2.hashes.length || !ME.hash || !confirm('「' + ME.name + '」 서명을 GM 으로 등록할까요?')) return; await saveGm({ hashes: [ME.hash], names: [ME.name] }); }
+        else if (k === 'del') { if (!ME.gm) return; var i = +ev.target.getAttribute('data-i'); if (!confirm('「' + g2.names[i] + '」의 GM 을 풀까요?' + (g2.hashes.length === 1 ? '\nGM 이 아무도 없으면 누구나 전부 고칠 수 있게 돼요.' : ''))) return; var h = g2.hashes.slice(), nn = g2.names.slice(); h.splice(i, 1); nn.splice(i, 1); await saveGm({ hashes: h, names: nn }); }
+        else if (k === 'promote') { if (!ME.gm) return; var v = ($('gmPick').value || '').split('|'); if (!v[0]) return; await saveGm({ hashes: g2.hashes.concat([v[0]]), names: g2.names.concat([v.slice(1).join('|')]) }); }
+        renderGm(); } catch (e) { alert('저장하지 못했어요: ' + e.message); } };
+    box.onchange = async function (ev) { var k = ev.target.getAttribute && ev.target.getAttribute('data-perm'); if (!k || !ME.gm) return; var g2 = D4EHouse.gm(), pm = Object.assign({}, g2.perm || {}); pm[k] = ev.target.checked;
+      try { await saveGm({ hashes: g2.hashes, names: g2.names, perm: pm }); toast('권한을 바꿨어요'); } catch (e) { alert('저장하지 못했어요: ' + e.message); } renderGm(); };
+  }
+  function canGM(what) { var g = D4EHouse.gm(); if (!g.hashes.length || ME.gm || perm(PERM_OF[what])) return true; alert((what || '이것') + '은(는) GM 만 고칠 수 있어요. GM 서명으로 들어와 주세요.'); return false; }
   function openSign() {
     var g = D4EHouse.gm(), o = {}; try { o = JSON.parse(localStorage.getItem('d4e_sign') || '{}') || {}; } catch (e) {}
     $('sgName').value = o.name || ME.name || ''; $('sgSecret').value = o.secret || '';
@@ -1099,7 +1122,7 @@
     $('sgGmAdd').hidden = !(ME.hash && (!g.hashes.length || ME.gm) && !(ME.gm)); $('sgGmDel').hidden = !ME.gm;
     $('signBox').hidden = false;
   }
-  async function saveGm(d) { await D4EShare.put('gm', d, D4EHouse.CFG); D4EHouse.setGm(d); refreshSign(); openSign(); }
+  async function saveGm(d) { var old = D4EHouse.gm(); if (!d.perm && old.perm) d.perm = old.perm; d.at = Date.now(); await D4EShare.put('gm', d, D4EHouse.CFG); D4EHouse.setGm(d); refreshSign(); if (!$('signBox').hidden) openSign(); }
   function wireSign() {
     $('signBtn').onclick = openSign; $('sgClose').onclick = function () { $('signBox').hidden = true; };
     $('sgSave').onclick = async function () { var n = $('sgName').value.trim(), sc = $('sgSecret').value; if (!n || !sc) { alert('이름과 비밀구를 모두 적어 주세요.'); return; }
@@ -1213,7 +1236,7 @@
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (name === 'edit') renderEdit();
     if (name === 'team') renderTeam();
-    if (name === 'house') D4EHouse.refresh();
+    if (name === 'house') { renderGm(); Promise.resolve(D4EHouse.refresh()).then(function () { refreshSign(); renderGm(); }, function () {}); }
   }
   function useData(d) {
     db = new E.Db(); Object.keys(d.groups).forEach(function (g) { db.add(d.groups[g]); });
@@ -1282,7 +1305,7 @@
     window.D4EApp = { mtData: mtData, hasChar: function () { return !!(db && cur && res); }, charNames: function () { return Object.keys(chars).map(function (k) { return chars[k].name; }).filter(Boolean); }, gsub: gsub, vocab: function (key, n) {
         var V = vocabCache[key]; if (!V) { var c = {}; (db.byType['Power'] || []).forEach(function (p) { var v = (p.sp || {})[key]; if (!v) return; (key === 'Keywords' ? String(v).split(',') : [String(v)]).forEach(function (x) { x = x.trim(); if (x && x.length < 60) c[x] = (c[x] || 0) + 1; }); });
           V = vocabCache[key] = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }); }
-        return V.slice(0, n || 30); }, canGM: canGM, me: function () { return ME; }, card: function (e) { return fields(e); }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
+        return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
       houseChanged: function () { if (!$('tab-edit').hidden) renderEdit(); status('룰 요소 ' + Object.keys(db.byId).length.toLocaleString() + '개 · 하우스룰 ' + D4EHouse.count() + '개'); } };
     D4EHouse.start();
     await loadSign();
