@@ -8,7 +8,7 @@
   var vocabCache = {};
 
   var TYPE_KO = { 'Race': '종족', 'Class': '클래스', 'Feat': '재주', 'Power': '파워', 'Skill Training': '기술 숙련', 'Class Feature': '클래스 특성',
-    'Racial Trait': '종족 특성', 'Race Ability Bonus': '종족 능력치 보너스', 'Language': '언어', 'Deity': '신앙', 'Background': '배경',
+    'Racial Trait': '종족 특성', 'Homebrew Feature': '홈브류 특성', 'Race Ability Bonus': '종족 능력치 보너스', 'Language': '언어', 'Deity': '신앙', 'Background': '배경',
     'Background Choice': '배경 혜택', 'Theme': '테마', 'Build': '빌드', 'Gender': '성별', 'Alignment': '성향', 'Paragon Path': '패러곤 경로',
     'Epic Destiny': '에픽 운명', 'Proficiency': '숙련', 'Hybrid Class': '하이브리드 클래스', 'Familiar': '패밀리어', 'Companion': '동료', 'Domain': '권역', 'Skill Specialization': '기술 특화' };
   var AB_KO = { Strength: '근력', Constitution: '건강', Dexterity: '민첩', Intelligence: '지능', Wisdom: '지혜', Charisma: '매력' };
@@ -379,7 +379,12 @@
     var block = function (type) { return ownedOf(r, type).filter(function (e) { return e.body || (e.sp && Object.keys(e.sp).length); }).map(function (e) {
       return '<details class="ft cfd"><summary>' + esc(tview(e) && TR(e) && TR(e).n ? TR(e).n : nm(e)) + (e.sp && e.sp['하우스룰'] ? ' <span class="badge">하우스룰</span>' : '') + (e.sp && e.sp['Short Description'] ? ' <span class="hint">' + esc(glossAuto ? gsub(e.sp['Short Description']) : e.sp['Short Description']) + '</span>' : '') + '</summary>' + cardHtml(e) + '</details>'; }).join(''); };
     var cf = block('Class Feature'), rt = block('Racial Trait'), pf = ownedOf(r, 'Proficiency').filter(function (e) { return e.n !== 'Choose Nothing'; });
-    return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') +
+    var mine = ch === cur, gm = mine && isGM(), hbs = (ch.hb || []).map(function (id) { return db.byId[id]; }).filter(Boolean);
+    var hb = hbs.map(function (e) { return '<details class="ft cfd hbd"><summary>' + esc(tview(e) && TR(e) && TR(e).n ? TR(e).n : e.n) + ' <span class="badge hbb">' + esc(typeKo(e.t)) + '</span>' + (e.sp && e.sp['Short Description'] ? ' <span class="hint">' + esc(e.sp['Short Description']) + '</span>' : '') +
+        (mine ? '<span class="hb-a">' + (gm ? '<button class="mini ghost" data-hbedit="' + esc(e.id) + '">고치기</button>' : '') + '<button class="mini ghost" data-hbdel="' + esc(e.id) + '" title="이 캐릭터에서 빼기">×</button></span>' : '') + '</summary>' + cardHtml(e) + '</details>'; }).join('');
+    var hbSec = (hb || mine) ? sec('hb', '홈브류 특성 <span class="hint">' + hbs.length + (mine ? ' · GM 이 만든 능력을 골라 넣어요' : '') + '</span>', (hb || '<p class="hint">아직 고른 홈브류 특성이 없어요.</p>') +
+      (mine ? '<div class="hb-bar"><button class="mini" data-hbadd="1">+ 홈브류 고르기</button>' + (gm ? '<button class="mini ghost" data-hbnew="1">새 홈브류 특성 만들기 (GM)</button>' : '') + '</div>' : '')) : '';
+    return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') + hbSec +
       (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
   }
   function sheetHtml(ch, r, who) {
@@ -472,7 +477,11 @@
     cur.sum = summary(cur, res);
     saveChars(); renderSelects();
     $('sheet').innerHTML = sheetHtml(cur, res); wireSheet($('sheet'), res);
-    $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var e = ev.target.closest('[data-el]'); if (e && !ev.target.closest('[data-tr]')) openDetail(db.byId[e.getAttribute('data-el')]); };
+    $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var t = ev.target.closest('[data-hbadd],[data-hbnew],[data-hbedit],[data-hbdel]');
+      if (t) { ev.preventDefault(); if (t.hasAttribute('data-hbadd')) { buildTab = 'hb'; localStorage.setItem('d4e_btab', buildTab); var bp = document.querySelector('[data-sec=b_pick]'); if (bp) bp.open = true; renderSelects(); $('selects').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
+        else if (t.hasAttribute('data-hbnew')) D4EHouse.newEl('Homebrew Feature'); else if (t.hasAttribute('data-hbedit')) D4EHouse.editEl(t.getAttribute('data-hbedit'));
+        else { var hid = t.getAttribute('data-hbdel'); cur.hb = (cur.hb || []).filter(function (x) { return x !== hid; }); saveChars(); rebuild(); } return; }
+      var e = ev.target.closest('[data-el]'); if (e && !ev.target.closest('[data-tr]')) openDetail(db.byId[e.getAttribute('data-el')]); };
   }
   /* 능력치: 포인트 구매(캠페인에서 정한 포인트) 또는 직접 입력.
    * 4판 방식: 하나는 8, 나머지는 10 에서 시작. 8 기준 값별 비용은 아래 표, 기본 배열(8 하나 + 10 다섯)이 0포인트. */
@@ -568,12 +577,24 @@
     var tabs = [];
     groups.forEach(function (list, g) { if (list.length) tabs.push({ key: 'g' + g, label: SEL_GROUPS[g][0], list: list, left: list.filter(function (x) { return x[1]; }).length }); });
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
+    var hbAll = D4EHouse.custom(db); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
+    tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
     tabs.forEach(function (t) { var b = document.createElement('button'); b.className = t.key === buildTab ? 'on' : ''; b.setAttribute('data-btab', t.label);
-      b.innerHTML = esc(t.label) + (t.left ? '<i>' + t.left + '</i>' : '') + (t.key === 'eq' && t.n ? '<em>' + t.n + '</em>' : '');
+      b.innerHTML = esc(t.label) + (t.left ? '<i>' + t.left + '</i>' : '') + ((t.key === 'eq' || t.key === 'hb') && t.n ? '<em>' + t.n + '</em>' : '');
       b.onclick = function () { buildTab = t.key; localStorage.setItem('d4e_btab', buildTab); renderSelects(); }; bar.appendChild(b); });
     box.appendChild(bar); $('equip').hidden = buildTab !== 'eq';
+    if (buildTab === 'hb') { var hbx = document.createElement('div'); hbx.className = 'hbpick'; var gmNow = isGM();
+      hbx.innerHTML = '<p class="hint">GM 이 하우스룰 탭에서 새로 만든 능력이에요. 눌러서 이 캐릭터에 넣거나 빼요. 수치 보정이나 파워가 딸려 있으면 시트에 바로 반영돼요.</p>' +
+        (hbAll.length ? '<div class="hbgrid">' + hbAll.map(function (e) { var on = cur.hb.indexOf(e.id) >= 0, d = (e.sp && (e.sp['Short Description'] || e.sp['Benefit'] || e.sp['Effect'])) || e.body || '';
+          return '<div class="hbt' + (on ? ' on' : '') + '" data-hbt="' + esc(e.id) + '"><div class="hbt-h"><b>' + esc(e.n) + '</b><span class="badge hbb">' + esc(typeKo(e.t)) + '</span></div><small>' + esc(String(d).slice(0, 140)) + '</small><div class="hbt-a"><span>' + (on ? '✔ 넣었어요' : '눌러서 넣기') + '</span><button class="mini ghost" data-hbsee="' + esc(e.id) + '">내용</button>' + (gmNow ? '<button class="mini ghost" data-hbedit="' + esc(e.id) + '">고치기</button>' : '') + '</div></div>'; }).join('') + '</div>'
+          : '<p class="hint">이 세팅에는 아직 만든 홈브류가 없어요.' + (gmNow ? '' : ' GM 이 만들면 여기에 나와요.') + '</p>') +
+        (gmNow ? '<div class="hb-bar"><button class="mini" data-hbnew="Homebrew Feature">+ 새 홈브류 특성 (GM)</button><button class="mini ghost" data-hbnew="Power">+ 새 홈브류 파워 (GM)</button></div>' : '');
+      hbx.onclick = function (ev) { var see = ev.target.closest('[data-hbsee]'), ed2 = ev.target.closest('[data-hbedit]'), nw = ev.target.closest('[data-hbnew]'), tl = ev.target.closest('[data-hbt]');
+        if (see) { openDetail(db.byId[see.getAttribute('data-hbsee')]); return; } if (ed2) { D4EHouse.editEl(ed2.getAttribute('data-hbedit')); return; } if (nw) { D4EHouse.newEl(nw.getAttribute('data-hbnew')); return; }
+        if (tl) { var id = tl.getAttribute('data-hbt'), i = cur.hb.indexOf(id); if (i >= 0) cur.hb.splice(i, 1); else cur.hb.push(id); saveChars(); rebuild(); } };
+      box.appendChild(hbx); }
     tabs.forEach(function (t) {
       if (t.key !== buildTab || !t.list) return;
       var list = t.list, grid = document.createElement('div'); grid.className = 'sgrid'; box.appendChild(grid);
@@ -969,6 +990,7 @@
     $('signBtn').textContent = ME.hash ? ME.name + (ME.gm ? ' · GM' : '') : '서명하기'; $('signBtn').className = ME.hash ? 'ghost' : '';
     document.body.classList.toggle('is-gm', ME.gm || !g.hashes.length);
   }
+  function isGM() { var g = D4EHouse.gm(); return !g.hashes.length || !!ME.gm; }
   function canGM(what) { var g = D4EHouse.gm(); if (!g.hashes.length || ME.gm) return true; alert((what || '이것') + '은(는) GM 만 고칠 수 있어요. GM 서명으로 들어와 주세요.'); return false; }
   function openSign() {
     var g = D4EHouse.gm(), o = {}; try { o = JSON.parse(localStorage.getItem('d4e_sign') || '{}') || {}; } catch (e) {}
@@ -1010,7 +1032,7 @@
       var ex = (await D4EShare.list()).filter(function (r) { return r.id === cur.id; })[0];
       if (ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && !ME.gm) { status(''); btn.disabled = false; btn.textContent = bt0; alert('이 시트는 「' + (ex.data.owner || '?') + '」 서명으로 올라가 있어요. 주인이나 GM 만 덮어쓸 수 있어요.'); return; }
       var keep = ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && ME.gm;
-      await D4EShare.put(cur.id, { name: cur.name, owner: keep ? ex.data.owner : me, ownerHash: keep ? ex.data.ownerHash : ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, ed: cur.ed || {}, sum: summary(cur, res), at: Date.now() });
+      await D4EShare.put(cur.id, { name: cur.name, owner: keep ? ex.data.owner : me, ownerHash: keep ? ex.data.ownerHash : ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, ed: cur.ed || {}, hb: cur.hb || [], sum: summary(cur, res), at: Date.now() });
       var tn = (D4EHouse.teams()[cur.team] || {}).name;
       status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')'); toast('「' + (cur.name || '이름 없음') + '」 시트를 ' + (tn ? '「' + tn + '」 팀에' : '팀 없이') + (ex ? ' 다시 올렸어요 (덮어씀)' : ' 올렸어요'));
       btn.textContent = '올렸어요 ✓'; setTimeout(function () { btn.textContent = bt0; }, 2500);
@@ -1044,7 +1066,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
@@ -1067,10 +1089,10 @@
           var loc = chars[row.id]; if (loc && !confirm('내 브라우저에 이 캐릭터가 이미 있어요.\n확인 = 팀에 올라온 판으로 덮어쓰고 고치기\n취소 = 내 브라우저의 판을 그대로 열기')) { cur = loc; saveChars(); tab('edit'); return; }
           var n = loc || newChar(); if (!loc) { delete chars[n.id]; n.id = row.id; chars[n.id] = n; }
           n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
-          n.set = d.set || ''; n.setInit = n.set; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.owner = d.owner || ''; cur = n; saveChars(); tab('edit'); toast('만들기 화면으로 가져왔어요. 고친 뒤 「팀에 올리기」를 누르면 반영돼요'); };
+          n.set = d.set || ''; n.setInit = n.set; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.owner = d.owner || ''; cur = n; saveChars(); tab('edit'); toast('만들기 화면으로 가져왔어요. 고친 뒤 「팀에 올리기」를 누르면 반영돼요'); };
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
-      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); cur = n; saveChars(); tab('edit'); };
+      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); cur = n; saveChars(); tab('edit'); };
       c.appendChild(b1); c.appendChild(document.createTextNode(' ')); c.appendChild(b2);
       if (ME.gm || (d.ownerHash ? d.ownerHash === ME.hash : (chars[row.id] || (d.owner && d.owner === ME.name)))) {
         var b3 = document.createElement('button'); b3.className = 'mini ghost'; b3.textContent = '내리기';

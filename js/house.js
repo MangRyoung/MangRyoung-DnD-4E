@@ -290,5 +290,10 @@
     }
   }
 
-  window.D4EHouse = { CFG: CFG, gm: function () { return gmDoc; }, setGm: function (d) { gmDoc = d; }, teams: function () { return teams; }, glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
+  /* 홈브류: 새로 만든 요소(ID_HOUSE_…) 가운데 지금 세팅에서 쓰는 것. 만들기의 「홈브류」 탭에서 PL 이 고른다 */
+  function custom(db) { return Object.keys(docs).filter(function (id) { var d = docs[id]; return d.el && /^ID_HOUSE_/.test(id) && !d.off && (!d.set || d.set === appliedSet) && db.byId[id]; }).map(function (id) { return db.byId[id]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; }); }
+  function openHouse() { var b = document.querySelector('.tabs [data-tab=house]'); if (b) b.click(); }
+  function newEl(type) { openHouse(); var e = blank(); e.t = type || 'Homebrew Feature'; e.sp = { 'Short Description': '' }; edit(e, true); $('hEdit').scrollIntoView({ behavior: 'smooth' }); }
+  function editEl(id) { var d = docs[id]; if (!d || !d.el) return; openHouse(); edit(JSON.parse(JSON.stringify(d.el)), false, d.set ? false : true); $('hEdit').scrollIntoView({ behavior: 'smooth' }); }
+  window.D4EHouse = { custom: custom, newEl: newEl, editEl: editEl, CFG: CFG, gm: function () { return gmDoc; }, setGm: function (d) { gmDoc = d; }, teams: function () { return teams; }, glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
 })();

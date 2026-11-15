@@ -311,3 +311,12 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .bsec>summary{cursor:pointer;margin:12px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--line)}.bsec>summary .bh{font-size:16px;font-weight:700}.bsec:not([open])>summary{margin-bottom:0}
 .pbld{display:flex;flex-wrap:wrap;gap:5px 8px;align-items:center;margin-bottom:4px;font-size:13px}.pbld select,.pbld input{padding:2px 6px;font-size:13px}.pbld input[type=number]{width:54px}.pbld input[type=text]{width:150px}.pbld label{display:inline-flex;align-items:center;gap:4px;color:var(--sub)}
 .pedform .kwbox{max-height:96px;overflow:auto}.pedform .tf>input[type=text]{width:100%}.pedform .to{font-size:12px}
+
+/* 홈브류 */
+.hbb{background:color-mix(in srgb,#8a5b9f 18%,var(--card));color:#6d3f85}
+.hbgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.hbt{border:1px solid var(--line);border-left:5px solid #8a5b9f;border-radius:10px;padding:8px 10px;cursor:pointer;background:var(--card);transition:background .12s,transform .12s}.hbt:hover{transform:translateY(-1px)}
+.hbt.on{background:color-mix(in srgb,#8a5b9f 12%,var(--card));border-color:#8a5b9f}
+.hbt-h{display:flex;justify-content:space-between;gap:6px;align-items:baseline}.hbt-h b{font-size:15px}.hbt small{display:block;color:var(--sub);font-size:12.5px;line-height:1.4;margin:3px 0 6px;min-height:1.4em}
+.hbt-a{display:flex;align-items:center;gap:4px}.hbt-a span{margin-right:auto;font-size:12px;font-weight:700;color:#6d3f85}
+.hb-bar{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.hb-a{float:right;display:inline-flex;gap:4px}.hbd>summary{border-left:3px solid #8a5b9f;padding-left:6px}

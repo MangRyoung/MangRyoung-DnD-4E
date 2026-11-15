@@ -163,6 +163,7 @@
 
     /* 세팅이 모든 캐릭터에게 주는 것(내재 보너스 · 기술 특화 등) */
     (ch.grants || []).forEach(function (id) { if (db.byId[id]) apply(db.byId[id], 'setting'); });
+    (ch.hb || []).forEach(function (id) { if (db.byId[id]) apply(db.byId[id], 'homebrew'); });
 
     st.swapOut.forEach(function (id) { delete st.owned[id]; });
 
