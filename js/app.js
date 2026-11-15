@@ -587,12 +587,19 @@
         '<div class="gt-n" data-el="' + esc(top.id) + '">' + (plus ? '<i class="gt-plus">+' + plus + '</i>' : '') + '<b>' + esc(name(top)) + '</b></div>' +
         (magic && base && magic !== base ? '<div class="gt-base" data-el="' + esc(base.id) + '">' + esc(name(base)) + '</div>' : '') +
         '<div class="gt-c">' + cs.map(function (c) { return '<span>' + (c[0] ? '<small>' + c[0] + '</small> ' : '') + esc(c[1]) + '</span>'; }).join('') + '</div></div>'); };
-    [['body', 'bodyM'], ['main', 'mainM'], ['off', 'offM'], ['impl'], ['head'], ['neck'], ['arms'], ['hands'], ['waist'], ['feet'], ['ring1'], ['ring2']].forEach(function (pr) {
-      var b = db.byId[q[pr[0]]], m = pr[1] && db.byId[q[pr[1]]]; if (!b && !m) return; if (b) used[b.id] = 1; if (m) used[m.id] = 1;
-      var k = GEAR_KIND[pr[0]]; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } if (pr[0] === 'off' && (b || m) && (b || m).t === 'Weapon') k = ['weapon', '보조 손'];
-      tile(k[0], k[1], b, m); });
+    /* 무기 · 갑옷 · 목이 중심 자리: 한 줄씩 먼저, 그 아래에 나머지와 소지금 */
+    var st = D4EHouse.setOf(ch.set || '') || {}, min = +st.minEnh || 0, E_ = function (k) { return db.byId[q[k]]; }, take = function (kind, slot, bk, mk) { var b = E_(bk), m = mk && E_(mk); if (!b && !m) return 0; if (b) used[b.id] = 1; if (m) used[m.id] = 1; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } tile(kind, slot, b, m); return m ? plusN(m) : 0; };
+    var row = function (label, kind, fill) { var n0 = tiles.length, plus = fill(), mine = tiles.splice(n0), has = mine.length > 0, ok = !min || plus >= min;
+      return '<div class="gmain ' + kind + (has ? '' : ' empty') + '"><div class="gm-l"><b>' + label + '</b>' + (has && plus ? '<i>+' + plus + '</i>' : '') + '</div><div class="gm-c">' + (has ? mine.join('') : '<span class="gm-none">비어 있음</span>') + '</div>' +
+        (min ? '<div class="gm-s ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ +' + min + ' 이상' : '+' + min + ' 이상 필요') + '</div>' : '') + '</div>'; };
+    var mains = row('무기', 'weapon', function () { var a = take('weapon', '주 무기', 'main', 'mainM'), b = take('impl', '도구', 'impl'); return Math.max(a, b); }) +
+      row('갑옷', 'armor', function () { return take('armor', '갑옷', 'body', 'bodyM'); }) + row('목', 'slot', function () { return take('slot', '목', 'neck'); });
+    [['off', 'offM'], ['head'], ['arms'], ['hands'], ['waist'], ['feet'], ['ring1'], ['ring2']].forEach(function (pr) { var k = GEAR_KIND[pr[0]], e = E_(pr[0]); if (pr[0] === 'off' && e && e.t === 'Weapon') k = ['weapon', '보조 손']; take(k[0], k[1], pr[0], pr[1]); });
     (r.worn || []).forEach(function (e) { if (!used[e.id]) tile('etc', '소지품', e.t === 'Magic Item' ? null : e, e.t === 'Magic Item' ? e : null); });
-    return '<div class="gtiles">' + tiles.join('') + '</div>';
+    var gold = '';
+    if (st.gold) { var spent = 0; (r.worn || []).forEach(function (e) { if (e.t === 'Magic Item') spent += +((e.sp || {})['Gold'] || 0); });
+      gold = '<div class="ggold' + (spent > st.gold ? ' bad' : '') + '"><span><small>소지금</small><b>' + (st.gold - spent).toLocaleString() + '</b> gp</span><span class="gg-bar"><i style="width:' + Math.min(100, Math.round(spent / st.gold * 100)) + '%"></i></span><span class="hint">' + Number(st.gold).toLocaleString() + ' 중 ' + spent.toLocaleString() + ' 사용</span></div>'; }
+    return '<div class="gmains">' + mains + '</div>' + (tiles.length ? '<div class="gtiles">' + tiles.join('') + '</div>' : '') + gold;
   }
   function syncEquip() { var q = cur.eq || {}, ids = []; EQ_SLOTS.forEach(function (sl) { if (q[sl[0]]) ids.push(q[sl[0]]); }); (q.other || []).forEach(function (id) { ids.push(id); }); cur.equip = ids; }
   var FIGURE = '<svg viewBox="0 0 120 260" class="fig" aria-hidden="true"><g fill="currentColor" opacity=".16"><circle cx="60" cy="26" r="18"/><rect x="52" y="42" width="16" height="12" rx="4"/>' +
@@ -946,7 +953,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {} }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {

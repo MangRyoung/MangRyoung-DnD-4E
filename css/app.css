@@ -285,3 +285,17 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .ftile b{display:block;font-size:14px}.ftile small{display:block;font-size:12px;color:var(--sub);line-height:1.35;margin-top:1px}
 .ltags{display:flex;flex-wrap:wrap;gap:5px}.ltags span{border-radius:999px;padding:2px 12px;font-size:13px;cursor:pointer;background:color-mix(in srgb,#5b7aa8 14%,var(--card));border:1px solid color-mix(in srgb,#5b7aa8 35%,var(--line))}
 .tcard{cursor:pointer}.tc-act{cursor:default}
+
+/* 장비: 무기 · 갑옷 · 목 한 줄씩 */
+.gmains{display:flex;flex-direction:column;gap:7px;margin-bottom:8px}
+.gmain{--gc:#8a8172;display:grid;grid-template-columns:76px minmax(0,1fr) auto;gap:10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:7px 12px 7px 0;background:var(--card);overflow:hidden}
+.gmain.weapon{--gc:#a8483f}.gmain.armor{--gc:#5b7aa8}.gmain.slot{--gc:#b08a3c}
+.gm-l{align-self:stretch;margin:-7px 0;background:var(--gc);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}.gm-l b{font-size:15px}.gm-l i{font-style:normal;font-weight:800;font-size:18px;line-height:1}
+.gm-c{display:flex;flex-wrap:wrap;gap:8px;min-width:0}.gm-c .gtile{flex:1 1 220px;border:0;border-left:0;background:none;padding:0;box-shadow:none}.gm-c .gtile+.gtile{border-left:1px dashed var(--line);padding-left:10px}
+.gm-c .gt-n b{font-size:16px}.gm-none{color:var(--sub);font-size:13px}
+.gmain.empty{border-style:dashed;background:none}.gmain.empty .gm-l{opacity:.55}
+.gm-s{font-size:12px;font-weight:700;border-radius:999px;padding:2px 10px;white-space:nowrap}.gm-s.ok{background:color-mix(in srgb,#5fa56b 20%,var(--card));color:#2f6f4f}.gm-s.no{background:color-mix(in srgb,#c9584f 20%,var(--card));color:#a03a32}
+.ggold{display:flex;align-items:center;gap:10px;margin-top:8px;border-radius:10px;padding:6px 12px;background:color-mix(in srgb,#b08a3c 12%,var(--card));border:1px solid color-mix(in srgb,#b08a3c 35%,var(--line))}
+.ggold small{font-size:12px;color:var(--sub);margin-right:6px}.ggold b{font-size:18px;color:#8a6a1f}.ggold.bad b{color:#a03a32}
+.gg-bar{flex:1;height:8px;border-radius:99px;background:var(--bg);overflow:hidden;min-width:40px}.gg-bar i{display:block;height:100%;background:#b08a3c}.ggold.bad .gg-bar i{background:#c9584f}
+@media(max-width:520px){.gmain{grid-template-columns:54px minmax(0,1fr)}.gm-s{grid-column:2;justify-self:start}}
