@@ -973,6 +973,8 @@
         b3.onclick = async function () { if (!confirm('팀 시트에서 내릴까요? 내 브라우저의 캐릭터는 남아요.')) return; try { await D4EShare.del(row.id); renderTeam(); } catch (e) { alert(e.message); } };
         c.appendChild(document.createTextNode(' ')); c.appendChild(b3);
       }
+      /* 카드 어디를 눌러도 시트가 열린다 (단추 · 고르기 · 파워 칸은 제 할 일을 한다) */
+      card.title = '눌러서 시트 보기'; card.onclick = function (ev) { if (ev.target.closest('button,select,.pwc,.tc-pw,.tc-act')) return; b1.onclick(); };
       box.appendChild(card);
     });
   }

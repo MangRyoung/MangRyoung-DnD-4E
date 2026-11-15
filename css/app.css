@@ -284,3 +284,4 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .ftile{border:1px solid var(--line);border-radius:9px;padding:6px 10px;cursor:pointer;background:var(--card);border-left:4px solid var(--acc);transition:background .12s}.ftile:hover{background:var(--acc2)}
 .ftile b{display:block;font-size:14px}.ftile small{display:block;font-size:12px;color:var(--sub);line-height:1.35;margin-top:1px}
 .ltags{display:flex;flex-wrap:wrap;gap:5px}.ltags span{border-radius:999px;padding:2px 12px;font-size:13px;cursor:pointer;background:color-mix(in srgb,#5b7aa8 14%,var(--card));border:1px solid color-mix(in srgb,#5b7aa8 35%,var(--line))}
+.tcard{cursor:pointer}.tc-act{cursor:default}
