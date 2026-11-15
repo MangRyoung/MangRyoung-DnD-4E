@@ -175,6 +175,14 @@
 
   /* ---------- 시트 ---------- */
   function usageClass(p) { var u = lc(p.sp && p.sp['Power Usage']); var isU = /utility/i.test((p.sp && p.sp['Display']) || ''); return isU ? 'util' : u.indexOf('daily') >= 0 ? 'day' : u.indexOf('encounter') >= 0 ? 'enc' : 'at'; }
+  /* 클래스 특성 · 종족 특성 · 숙련. 내 캐릭터에서는 만들기 칸의 고르기 아래에, 팀 시트에서는 시트 안에 나온다. */
+  function extraHtml(ch, r) {
+    var block = function (type) { return ownedOf(r, type).filter(function (e) { return e.body || (e.sp && Object.keys(e.sp).length); }).map(function (e) {
+      return '<details class="ft cfd"><summary>' + esc(tview(e) && TR(e) && TR(e).n ? TR(e).n : nm(e)) + (e.sp && e.sp['하우스룰'] ? ' <span class="badge">하우스룰</span>' : '') + (e.sp && e.sp['Short Description'] ? ' <span class="hint">' + esc(glossAuto ? gsub(e.sp['Short Description']) : e.sp['Short Description']) + '</span>' : '') + '</summary>' + cardHtml(e) + '</details>'; }).join(''); };
+    var cf = block('Class Feature'), rt = block('Racial Trait'), pf = ownedOf(r, 'Proficiency').filter(function (e) { return e.n !== 'Choose Nothing'; });
+    return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') +
+      (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
+  }
   function sheetHtml(ch, r, who) {
     trCtx = { map: ch.tr || {}, edit: ch === cur };
     var s = r.stats, hp = s['hit points'] || 0, half = Math.floor(ch.level / 2);
@@ -196,10 +204,10 @@
       var kn = koName('Skill', sk.n);
       skl += '<div class="skl' + (tr ? ' tr' : '') + '" data-why="' + esc(lc(sk.n)) + '"><span>' + esc(kn || sk.n) + (kn ? ' <small>' + esc(sk.n) + '</small>' : '') + '</span><b>' + (v >= 0 ? '+' : '') + v + '</b></div>'; });
     skl += '</div>';
-    var featRows = function (type) { return ownedOf(r, type).filter(function (e) { return !/^ID_INTERNAL/.test(e.id) || e.body; }).map(function (e) {
-      return '<div class="cfr" data-el="' + esc(e.id) + '"><b>' + esc(nm(e)) + '</b>' + (e.sp && e.sp['하우스룰'] ? ' <span class="badge">하우스룰</span>' : '') + (e.sp && e.sp['Short Description'] ? '<small>' + esc(e.sp['Short Description']) + '</small>' : '') + '</div>'; }).join(''); };
-    var cfs = featRows('Class Feature'), rts = featRows('Racial Trait');
-    h += '<div class="two"><div>' + sec('abil', '능력치', ab) + (cfs ? sec('cf', '클래스 특성 <span class="hint">누르면 내용</span>', cfs) : '') + (rts ? sec('rt', '종족 특성', rts) : '') + '</div><div>' + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + '</div></div>';
+    var strip = '<div class="abstrip">' + E.ABILITIES.map(function (a) { var v = s[lc(a)] || 10, m = Math.floor((v - 10) / 2);
+      return '<div data-why="' + lc(a) + '" title="' + AB_KO[a] + ' · 레벨 절반 더하면 ' + (m + half >= 0 ? '+' : '') + (m + half) + '"><small>' + a.slice(0, 3).toUpperCase() + '</small><b>' + v + '</b><i>' + (m >= 0 ? '+' : '') + m + '</i></div>'; }).join('') + '</div>';
+    h += strip + sec('skill', '기술 <span class="hint">● 숙련</span>', skl);
+    if (who) h += extraHtml(ch, r);
     var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }), pb = '';
     [['at', '무제한'], ['enc', '조우'], ['day', '일일'], ['util', '활용']].forEach(function (g) {
       var list = pws.filter(function (p) { return usageClass(p) === g[0]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; });
@@ -212,8 +220,7 @@
       h += sec('gear', '장비 <span class="hint">' + r.worn.length + '</span>', eq + '</table>'); }
     var tags = function (key, title, type, filt, defOpen) { var a = ownedOf(r, type).filter(filt || function () { return true; }); if (!a.length) return '';
       return sec(key, title + ' <span class="hint">' + a.length + '</span>', '<div class="tags">' + a.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</span>'; }).join('') + '</div>', defOpen); };
-    h += tags('feat', '재주', 'Feat') + tags('lang', '언어', 'Language') +
-      tags('prof', '숙련', 'Proficiency', function (e) { return e.n !== 'Choose Nothing'; }, false);
+    h += tags('feat', '재주', 'Feat') + tags('lang', '언어', 'Language');
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
   }
@@ -238,8 +245,9 @@
     res = E.build(db, cur);
     cur.sum = summary(cur, res);
     saveChars(); renderSelects();
-    $('abil').querySelectorAll('.ab').forEach(function (el, i) { var a = E.ABILITIES[i], v = cur.abilities[a], fin = res.stats[lc(a)] || v, f = el.querySelector('.fin'); if (fin !== v) { if (!f) { f = document.createElement('span'); f.className = 'fin'; el.appendChild(f); } f.textContent = '→ ' + fin; } else if (f) f.remove(); });
+    $('abil').querySelectorAll('.ab').forEach(function (el, i) { var a = E.ABILITIES[i], fin = res.stats[lc(a)] || cur.abilities[a], fm = Math.floor((fin - 10) / 2), f = el.querySelector('.fin'); if (f) f.innerHTML = '<b>' + fin + '</b> <i>' + (fm >= 0 ? '+' : '') + fm + '</i>'; });
     $('sheet').innerHTML = sheetHtml(cur, res); wireSheet($('sheet'), res);
+    $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var e = ev.target.closest('[data-el]'); if (e && !ev.target.closest('[data-tr]')) openDetail(db.byId[e.getAttribute('data-el')]); };
   }
   /* 능력치: 포인트 구매(캠페인에서 정한 포인트) 또는 직접 입력.
    * 4판 방식: 하나는 8, 나머지는 10 에서 시작. 8 기준 값별 비용은 아래 표, 기본 배열(8 하나 + 10 다섯)이 0포인트. */
@@ -268,7 +276,7 @@
         l.appendChild(mk('+', v + 1, v < 18 && up <= left));
         var c = document.createElement('span'); c.className = 'hint ac'; c.textContent = v < 18 ? '다음 ' + up + '점' : '최대'; l.appendChild(c);
       }
-      if (fin !== v) { var f = document.createElement('span'); f.className = 'fin'; f.textContent = '→ ' + fin; f.title = '종족 · 레벨 보너스를 더한 값'; l.appendChild(f); }
+      var f = document.createElement('span'), fm = Math.floor((fin - 10) / 2); f.className = 'fin'; f.innerHTML = '<b>' + fin + '</b> <i>' + (fm >= 0 ? '+' : '') + fm + '</i>'; f.title = '종족 · 레벨 보너스를 더한 지금 값과 수정치'; l.appendChild(f);
       box.appendChild(l);
     });
   }
