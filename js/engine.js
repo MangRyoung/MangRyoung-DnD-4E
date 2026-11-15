@@ -150,6 +150,9 @@
 
     for (var L = 1; L <= st.level; L++) apply(db.byId['ID_INTERNAL_LEVEL_' + L], 'level');
 
+    /* 세팅이 모든 캐릭터에게 주는 것(내재 보너스 · 기술 특화 등) */
+    (ch.grants || []).forEach(function (id) { if (db.byId[id]) apply(db.byId[id], 'setting'); });
+
     /* 장비: 찬 것의 규칙도 그대로 적용한다. wearing="armor:heavy" 같은 조건은 찬 장비를 보고 가린다. */
     var worn = [];
     (ch.equip || []).forEach(function (id) { var e = db.byId[id]; if (e) { worn.push(e); apply(e, 'equip'); } });

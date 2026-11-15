@@ -24,4 +24,4 @@ window.D4E_KO = {
   Language: { 'Common': '공용어' }
 };
 window.D4E_KO['Skill Training'] = window.D4E_KO.Skill;
-window.D4E_KO['Race Ability Bonus'] = { Strength: '힘', Constitution: '건강', Dexterity: '민첩', Intelligence: '지능', Wisdom: '지혜', Charisma: '매력' };
+window.D4E_KO['Race Ability Bonus'] = { Strength: '근력', Constitution: '건강', Dexterity: '민첩', Intelligence: '지능', Wisdom: '지혜', Charisma: '매력' };

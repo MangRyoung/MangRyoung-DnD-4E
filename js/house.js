@@ -10,8 +10,19 @@
   var docs = {}, orig = {}, editing = null;
   /* 세팅(룰 세트): 캠페인마다 메이킹 룰과 하우스룰이 다를 수 있다. kind dnd4e_cfg 의 set_* 문서 = {name, points, level, memo}.
    * 하우스룰 문서의 set 이 비어 있으면 모든 세팅 공통, 있으면 그 세팅에서만 적용된다. */
-  var CFG = 'dnd4e_cfg', sets = { set_bidan: { name: '비단화살 룰', points: 22, level: 1, memo: '' } }, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
-  var DEFAULT_SETS = { set_bidan: { name: '비단화살 룰', points: 22, level: 1, memo: '' } };
+  var CFG = 'dnd4e_cfg', PRESETS = window.D4E_PRESETS || {}, sets = presetSets(), glossary = (window.D4E_GLOSSARY || []).slice(), presetIds = {}, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
+  function presetSets() { var o = {}; Object.keys(window.D4E_PRESETS || {}).forEach(function (id) { o[id] = JSON.parse(JSON.stringify(window.D4E_PRESETS[id].set)); }); if (!Object.keys(o).length) o.set_bidan = { name: '비단화살 룰', points: 22, level: 1, memo: '' }; return o; }
+  var DEFAULT_SETS = presetSets();
+  /* 세팅 기본 조정: 공식 요소를 통째로 베끼지 않고 달라지는 부분만 얹는다.
+   * patch = {note 하우스룰 글, rAdd 더할 규칙, level 파워 레벨 바꾸기} */
+  function applyPatch(o, p) {
+    var e = JSON.parse(JSON.stringify(o)); e.sp = e.sp || {};
+    if (p.note) e.sp['하우스룰'] = p.note;
+    if (p.rAdd) e.r = (e.r || []).concat(JSON.parse(JSON.stringify(p.rAdd)));
+    if (p.level) { var lv = String(p.level); e.cat = (e.cat || []).filter(function (c) { return !/^\d+$/.test(c); }).concat([lv]); e.sp['Level'] = lv; if (e.sp['Display']) e.sp['Display'] = e.sp['Display'].replace(/\d+\s*$/, lv); }
+    return e;
+  }
+  function presetTargets(db, m) { return (db.byType[m.t] || []).filter(function (e) { return m.n ? e.n === m.n : e.n.indexOf(m.has) >= 0; }); }
   function setOf(id) { return sets[id] || sets[Object.keys(sets)[0]] || DEFAULT_SETS.set_bidan; }
   function setIds() { return Object.keys(sets).sort(function (a, b) { return sets[a].name < sets[b].name ? -1 : 1; }); }
 
@@ -34,14 +45,20 @@
       if (d.off) orig[id] = db.remove(id);
       else if (d.el && d.el.id === id) orig[id] = db.put(d.el) || null;
     });
+    presetIds = {};
+    ((PRESETS[appliedSet] || {}).house || []).forEach(function (h) {
+      presetTargets(db, h.m).forEach(function (t) { if (docs[t.id] || presetIds[t.id]) return; presetIds[t.id] = h.patch.note || '조정'; orig[t.id] = db.put(applyPatch(t, h.patch)) || null; });
+    });
   }
   async function load(db) {
     var rows = await window.D4EShare.list(KIND);
     docs = {};
     rows.forEach(function (r) { if (r.data) docs[r.id] = r.data; });
-    sets = {};
-    try { (await window.D4EShare.list(CFG)).forEach(function (r) { if (/^set_/.test(r.id) && r.data && r.data.name) sets[r.id] = r.data; }); } catch (e) {}
-    if (!Object.keys(sets).length) sets = JSON.parse(JSON.stringify(DEFAULT_SETS));
+    sets = presetSets();
+    try { (await window.D4EShare.list(CFG)).forEach(function (r) {
+      if (/^set_/.test(r.id) && r.data && r.data.name) sets[r.id] = Object.assign({}, sets[r.id] || {}, r.data);
+      if (r.id === 'glossary' && r.data && typeof r.data.text === 'string') glossary = parseGloss(r.data.text);
+    }); } catch (e) {}
     if (!sets[viewSet]) viewSet = setIds()[0];
     if (db) apply(db, appliedSet);
     return Object.keys(docs).length;
@@ -51,8 +68,12 @@
   function renderList() {
     var box = $('hList'), ids = Object.keys(docs).filter(function (id) { return !docs[id].set || docs[id].set === viewSet; }), app = A();
     ids.sort(function (a, b) { var x = (docs[a].el || {}).n || a, y = (docs[b].el || {}).n || b; return x < y ? -1 : 1; });
-    $('hCount').textContent = ids.length + '개';
-    box.innerHTML = ids.length ? '' : '<p class="hint">아직 없어요.</p>';
+    var pre = appliedSet === viewSet ? Object.keys(presetIds) : [];
+    $('hCount').textContent = (ids.length + pre.length) + '개';
+    box.innerHTML = ids.length || pre.length ? '' : '<p class="hint">아직 없어요.</p>';
+    pre.forEach(function (id) { var e = app.db().byId[id]; if (!e) return; var row = document.createElement('div'); row.className = 'hrow';
+      row.innerHTML = '<div class="lab">' + app.esc(e.n) + '<span class="badge">세팅 기본 조정</span><small>' + app.esc(app.typeKo(e.t)) + ' · ' + app.esc(presetIds[id]) + '</small></div>';
+      var b = document.createElement('button'); b.className = 'mini ghost'; b.textContent = '고치기'; b.onclick = function () { edit(JSON.parse(JSON.stringify(e)), false, false); }; row.appendChild(b); box.appendChild(row); });
     ids.forEach(function (id) {
       var d = docs[id], e = d.el || orig[id] || { n: id, t: '' }, row = document.createElement('div'); row.className = 'hrow';
       var kind = (d.off ? '쓰지 않음' : (orig[id] || (app.db().byId[id] && !d.el)) ? '공식 요소를 고침' : d.el && /^ID_HOUSE_/.test(id) ? '새로 만듦' : '공식 요소를 고침') + (d.set ? '' : ' · 공통');
@@ -72,17 +93,24 @@
     renderSets(); renderList(); app.houseChanged();
   }
 
+  /* ---------- 용어집 ---------- */
+  function parseGloss(text) { var out = [], seen = {}; String(text).split(/\n/).forEach(function (l) { var i = l.indexOf('\t'); if (i < 0) i = l.indexOf('='); if (i < 0) return; var en = l.slice(0, i).trim(), ko = l.slice(i + 1).trim(); if (en && ko && !seen[en.toLowerCase()]) { seen[en.toLowerCase()] = 1; out.push([en, ko]); } }); return out; }
+  function glossText() { return glossary.map(function (p) { return p[0] + '\t' + p[1]; }).join('\n'); }
+
   /* ---------- 세팅 ---------- */
   function renderSets() {
     var sel = $('setSel'), cur = setOf(viewSet); sel.innerHTML = '';
     setIds().forEach(function (id) { var o = document.createElement('option'); o.value = id; o.textContent = sets[id].name; if (id === viewSet) o.selected = true; sel.appendChild(o); });
     $('setName').value = cur.name || ''; $('cfgPoints').value = cur.points != null ? cur.points : 22; $('setLevel').value = cur.level || 1; $('setMemo').value = cur.memo || '';
+    $('setGold').value = cur.gold || 0; $('setMinEnh').value = cur.minEnh || 0; $('setInh').checked = !!cur.inherent; $('setSpec').checked = !!cur.spec; $('setHide').value = (cur.hide || []).join(', '); $('setBans').value = cur.bans || '';
+    $('glossText').value = glossText(); $('glossN').textContent = glossary.length + '개';
   }
   async function saveSet(id) {
     var n = Math.round(+$('cfgPoints').value), lv = Math.round(+$('setLevel').value) || 1, name = $('setName').value.trim();
     if (!name) { alert('세팅 이름을 적어 주세요.'); return; }
     if (!(n >= 0 && n <= 99)) { alert('포인트는 0~99 사이로 적어 주세요.'); return; }
-    var data = { name: name, points: n, level: Math.max(1, Math.min(30, lv)), memo: $('setMemo').value, at: Date.now() };
+    var data = { name: name, points: n, level: Math.max(1, Math.min(30, lv)), memo: $('setMemo').value, gold: Math.max(0, Math.round(+$('setGold').value) || 0), minEnh: Math.max(0, Math.round(+$('setMinEnh').value) || 0), inherent: $('setInh').checked, spec: $('setSpec').checked,
+      hide: $('setHide').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean), bans: $('setBans').value, at: Date.now() };
     try { await window.D4EShare.put(id, data, CFG); sets[id] = data; viewSet = id; localStorage.setItem('d4e_set', id); renderSets(); renderList(); A().houseChanged(); $('cfgMsg').textContent = '저장했어요. 팀 모두에게 반영돼요.'; }
     catch (e) { $('cfgMsg').textContent = '저장하지 못했어요: ' + e.message; }
   }
@@ -100,7 +128,7 @@
     h += '<label>이름</label><input type="text" id="hfN">';
     h += '<label>종류</label><input type="text" id="hfT" list="hTypes"><datalist id="hTypes">' + types.map(function (t) { return '<option value="' + app.esc(t) + '">' + app.esc(app.typeKo(t)) + '</option>'; }).join('') + '</datalist>';
     h += '<div id="hfPw" class="pwhelp" hidden><b>파워 설정</b><div class="rf"><label>클래스<select id="hfPc"></select></label><label>사용<select id="hfPu"><option value="at">무한</option><option value="enc">조우</option><option value="day">일일</option></select></label>' +
-      '<label>갈래<select id="hfPk"><option value="attack">공격</option><option value="utility">범용</option></select></label><label>레벨<input type="number" id="hfPl" min="1" max="30" value="1"></label></div>' +
+      '<label>갈래<select id="hfPk"><option value="attack">공격</option><option value="utility">활용</option></select></label><label>레벨<input type="number" id="hfPl" min="1" max="30" value="1"></label></div>' +
       '<p class="hint">저장할 때 분류 꼬리표와 「Power Usage · Display · Level」 칸이 여기에 맞춰져서, 그 클래스의 해당 레벨 파워 칸 후보에 나와요.</p></div>';
     h += '<label>출처 (쉼표로 나눔)</label><input type="text" id="hfS">';
     h += '<label>선행 조건 (글로 보여 주기만 해요)</label><input type="text" id="hfP">';
@@ -204,6 +232,9 @@
     $('cfgSave').onclick = function () { saveSet(viewSet); };
     $('setNew').onclick = function () { var name = prompt('새 세팅 이름'); if (!name) return; var id = 'set_' + Date.now().toString(36); sets[id] = { name: name.trim(), points: 22, level: 1, memo: '' }; viewSet = id; renderSets(); renderList(); $('cfgMsg').textContent = '내용을 적고 「세팅 저장」을 눌러 주세요.'; };
     $('setSel').onchange = function () { viewSet = $('setSel').value; localStorage.setItem('d4e_set', viewSet); renderSets(); renderList(); };
+    $('glossSave').onclick = async function () { var g = parseGloss($('glossText').value);
+      try { await window.D4EShare.put('glossary', { text: g.map(function (p) { return p[0] + '\t' + p[1]; }).join('\n'), at: Date.now() }, CFG); glossary = g; $('glossN').textContent = g.length + '개'; $('glossMsg').textContent = '저장했어요.'; A().houseChanged(); }
+      catch (e) { $('glossMsg').textContent = '저장하지 못했어요: ' + e.message; } };
     $('hNewPower').onclick = function () { edit(powerBlank(), true); };
     $('hFromPower').onclick = function () { pickExisting('Power'); };
     $('hNew').onclick = function () { edit(blank(), true); };
@@ -224,5 +255,5 @@
     }
   }
 
-  window.D4EHouse = { sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
+  window.D4EHouse = { glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
 })();

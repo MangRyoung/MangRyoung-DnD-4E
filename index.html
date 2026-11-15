@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611160530">
+<link rel="stylesheet" href="css/app.css?v=202611160610">
 </head>
 <body>
 <header class="top">
@@ -76,9 +76,15 @@
     <div class="bar"><strong>세팅</strong><select id="setSel"></select><button id="setNew" class="mini ghost">새 세팅</button><span class="sp"></span>
       <label>이름 <input id="setName" size="12"></label><label>능력치 포인트 <input id="cfgPoints" type="number" min="0" max="99" style="width:64px" value="22"></label><label>시작 레벨 <input id="setLevel" type="number" min="1" max="30" style="width:56px" value="1"></label>
       <button id="cfgSave" class="mini">세팅 저장</button></div>
-    <div class="form"><label>메이킹 룰 메모 (만들기 화면 위에 보여요)</label><textarea id="setMemo" placeholder="예: 시작 3레벨, 배경 1개, 사용 가능 자료 …"></textarea></div>
+    <div class="bar" style="margin-top:8px"><label>시작 골드 <input id="setGold" type="number" min="0" style="width:90px"></label><label>무기 · 갑옷 · 목 최소 강화 <input id="setMinEnh" type="number" min="0" max="6" style="width:56px"></label>
+      <label><input type="checkbox" id="setInh"> 내재 보너스(Inherent Bonuses)</label><label><input type="checkbox" id="setSpec"> 배경 대신 기술 특화</label></div>
+    <div class="form"><label>메이킹 룰 메모 (만들기 화면 위에 보여요)</label><textarea id="setMemo" style="min-height:120px"></textarea>
+      <label>숨길 고르기 칸의 종류 (쉼표로 나눔, 예: Background, Theme)</label><input type="text" id="setHide">
+      <label>금지 목록 (한 줄에 하나. 종류= · 이름= · 출처= · 조건= · 물품= 을 ; 로 이어 적고, 이름은 | 로 여러 개)</label><textarea id="setBans" style="min-height:120px;font-family:monospace;font-size:12.5px"></textarea></div>
     <span id="cfgMsg" class="hint">세팅마다 메이킹 룰과 하우스룰을 따로 둘 수 있어요. 캐릭터는 「만들기」에서 세팅을 골라요.</span>
   </section>
+  <details class="card sec" data-sec="gloss"><summary>용어집 <span class="hint" id="glossN"></span> <span class="hint">번역 칸에서 치환할 때 쓰여요. 한 줄에 「영어 (탭) 한국어」</span></summary>
+    <div class="form secb"><textarea id="glossText" style="min-height:200px;font-family:monospace;font-size:12.5px"></textarea><div class="acts"><button id="glossSave" class="mini">용어집 저장</button><span id="glossMsg" class="hint"></span></div></div></details>
   <p class="hint">여기서 저장하면 팀 모두에게 바로 반영돼요. 공식 요소를 고치면 그 요소를 덮어쓰고, 지우면 원래대로 돌아와요.</p>
   <div class="cols">
     <section class="card"><h3 style="margin-top:0">등록된 것 <span class="hint" id="hCount"></span></h3><div id="hList"></div></section>
@@ -99,12 +105,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611160530"></script>
-<script src="js/ko.js?v=202611160530"></script>
-<script src="js/engine.js?v=202611160530"></script>
-<script src="js/data.js?v=202611160530"></script>
-<script src="js/share.js?v=202611160530"></script>
-<script src="js/house.js?v=202611160530"></script>
-<script src="js/app.js?v=202611160530"></script>
+<script src="js/config.js?v=202611160610"></script>
+<script src="js/ko.js?v=202611160610"></script>
+<script src="js/presets.js?v=202611160610"></script>
+<script src="js/engine.js?v=202611160610"></script>
+<script src="js/data.js?v=202611160610"></script>
+<script src="js/share.js?v=202611160610"></script>
+<script src="js/house.js?v=202611160610"></script>
+<script src="js/app.js?v=202611160610"></script>
 </body>
 </html>

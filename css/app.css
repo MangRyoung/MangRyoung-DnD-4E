@@ -168,3 +168,10 @@ details.ft.pg{border-left:5px solid var(--at)}details.ft.pg.enc{border-left-colo
 .trb input.trn,.trb textarea.trx{width:100%;background:#fffdf6;color:#2a2620;border:1px solid #cdbf9f;border-radius:6px;padding:5px 8px;font:inherit}.trb textarea.trx{min-height:110px;resize:vertical}
 .vit{grid-template-columns:repeat(auto-fit,minmax(86px,1fr))}.vit small{white-space:nowrap}.vit.def{grid-template-columns:repeat(4,minmax(0,1fr))}
 .skills{grid-template-columns:repeat(auto-fill,minmax(168px,1fr))}.skl span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.skl small{color:var(--sub);font-size:11px}.skl.tr span::after{content:""}.skl.tr span::before{content:"● ";color:var(--ok);font-size:10px}
+/* 클래스 특성 줄 · 내재 보너스 · 골드 · 용어 */
+.cfr{padding:4px 6px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13.5px}.cfr:hover{background:var(--acc2)}.cfr small{display:block;color:var(--sub);font-size:12px}
+details.sec>summary .pgh{margin:0}.inh{margin:8px 0 0;font-size:13px;background:var(--acc2);color:var(--acc);border-radius:8px;padding:4px 10px}
+.gold{font-size:13.5px;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin-bottom:8px}.gold.bad{border-color:#c0392b;color:#c0392b}
+.pr.hr{background:#f3e3b8 !important}.pc .pr:first-child b{white-space:nowrap}
+.glo{width:100%;display:flex;flex-wrap:wrap;gap:0 2px;align-items:center}.glo .hint{width:100%;margin-bottom:4px}.glo .opt{font-size:12px;background:#fffdf6;color:#2a2620;border-color:#cdbf9f}
+.opt.got{opacity:.4;text-decoration:line-through;cursor:default}.sel.tile.inline.wide{grid-column:1/-1}

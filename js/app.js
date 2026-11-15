@@ -9,8 +9,8 @@
   var TYPE_KO = { 'Race': '종족', 'Class': '클래스', 'Feat': '재주', 'Power': '파워', 'Skill Training': '기술 숙련', 'Class Feature': '클래스 특성',
     'Racial Trait': '종족 특성', 'Race Ability Bonus': '종족 능력치 보너스', 'Language': '언어', 'Deity': '신앙', 'Background': '배경',
     'Background Choice': '배경 혜택', 'Theme': '테마', 'Build': '빌드', 'Gender': '성별', 'Alignment': '성향', 'Paragon Path': '패러곤 경로',
-    'Epic Destiny': '에픽 운명', 'Proficiency': '숙련', 'Hybrid Class': '하이브리드 클래스', 'Familiar': '패밀리어', 'Companion': '동료', 'Domain': '권역' };
-  var AB_KO = { Strength: '힘', Constitution: '건강', Dexterity: '민첩', Intelligence: '지능', Wisdom: '지혜', Charisma: '매력' };
+    'Epic Destiny': '에픽 운명', 'Proficiency': '숙련', 'Hybrid Class': '하이브리드 클래스', 'Familiar': '패밀리어', 'Companion': '동료', 'Domain': '권역', 'Skill Specialization': '기술 특화' };
+  var AB_KO = { Strength: '근력', Constitution: '건강', Dexterity: '민첩', Intelligence: '지능', Wisdom: '지혜', Charisma: '매력' };
   var typeKo = function (t) {
     var m = /^(Companion )?Ability Increase \(Level (\d+)\)$/.exec(t);
     if (m) return (m[1] ? '동료 ' : '') + '능력치 올리기 (' + m[2] + '레벨)';
@@ -18,11 +18,15 @@
   };
   var selLabel = function (s) {
     var m = /^Power (Encounter|Daily|Utility|At-Will) (\d+)$/.exec(s.name || '');
-    if (m) return ({ Encounter: '조우', Daily: '일일', Utility: '범용', 'At-Will': '무한' })[m[1]] + ' 파워 (' + m[2] + '레벨)';
+    if (m) return ({ Encounter: '조우', Daily: '일일', Utility: '활용', 'At-Will': '상시' })[m[1]] + ' 파워 (' + m[2] + '레벨)';
     return typeKo(s.type) + (s.name ? ' · ' + s.name : '');
   };
   /* 이름 번역: 「한국어 (English)」. 번역표에 없으면 영어 그대로. */
-  var koName = function (type, name) { var K = window.D4E_KO || {}, m = /Ability Increase|Race Ability Bonus|Ability Score/.test(type || '') ? K['Race Ability Bonus'] : K[type]; return m && m[name] ? m[name] : ''; };
+  /* 팀 용어집(영어 → 한국어). 클래스 · 기술 이름과 카드의 칸 이름에 먼저 쓴다. */
+  var gloss = function (en) { var G = gloss.map; if (!G || gloss.src !== D4EHouse.glossary()) { G = gloss.map = {}; gloss.src = D4EHouse.glossary(); gloss.src.forEach(function (p) { G[lc(p[0])] = p[1]; }); } return G[lc(en)] || ''; };
+  var koName0 = function (type, name) { if (/^(Class|Skill|Skill Training)$/.test(type || '')) { var g = gloss(name); if (g) return g; } return koName1(type, name); };
+  var koName = function (type, name) { return koName0(type, name); };
+  var koName1 = function (type, name) { var K = window.D4E_KO || {}, m = /Ability Increase|Race Ability Bonus|Ability Score/.test(type || '') ? K['Race Ability Bonus'] : K[type]; return m && m[name] ? m[name] : ''; };
 
   /* 선행 조건(Prereqs 글)을 풀어 본다. 반환: 'ok' 맞음 · 'no' 안 맞음 · 'unk' 풀지 못함(직접 확인). */
   var AB_SHORT = { str: 'strength', con: 'constitution', dex: 'dexterity', int: 'intelligence', wis: 'wisdom', cha: 'charisma' };
@@ -103,20 +107,28 @@
     if (act === 'toggle') { var on = card.classList.toggle('show-orig'); b.textContent = on ? '번역 보기' : '원문 보기'; return; }
     var redraw = function () { var inModal = !!bar.closest('#mDetail'); rebuild(); if (inModal && e) $('mDetail').innerHTML = fields(e); else { var d = $('sheet').querySelector('details.pc[data-pc="' + id + '"]'); if (d) d.open = true; } };
     if (act === 'edit') { var t = (cur.tr || {})[id] || {};
-      bar.innerHTML = '<input type="text" class="trn" placeholder="번역한 이름 (비워도 돼요)"><textarea class="trx" placeholder="번역한 내용을 적어 주세요. 줄바꿈은 그대로 보여요."></textarea><button class="mini" data-tr="save">저장</button> ' + (t.t || t.n ? '<button class="mini ghost" data-tr="del">번역 지우기</button> ' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button>';
+      var src = e ? [e.n, e.body || ''].concat(Object.keys(e.sp || {}).map(function (k) { return k + ' ' + e.sp[k]; })).join(' ') : '', hits = [];
+      D4EHouse.glossary().slice().sort(function (a, b) { return b[0].length - a[0].length; }).forEach(function (p) { if (hits.length < 40 && new RegExp('(^|[^A-Za-z])' + p[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z])', 'i').test(src)) hits.push(p); });
+      bar.innerHTML = '<input type="text" class="trn" placeholder="번역한 이름 (비워도 돼요)"><textarea class="trx" placeholder="번역한 내용을 적어 주세요. 줄바꿈은 그대로 보여요."></textarea>' +
+        (hits.length ? '<div class="glo"><span class="hint">이 카드에 나오는 용어 · 누르면 커서 자리에 들어가요</span>' + hits.map(function (p) { return '<button class="opt" data-tr="ins" data-ko="' + esc(p[1]) + '" title="' + esc(p[0]) + '">' + esc(p[0]) + ' → ' + esc(p[1]) + '</button>'; }).join('') + '</div>' : '') +
+        '<button class="mini ghost" data-tr="sub" title="칸에 적힌 글 속의 영어 용어를 용어집의 한국어로 바꿔요">칸 안의 용어 치환</button> <button class="mini" data-tr="save">저장</button> ' + (t.t || t.n ? '<button class="mini ghost" data-tr="del">번역 지우기</button> ' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button>';
       bar.querySelector('.trn').value = t.n || ''; bar.querySelector('.trx').value = t.t || ''; bar.querySelector('.trx').focus(); return; }
+    if (act === 'ins') { var ta = bar.querySelector('.trx'), ko = b.getAttribute('data-ko'), a0 = ta.selectionStart, a1 = ta.selectionEnd; ta.value = ta.value.slice(0, a0) + ko + ta.value.slice(a1); ta.focus(); ta.selectionStart = ta.selectionEnd = a0 + ko.length; return; }
+    if (act === 'sub') { var tx = bar.querySelector('.trx'), v = tx.value;
+      D4EHouse.glossary().slice().sort(function (a, b) { return b[0].length - a[0].length; }).forEach(function (p) { v = v.replace(new RegExp('(^|[^A-Za-z])' + p[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z])', 'gi'), function (m, pre) { return pre + p[1]; }); });
+      tx.value = v; return; }
     if (act === 'save') { var n = bar.querySelector('.trn').value.trim(), x = bar.querySelector('.trx').value.trim(); cur.tr = cur.tr || {}; if (n || x) cur.tr[id] = { n: n, t: x }; else delete cur.tr[id]; redraw(); return; }
     if (act === 'del') { if (cur.tr) delete cur.tr[id]; redraw(); return; }
     if (act === 'cancel') redraw();
   });
 
   /* ---------- 파워 카드 ---------- */
-  var USE_KO = { 'at-will': '무한', 'encounter': '조우', 'daily': '일일' };
-  var ACT_KO = { 'standard action': '표준 행동', 'move action': '이동 행동', 'minor action': '부속 행동', 'free action': '자유 행동', 'immediate interrupt': '즉시 방해',
+  var USE_KO = { 'at-will': '상시', 'encounter': '조우', 'daily': '일일' };
+  var ACT_KO = { 'standard action': '표준 행동', 'move action': '이동 행동', 'minor action': '보조 행동', 'free action': '자유 행동', 'immediate interrupt': '즉시 방해',
     'immediate reaction': '즉시 반응', 'opportunity action': '기회 행동', 'no action': '행동 없음' };
   var ROW_KO = { 'Trigger': '발동 조건', 'Requirement': '요구 조건', 'Prerequisite': '선행 조건', 'Target': '대상', 'Primary Target': '1차 대상', 'Secondary Target': '2차 대상',
     'Attack': '공격', 'Primary Attack': '1차 공격', 'Secondary Attack': '2차 공격', 'Hit': '명중', 'Miss': '빗나감', 'Effect': '효과', 'Special': '특수', 'Sustain': '유지',
-    'Sustain Minor': '유지 (부속)', 'Sustain Standard': '유지 (표준)', 'Sustain Move': '유지 (이동)', 'Augment': '증강', 'Aftereffect': '후속 효과', 'Level': '레벨' };
+    'Sustain Minor': '유지 (보조)', 'Sustain Standard': '유지 (표준)', 'Sustain Move': '유지 (이동)', 'Augment': '증강', 'Aftereffect': '후속 효과', 'Level': '레벨' };
   var ROW_ORDER = ['Trigger', 'Requirement', 'Prerequisite', 'Target', 'Primary Target', 'Attack', 'Primary Attack', 'Hit', 'Miss', 'Effect', 'Secondary Target', 'Secondary Attack', 'Aftereffect', 'Sustain', 'Sustain Minor', 'Sustain Move', 'Sustain Standard', 'Special'];
   var PC_SKIP = { 'Power Usage': 1, 'Display': 1, 'Keywords': 1, 'Action Type': 1, 'Attack Type': 1, 'Power Type': 1, 'Class': 1, 'Level': 1, 'type': 1, 'Full Text': 1 };
   /* 주사위 · [W] · 방어 이름을 굵게 */
@@ -124,10 +136,10 @@
   function usageKo(p) { var u = lc(p.sp && p.sp['Power Usage']); for (var k in USE_KO) if (u.indexOf(k) >= 0) return USE_KO[k] + (u.replace(k, '').trim() ? ' ' + (p.sp['Power Usage'].replace(new RegExp(k, 'i'), '').trim()) : ''); return (p.sp && p.sp['Power Usage']) || ''; }
   function powerCard(p, open) {
     var sp = p.sp || {}, cls = usageClass(p), act = sp['Action Type'] || '', rows = [], seen = {}, tr = trParts(p);
-    var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr"><b>' + esc(ROW_KO[k.trim()] || k) + '</b><span>' + rich(sp[k]) + '</span></div>'); };
-    ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
+    var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr"><b>' + esc(k === '하우스룰' ? k : gloss(k.trim()) || ROW_KO[k.trim()] || k) + '</b><span>' + rich(sp[k]) + '</span></div>'); };
+    add('하우스룰'); ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
     var h = '<details class="pc ' + cls + tr.cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + (tr.name || esc(p.n)) + '</span><span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
-    h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + esc(sp['Keywords']) : '') + '</span><span>' + esc(ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + esc(sp['Attack Type']) : '') + '</span></div>';
+    h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + esc(sp['Keywords']) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + esc(sp['Attack Type']) : '') + '</span></div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + esc(p.fl) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + rich(p.body) + '</span></div>' : '') +
       (p.src ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + tr.body + tr.bar + '</details>';
     return h;
@@ -144,6 +156,7 @@
     h += '<div class="vit">' + st('hit points', 'HP') + '<div><small>중상</small><b>' + Math.floor(hp / 2) + '</b></div><div><small>서지 회복량</small><b>' + Math.floor(hp / 4) + '</b></div>' +
       st('healing surges', '힐링 서지') + st('speed', '이동') + st('initiative', '우선권') + '</div>';
     h += '<div class="vit def">' + st('ac', 'AC') + st('fortitude defense', '인내') + st('reflex defense', '반사') + st('will defense', '의지') + '</div></div></div>';
+    if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격과 피해 +' + (s['inherent attack'] || 0) + ' (치명타 +' + (s['inherent attack'] || 0) + 'd6) · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요</span></p>';
     h += '<div class="why" id="why" hidden></div>';
     var ab = '<table class="tbl"><tr><th></th><th class="n">값</th><th class="n">수정치</th><th class="n">+½레벨</th></tr>';
     E.ABILITIES.forEach(function (a) { var v = s[lc(a)] || 10, m = Math.floor((v - 10) / 2);
@@ -155,12 +168,15 @@
       var kn = koName('Skill', sk.n);
       skl += '<div class="skl' + (tr ? ' tr' : '') + '" data-why="' + esc(lc(sk.n)) + '"><span>' + esc(kn || sk.n) + (kn ? ' <small>' + esc(sk.n) + '</small>' : '') + '</span><b>' + (v >= 0 ? '+' : '') + v + '</b></div>'; });
     skl += '</div>';
-    h += '<div class="two">' + sec('abil', '능력치', ab) + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + '</div>';
+    var featRows = function (type) { return ownedOf(r, type).filter(function (e) { return !/^ID_INTERNAL/.test(e.id) || e.body; }).map(function (e) {
+      return '<div class="cfr" data-el="' + esc(e.id) + '"><b>' + esc(nm(e)) + '</b>' + (e.sp && e.sp['하우스룰'] ? ' <span class="badge">하우스룰</span>' : '') + (e.sp && e.sp['Short Description'] ? '<small>' + esc(e.sp['Short Description']) + '</small>' : '') + '</div>'; }).join(''); };
+    var cfs = featRows('Class Feature'), rts = featRows('Racial Trait');
+    h += '<div class="two"><div>' + sec('abil', '능력치', ab) + (cfs ? sec('cf', '클래스 특성 <span class="hint">누르면 내용</span>', cfs) : '') + (rts ? sec('rt', '종족 특성', rts) : '') + '</div><div>' + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + '</div></div>';
     var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }), pb = '';
-    [['at', '무한'], ['enc', '조우'], ['day', '일일'], ['util', '범용']].forEach(function (g) {
+    [['at', '상시'], ['enc', '조우'], ['day', '일일'], ['util', '활용']].forEach(function (g) {
       var list = pws.filter(function (p) { return usageClass(p) === g[0]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; });
       if (!list.length) return;
-      pb += '<div class="pgh ' + g[0] + '"><i></i>' + g[1] + ' <span class="hint">' + list.length + '</span></div><div class="pcards">' + list.map(function (p) { return powerCard(p, false); }).join('') + '</div>';
+      pb += sec('pw_' + g[0], '<span class="pgh ' + g[0] + '"><i></i>' + g[1] + '</span> <span class="hint">' + list.length + '</span>', '<div class="pcards">' + list.map(function (p) { return powerCard(p, false); }).join('') + '</div>');
     });
     h += sec('power', '파워 <span class="hint">' + pws.length + '개 · 이름을 누르면 펼쳐져요</span> <button class="mini ghost" data-pcall="1">모두 펼치기 / 접기</button>', pb || '<p class="hint">아직 없어요.</p>');
     if (r.worn && r.worn.length) { var eq = '<table class="tbl">';
@@ -168,7 +184,7 @@
       h += sec('gear', '장비 <span class="hint">' + r.worn.length + '</span>', eq + '</table>'); }
     var tags = function (key, title, type, filt, defOpen) { var a = ownedOf(r, type).filter(filt || function () { return true; }); if (!a.length) return '';
       return sec(key, title + ' <span class="hint">' + a.length + '</span>', '<div class="tags">' + a.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</span>'; }).join('') + '</div>', defOpen); };
-    h += tags('feat', '재주', 'Feat') + tags('cf', '클래스 특성', 'Class Feature') + tags('rt', '종족 특성', 'Racial Trait') + tags('lang', '언어', 'Language') +
+    h += tags('feat', '재주', 'Feat') + tags('lang', '언어', 'Language') +
       tags('prof', '숙련', 'Proficiency', function (e) { return e.n !== 'Choose Nothing'; }, false);
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
@@ -228,9 +244,42 @@
       box.appendChild(l);
     });
   }
+  /* 세팅 기능용 요소: 내재 보너스, 기술 특화(배경 대체). 팀 하우스룰이라 코드에서 만든다. */
+  function ensureBuiltins() {
+    if (db.byId['ID_HOUSE_INHERENT']) return;
+    var r = []; [2, 7, 12, 17, 22, 27].forEach(function (L) { r.push(['statadd', { name: 'Inherent Attack', value: '+1', requires: L + ' level' }]); });
+    [4, 9, 14, 19, 24, 29].forEach(function (L) { r.push(['statadd', { name: 'Inherent Defense', value: '+1', requires: L + ' level' }]); });
+    ['AC', 'Fortitude Defense', 'Reflex Defense', 'Will Defense'].forEach(function (d) { r.push(['statadd', { name: d, value: '+Inherent Defense', type: 'Enhancement' }]); });
+    var add = [{ id: 'ID_HOUSE_INHERENT', n: '내재 보너스', t: 'Internal', src: ['하우스룰'], r: r, body: '2/7/12/17/22/27레벨에 공격 · 피해 굴림 +1 강화 보너스, 4/9/14/19/24/29레벨에 모든 방어 +1 강화 보너스.' },
+      { id: 'ID_HOUSE_SPEC', n: '기술 특화', t: 'Internal', src: ['하우스룰'], r: [['select', { type: 'Skill Specialization', name: '배경 대신', number: '1' }]] }];
+    (db.byType['Skill'] || []).forEach(function (sk) {
+      var key = sk.n.toUpperCase().replace(/[^A-Z]/g, '_'), ko = koName('Skill', sk.n) || sk.n, tr = ['statadd', { name: sk.n + ' Trained', value: '+5', type: 'trained' }];
+      add.push({ id: 'ID_HOUSE_SPEC_' + key + '_BONUS', n: ko + ' 특화 · 판정 +3', t: 'Skill Specialization', src: ['하우스룰'], sp: { 'Short Description': sk.n + ' 훈련 + 판정 +3' }, r: [tr, ['statadd', { name: sk.n, value: '+3' }]], body: '이 기술에 훈련되고, 이 기술 판정에 +3 보너스를 받는다.' });
+      add.push({ id: 'ID_HOUSE_SPEC_' + key + '_ABIL', n: ko + ' 특화 · 가장 높은 능력치', t: 'Skill Specialization', src: ['하우스룰'], sp: { 'Short Description': sk.n + ' 훈련 + 가장 높은 능력치 사용' },
+        r: [tr].concat(E.ABILITIES.map(function (a) { return ['statadd', { name: sk.n, value: '+ABILITYMOD(' + a + ')', type: 'Ability' }]; })), body: '이 기술에 훈련되고, 이 기술의 능력치 대신 자신의 가장 높은 능력치를 쓴다.' });
+    });
+    db.add(add);
+  }
+  var setNow = {}, banRules = [];
+  function parseBans(text) {
+    return String(text || '').split(/\n/).map(function (line) { var c = {}; line.split(';').forEach(function (p) { var i = p.indexOf('='); if (i > 0) c[p.slice(0, i).trim()] = p.slice(i + 1).trim().split('|').map(lc); }); return c; }).filter(function (c) { return Object.keys(c).length; });
+  }
+  function banned(e) {
+    for (var i = 0; i < banRules.length; i++) { var c = banRules[i], ok = true;
+      if (c['종류'] && c['종류'].indexOf(lc(e.t)) < 0) ok = false;
+      if (ok && c['이름'] && !c['이름'].some(function (v) { return v.indexOf('*') >= 0 ? lc(e.n).indexOf(v.replace(/\*/g, '')) >= 0 : lc(e.n) === v; })) ok = false;
+      if (ok && c['출처'] && !c['출처'].some(function (v) { return (e.src || []).some(function (x) { return lc(x).indexOf(v) >= 0; }); })) ok = false;
+      if (ok && c['조건'] && !c['조건'].some(function (v) { return lc(e.pre).indexOf(v) >= 0; })) ok = false;
+      if (ok && c['물품'] && !c['물품'].some(function (v) { return lc((e.sp || {})['Magic Item Type']).indexOf(v) >= 0; })) ok = false;
+      if (ok) return true; }
+    return false;
+  }
   function useSet() {
+    ensureBuiltins();
     var ids = D4EHouse.setIds(); if (!cur.set || !D4EHouse.sets()[cur.set]) cur.set = (localStorage.getItem('d4e_set') && D4EHouse.sets()[localStorage.getItem('d4e_set')]) ? localStorage.getItem('d4e_set') : ids[0];
-    var st = D4EHouse.setOf(cur.set); campaign.points = st.points != null ? +st.points : 22; D4EHouse.apply(db, cur.set);
+    var st = setNow = D4EHouse.setOf(cur.set); campaign.points = st.points != null ? +st.points : 22; D4EHouse.apply(db, cur.set); banRules = parseBans(st.bans);
+    cur.grants = [].concat(st.inherent ? ['ID_HOUSE_INHERENT'] : [], st.spec ? ['ID_HOUSE_SPEC'] : []);
+    if (!cur.setInit) { cur.setInit = cur.set; if (st.level > cur.level) cur.level = st.level; $('chLevel').value = cur.level; }
     var sel = $('chSet'); sel.innerHTML = ''; ids.forEach(function (id) { var o = document.createElement('option'); o.value = id; o.textContent = D4EHouse.sets()[id].name; if (id === cur.set) o.selected = true; sel.appendChild(o); });
     $('setNote').hidden = !st.memo; $('setNoteBody').textContent = st.memo || ''; $('setNoteTitle').textContent = st.name + ' 메이킹 룰' + (st.level > 1 ? ' · 시작 ' + st.level + '레벨' : '');
   }
@@ -250,6 +299,7 @@
   function renderSelects() {
     var box = $('selects'), hide = $('hideOpt').checked, todo = 0, groups = SEL_GROUPS.map(function () { return []; }); box.innerHTML = '';
     res.selects.forEach(function (s) {
+      if ((setNow.hide || []).indexOf(s.type) >= 0 && !s.picked.length) return;
       var need = !s.optional && s.picked.length < s.number; if (need) todo++;
       if (hide && s.optional && !s.picked.length) return;
       for (var g = 0; g < SEL_GROUPS.length; g++) if (SEL_GROUPS[g][1].test(s.type)) { groups[g].push([s, need]); break; }
@@ -269,9 +319,11 @@
       list.forEach(function (x) {
         var s = x[0], need = x[1], d = document.createElement('div'); d.className = 'sel tile' + (need ? ' todo' : '') + (s.picked.length ? ' has' : '');
         var small = null;
-        if (!/^(Feat|Power|Background|Theme|Paragon Path|Epic Destiny|Race|Class|Deity|Language|Skill Training)$/.test(s.type)) {
-          small = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || ''); });
-          if (small.length > 9 || !small.length) small = null;
+        /* 후보가 적거나(9개 이하), 이름만 있는 단순한 것(기술 · 언어 등 40개 이하)은 창 없이 타일 안에 다 띄워 바로 고른다. */
+        if (!/^(Feat|Power|Background|Theme|Paragon Path|Epic Destiny|Race|Class|Deity|Skill Specialization)$/.test(s.type)) {
+          small = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || '') && !banned(e); });
+          var plain = /^(Skill Training|Language)$/.test(s.type) || small.every(function (e) { return !e.body && !e.fl && !Object.keys(e.sp || {}).length; });
+          if (!small.length || small.length > (plain ? 40 : 9)) small = null;
         }
         if (s.type === 'Power') { var m = /encounter|daily|utility|at-will/i.exec((s.name || '') + ' ' + (s.category || '')); d.className += ' pwt ' + ({ encounter: 'enc', daily: 'day', utility: 'util', 'at-will': 'at' }[m ? lc(m[0]) : 'at']); }
         var from = db.byId[s.from], lab = document.createElement('div'); lab.className = 'lab';
@@ -279,8 +331,8 @@
           '<small>' + esc(from ? (from.t === 'Level' ? from.n + '레벨' : /^(Level1Rules|Internal)$/.test(from.t) ? '1레벨' : nm(from)) : '') + '</small>';
         var chips = document.createElement('div'); chips.className = 'chips';
         if (small) {
-          d.className += ' inline'; d.style.cursor = 'default';
-          small.forEach(function (e) { var on = s.picked.indexOf(e.id) >= 0 || s.picked.indexOf(e.n) >= 0, o = document.createElement('button'); o.className = 'opt' + (on ? ' on' : ''); o.textContent = koName(e.t, e.n) || e.n; o.title = e.n;
+          d.className += ' inline' + (small.length > 9 ? ' wide' : ''); d.style.cursor = 'default';
+          small.forEach(function (e) { var on = s.picked.indexOf(e.id) >= 0 || s.picked.indexOf(e.n) >= 0, o = document.createElement('button'); var got = !on && !!res.owned[e.id]; o.className = 'opt' + (on ? ' on' : '') + (got ? ' got' : ''); o.textContent = koName(e.t, e.n) || e.n; o.title = e.n + (got ? ' (이미 가지고 있어요)' : ''); o.disabled = got;
             o.onclick = function (ev) { ev.stopPropagation(); var c = (cur.choices[s.key] || []).slice();
               if (on) c = c.filter(function (x) { return x !== e.id; }); else if (s.number === 1) c = [e.id]; else if (c.length < s.number) c.push(e.id); else { alert(s.number + '개까지만 고를 수 있어요.'); return; }
               cur.choices[s.key] = c; rebuild(); };
@@ -333,6 +385,14 @@
   var EQ_SIDE = { L: ['head', 'neck', 'body', 'bodyM', 'arms', 'hands', 'waist', 'feet'], R: ['main', 'mainM', 'off', 'impl', 'ring1', 'ring2'] };
   function renderEquip() {
     var box = $('equip'); if (!box) return; box.innerHTML = ''; var q = cur.eq = cur.eq || {};
+    if (setNow.gold) {
+      var spent = 0, low = []; (cur.equip || []).forEach(function (id) { var e = db.byId[id]; if (e && e.t === 'Magic Item') spent += +((e.sp || {})['Gold'] || 0); });
+      [['bodyM', '갑옷'], ['mainM', '주 무기'], ['neck', '목']].forEach(function (k) { var e = db.byId[q[k[0]]], m = e && /\+(\d+)\s*$/.exec(e.n); if (e && setNow.minEnh && m && +m[1] < setNow.minEnh) low.push(k[1]); });
+      var g = document.createElement('div'); g.className = 'gold' + (spent > setNow.gold ? ' bad' : '');
+      g.innerHTML = '골드 ' + Number(setNow.gold).toLocaleString() + ' 중 <b>' + spent.toLocaleString() + '</b> 사용 · ' + (setNow.gold - spent).toLocaleString() + ' 남음 <span class="hint">마법 물품만 셈 · 비마법 장비는 무료</span>' +
+        (low.length ? '<br><span class="hint bad">' + low.join(' · ') + ': +' + setNow.minEnh + ' 이상이어야 해요</span>' : '');
+      box.appendChild(g);
+    }
     var doll = document.createElement('div'); doll.className = 'doll';
     var colL = document.createElement('div'), mid = document.createElement('div'), colR = document.createElement('div');
     colL.className = 'dcol'; colR.className = 'dcol'; mid.className = 'dmid'; mid.innerHTML = FIGURE;
@@ -356,7 +416,7 @@
     colR.appendChild(o);
     doll.appendChild(colL); doll.appendChild(mid); doll.appendChild(colR); box.appendChild(doll);
   }
-  function eqList(pred) { var out = []; ['Armor', 'Weapon', 'Gear', 'Superior Implement', 'Magic Item'].forEach(function (t) { (db.byType[t] || []).forEach(function (e) { if (pred(e)) out.push(e); }); });
+  function eqList(pred) { var out = []; ['Armor', 'Weapon', 'Gear', 'Superior Implement', 'Magic Item'].forEach(function (t) { (db.byType[t] || []).forEach(function (e) { if (pred(e) && !banned(e)) out.push(e); }); });
     out.sort(function (a, b) { var la = +((a.sp || {})['Level'] || 0), lb = +((b.sp || {})['Level'] || 0); var ga = +((a.sp || {})['Gold'] || 0), gb = +((b.sp || {})['Gold'] || 0); return la - lb || ga - gb || (a.n < b.n ? -1 : 1); }); return out; }
 
   /* ---------- 고르기 창 ---------- */
@@ -399,7 +459,7 @@
     if (pws.length) { h += '<h4>주는 파워</h4><div class="pcards one">' + pws.map(function (x) { return powerCard(x.el, false); }).join('') + '</div>'; }
     if (e.t === 'Class' || e.t === 'Hybrid Class') {
       var mine = (db.byType['Power'] || []).filter(function (p) { return (p.cat || []).indexOf(e.id) >= 0 && p.sp && p.sp['Power Usage'] && (p.cat || []).indexOf('1') >= 0; });
-      [['at', '1레벨 무한 파워'], ['enc', '1레벨 조우 파워'], ['day', '1레벨 일일 파워']].forEach(function (u) {
+      [['at', '1레벨 상시 파워'], ['enc', '1레벨 조우 파워'], ['day', '1레벨 일일 파워']].forEach(function (u) {
         var list = mine.filter(function (p) { return usageClass(p) === u[0]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; });
         if (list.length) h += '<details class="ft pg ' + u[0] + '"><summary>' + u[1] + ' <span class="hint">' + list.length + '개 · 눌러서 보기</span></summary><div class="pcards one">' + list.map(function (p) { return powerCard(p, false); }).join('') + '</div></details>';
       });
@@ -434,7 +494,7 @@
       var v = String(sp[k]).trim(); if (!v || v === '-' || skip[k] || k.charAt(0) === '_') return;
       v = idNames(v); if (k === 'Gold') v = Number(v).toLocaleString() + ' gp'; if (k === 'Weight') v = v + ' lb'; if (k === 'Proficiency Bonus' || k === 'Armor Bonus') v = '+' + v.replace(/^\+/, '');
       if (v.length <= 30 && v.indexOf('\n') < 0) chips += '<div><small>' + esc(F_KO[k] || k) + '</small><span>' + esc(v) + '</span></div>';
-      else rows += '<div class="pr"><b>' + esc(F_KO[k] || k) + '</b><span>' + rich(v) + '</span></div>';
+      else rows += '<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(F_KO[k] || gloss(k) || k) + '</b><span>' + rich(v) + '</span></div>';
     });
     var pre = readablePre(e);
     if (pre) rows = '<div class="pr pre ' + (preState || '') + '"><b>선행 조건</b><span>' + esc(pre) + (preState ? ' ' + PRE_BADGE[preState] : '') + '</span></div>' + rows;
@@ -462,7 +522,7 @@
   }
   function openPicker(s) {
     trCtx = { map: {}, edit: false };
-    var all = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || '') ; });
+    var all0 = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || '') ; }), all = all0.filter(function (e) { return !banned(e); }), nBan = all0.length - all.length;
     var pre = {}; all.forEach(function (e) { pre[e.id] = prereq(e, res, cur.level); });
     var rank = { ok: 0, unk: 1, no: 2 };
     all.sort(function (a, b) { return rank[pre[a.id]] - rank[pre[b.id]] || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); });
@@ -471,7 +531,7 @@
     $('mOpt').hidden = !nNo; $('mOnly').checked = onlyOk; $('mOnlyN').textContent = '(조건 미달 ' + nNo + '개)';
     $('mOnly').onchange = function () { onlyOk = $('mOnly').checked; localStorage.setItem('d4e_onlyok', onlyOk ? '1' : '0'); list(); };
     $('modal').querySelector('.box').classList.toggle('few', all.length <= 12);
-    $('mTitle').textContent = selLabel(s) + ' — 후보 ' + all.length + '개'; $('mSearch').hidden = false; $('mSearch').value = ''; $('mList').hidden = false;
+    $('mTitle').textContent = selLabel(s) + ' — 후보 ' + all.length + '개' + (nBan ? ' (세팅 금지 ' + nBan + '개 뺌)' : ''); $('mSearch').hidden = false; $('mSearch').value = ''; $('mList').hidden = false;
     $('modal').querySelector('.mbody').style.gridTemplateColumns = ''; $('mDetail').innerHTML = '<p class="hint">왼쪽에서 하나를 누르면 내용이 보여요.</p>';
     function show(e) {
       active = e; var on = chosen.indexOf(e.id) >= 0, owned = !!res.owned[e.id] && !on;
@@ -539,7 +599,7 @@
     if (!me) { alert('먼저 「내 이름」을 적어 주세요. 팀 시트에 누구 캐릭터인지 표시돼요.'); $('me').focus(); return; }
     cur.owner = me; saveChars(); status('올리는 중…');
     try {
-      await D4EShare.put(cur.id, { name: cur.name, owner: me, set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], tr: cur.tr || {}, sum: summary(cur, res), at: Date.now() });
+      await D4EShare.put(cur.id, { name: cur.name, owner: me, set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, sum: summary(cur, res), at: Date.now() });
       status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')');
     } catch (e) { status(''); alert('올리지 못했어요: ' + e.message); }
   }
@@ -557,11 +617,11 @@
       b1.onclick = function () {
         if (!db) { alert('전체 시트는 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
         if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], tr: d.tr || {} }, r = E.build(db, ch);
+        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {} }, r = E.build(db, ch);
         var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = sheetHtml(ch, r, d.owner); wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
-      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.tr = JSON.parse(JSON.stringify(d.tr || {})); cur = n; saveChars(); tab('edit'); };
+      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); cur = n; saveChars(); tab('edit'); };
       c.appendChild(b1); c.appendChild(document.createTextNode(' ')); c.appendChild(b2);
       if (chars[row.id] || (d.owner && d.owner === $('me').value.trim())) {
         var b3 = document.createElement('button'); b3.className = 'mini ghost'; b3.textContent = '내리기';
@@ -604,7 +664,7 @@
     $('chName').oninput = function () { cur.name = $('chName').value.trim(); saveChars(); var o = $('chSel').selectedOptions[0]; if (o) o.textContent = cur.name || cur.id; var h = $('sheet').querySelector('h2'); if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.nodeValue = (cur.name || '이름 없음') + ' '; };
     $('chLevel').onchange = function () { cur.level = +$('chLevel').value; rebuild(); };
     $('hideOpt').onchange = renderSelects;
-    $('chSet').onchange = function () { cur.set = $('chSet').value; var st = D4EHouse.setOf(cur.set); if (st.level > cur.level) cur.level = st.level; saveChars(); renderEdit(); };
+    $('chSet').onchange = function () { cur.set = $('chSet').value; delete cur.setInit; saveChars(); renderEdit(); };
     /* 포트: 고른 그림을 세로 480 안으로 줄여 캐릭터에 함께 보관한다(팀 시트에도 같이 올라간다). */
     var setPort = function (f) {
       if (!f || !/^image\//.test(f.type)) { alert('그림 파일을 놓아 주세요.'); return; }
