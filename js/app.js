@@ -246,7 +246,6 @@
     res = E.build(db, cur);
     cur.sum = summary(cur, res);
     saveChars(); renderSelects();
-    $('abil').querySelectorAll('.ab').forEach(function (el, i) { var a = E.ABILITIES[i], fin = res.stats[lc(a)] || cur.abilities[a], fm = Math.floor((fin - 10) / 2), f = el.querySelector('.fin'); if (f) f.innerHTML = '<b>' + fin + '</b> <i>' + (fm >= 0 ? '+' : '') + fm + '</i>'; });
     $('sheet').innerHTML = sheetHtml(cur, res); wireSheet($('sheet'), res);
     $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var e = ev.target.closest('[data-el]'); if (e && !ev.target.closest('[data-tr]')) openDetail(db.byId[e.getAttribute('data-el')]); };
   }
@@ -277,7 +276,6 @@
         l.appendChild(mk('+', v + 1, v < 18 && up <= left));
         var c = document.createElement('span'); c.className = 'hint ac'; c.textContent = v < 18 ? '다음 ' + up + '점' : '최대'; l.appendChild(c);
       }
-      var f = document.createElement('span'), fm = Math.floor((fin - 10) / 2); f.className = 'fin'; f.innerHTML = '<b>' + fin + '</b> <i>' + (fm >= 0 ? '+' : '') + fm + '</i>'; f.title = '종족 · 레벨 보너스를 더한 지금 값과 수정치'; l.appendChild(f);
       box.appendChild(l);
     });
   }
