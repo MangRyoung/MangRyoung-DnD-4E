@@ -71,6 +71,7 @@
     return '<details class="sec" data-sec="' + key + '"' + (open ? ' open' : '') + '><summary>' + title + '</summary><div class="secb">' + body + '</div></details>';
   }
   document.addEventListener('toggle', function (ev) { var d = ev.target; if (d && d.classList && d.classList.contains('sec')) { secState[d.getAttribute('data-sec')] = d.open; localStorage.setItem('d4e_sec', JSON.stringify(secState)); } }, true);
+  document.querySelectorAll('details.bsec').forEach(function (d) { var k = d.getAttribute('data-sec'); if (k in secState) d.open = secState[k]; });
   var nm = function (e) { if (!e) return ''; var k = koName(e.t, e.n); return k ? k + ' (' + e.n + ')' : e.n; };
   var status = function (t) { $('status').textContent = t || ''; };
   /* 화면 아래에 잠깐 뜨는 알림 — 머리의 상태 글은 화면을 내리면 안 보여서 */
