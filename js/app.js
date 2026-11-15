@@ -150,6 +150,37 @@
     card.classList.add('trform'); redrawCard(card, e);
   });
 
+  /* ---------- 공격 · 피해 계산 ----------
+   * 공격 = 레벨 절반 + 능력 수정치 + 숙련(무기 파워, 숙련된 무기) + 강화(마법 무기 · 도구의 +N 과 내재 보너스 중 큰 쪽) + 범위가 맞는 보정.
+   * 데이터의 보정은 "weapon,heavy blade group:attack" 처럼 꼬리표가 붙은 수치라, 파워 · 무기의 꼬리표가 다 맞을 때만 더한다.
+   * 조건부 보정은 넣지 않는다. 서로 다른 수치에서 온 같은 종류 보너스가 겹치는 드문 경우는 가리지 못한다. */
+  var calcCtx = null, AB_FULL = { strength: 1, constitution: 1, dexterity: 1, intelligence: 1, wisdom: 1, charisma: 1 };
+  function plusN(e) { var m = e && /\+(\d+)\s*$/.exec(e.n); return m ? +m[1] : 0; }
+  function attackInfo(p) {
+    if (!calcCtx) return null; var r = calcCtx.r, ch = calcCtx.ch, sp = p.sp || {}, st = r.stats, q = ch.eq || {};
+    var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(sp['Attack'] || ''); if (!am) return null;
+    var kws = String(sp['Keywords'] || '').split(',').map(lc).filter(Boolean), isW = kws.indexOf('weapon') >= 0, isI = kws.indexOf('implement') >= 0;
+    var W = isW ? db.byId[q.main] : null, I = isI ? (db.byId[q.impl] || null) : null, wsp = (W && W.sp) || {};
+    var tags = {}; kws.forEach(function (k) { tags[k] = 1; }); var at = lc(sp['Attack Type']).split(' ')[0]; if (at) tags[at] = 1; tags[lc(p.id)] = 1; (p.cat || []).forEach(function (c) { tags[lc(c)] = 1; });
+    if (W) { tags[lc(W.id)] = 1; tags[lc(W.n)] = 1; String(wsp['Group'] || '').split(',').forEach(function (g) { g = lc(g); if (g) { tags[g + ' group'] = 1; tags[g] = 1; } }); String(wsp['Properties'] || '').split(',').forEach(function (g) { if (lc(g)) tags[lc(g)] = 1; }); tags[lc(wsp['Hands Required'])] = 1; }
+    if (I) { tags[lc(I.id)] = 1; var it = lc((I.sp || {})['Magic Item Type'] || I.n); tags[it] = 1; tags[it + ' implement'] = 1; }
+    var scoped = function (suffix) { var t = 0, parts = []; Object.keys(st).forEach(function (k) { var i = k.lastIndexOf(':'); if (i < 0 || k.slice(i + 1) !== suffix || !st[k]) return;
+      if (k.slice(0, i).split(',').every(function (x) { return tags[x.trim()]; })) { t += st[k]; parts.push(k.slice(0, i) + ' ' + (st[k] > 0 ? '+' : '') + st[k]); } }); return { t: t, parts: parts }; };
+    var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0;
+    var has = function (n) { for (var k in r.owned) if (lc(r.owned[k].n) === n) return true; return false; };
+    var prof = W && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(W.n) + ')')) ? +(wsp['Proficiency Bonus'] || 0) : 0;
+    var enh = Math.max(st['inherent attack'] || 0, isW ? plusN(db.byId[q.mainM]) : 0, isI ? plusN(I) : 0);
+    var sa = scoped('attack'), sd = scoped('damage'), misc = (st['attack rolls'] || 0), dmisc = (st['damage rolls'] || 0) + (st['damage'] || 0);
+    var atk = half + mod(am[1]) + prof + enh + sa.t + misc;
+    var hit = sp['Hit'] || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', dmod = 0, mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit);
+    if (mm) dmod += mod(mm[1]);
+    if (dm) { var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4]; dice = (+dm[1] * +die[1]) + 'd' + die[2]; }
+    else { var d2 = /(\d+d\d+)/.exec(hit); if (d2) dice = d2[1]; }
+    var dbonus = dmod + enh + sd.t + dmisc, dmg = dice ? dice + (dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '') : (hit && /damage/i.test(hit) && dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '');
+    var why = ['레벨 절반 ' + half, am[1].slice(0, 3).toUpperCase() + ' ' + mod(am[1])]; if (prof) why.push('숙련 ' + prof); if (enh) why.push('강화 ' + enh); sa.parts.forEach(function (x) { why.push(x); }); if (misc) why.push('공격 굴림 ' + misc);
+    return { atk: atk, vs: am[2], dmg: dmg, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), why: why.join(' · '), dwhy: [mm ? mm[1].slice(0, 3).toUpperCase() + ' ' + mod(mm[1]) : ''].concat(enh ? ['강화 ' + enh] : [], sd.parts, dmisc ? ['피해 굴림 ' + dmisc] : []).filter(Boolean).join(' · ') };
+  }
+
   /* ---------- 파워 카드 ---------- */
   var USE_KO = { 'at-will': '무제한', 'encounter': '조우', 'daily': '일일' };
   var ACT_KO = { 'standard action': '표준 행동', 'move action': '이동 행동', 'minor action': '보조 행동', 'free action': '자유 행동', 'immediate interrupt': '즉시 방해',
@@ -169,6 +200,7 @@
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
     var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span><span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
+    var ai = attackInfo(p); if (ai) h += '<div class="pa" title="공격: ' + esc(ai.why) + (ai.dwhy ? '\n피해: ' + esc(ai.dwhy) : '') + '"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.tool ? '<small>' + esc(ai.tool) + '</small>' : '') + '</div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + (tv && TR(p) && TR(p).fl ? esc(TR(p).fl) : esc(p.fl)) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + tx(p, '_body', p.body) + '</span></div>' : '') +
       (p.src ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + trBar(p) + '</details>';
     return h;
@@ -185,12 +217,12 @@
       (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
   }
   function sheetHtml(ch, r, who) {
-    trCtx = { map: ch.tr || {}, edit: ch === cur };
+    trCtx = { map: ch.tr || {}, edit: ch === cur }; calcCtx = { r: r, ch: ch };
     var s = r.stats, hp = s['hit points'] || 0, half = Math.floor(ch.level / 2);
     var race = ownedOf(r, 'Race')[0], cls = ownedOf(r, 'Class')[0];
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
     var h = '<div class="shead">' + (ch.port ? '<img class="port" src="' + esc(ch.port) + '" alt="">' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
-    h += '<div class="vit">' + st('hit points', 'HP') + '<div><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></div><div><small>원기 수치</small><b>' + Math.floor(hp / 4) + '</b></div>' +
+    h += '<div class="vit">' + st('hit points', 'HP') + '<div><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></div><div data-why="healing surge value"><small>원기 수치</small><b>' + (Math.floor(hp / 4) + (s['healing surge value'] || 0)) + '</b></div>' +
       st('healing surges', '원기 횟수') + st('speed', '이동 속도') + st('initiative', '우선권') + '</div>';
     h += '<div class="vit def">' + st('ac', 'AC') + st('fortitude defense', 'Fort') + st('reflex defense', 'Ref') + st('will defense', 'Will') + '</div></div></div>';
     if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격 굴림과 피해 굴림 +' + (s['inherent attack'] || 0) + ' (치명타 +' + (s['inherent attack'] || 0) + 'd6) · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요</span></p>';
@@ -222,6 +254,14 @@
     var tags = function (key, title, type, filt, defOpen) { var a = ownedOf(r, type).filter(filt || function () { return true; }); if (!a.length) return '';
       return sec(key, title + ' <span class="hint">' + a.length + '</span>', '<div class="tags">' + a.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</span>'; }).join('') + '</div>', defOpen); };
     h += tags('feat', '재주', 'Feat') + tags('lang', '언어', 'Language');
+    /* 그 밖의 보정: 계산은 됐지만 위에 자리가 없는 값들 + 조건부 보정 */
+    var OTH = { 'saving throws': '내성 굴림', 'death saving throws': '죽음 내성 굴림', 'attack rolls': '공격 굴림', 'damage rolls': '피해 굴림', 'damage': '피해', 'inherent attack': '내재 공격 · 피해', 'action points': '액션 포인트' }, oth = '', cond = '';
+    Object.keys(s).sort().forEach(function (k) { if (!s[k]) return; var lab = OTH[k], m;
+      if (!lab && (m = /^resist:(.+)$/.exec(k))) lab = '저항 ' + (gloss(m[1]) || m[1]);
+      if (!lab && (m = /^(.+):(attack|damage)$/.exec(k))) lab = (m[2] === 'attack' ? '공격' : '피해') + ' (' + m[1].split(',').map(function (x) { x = x.trim(); var e2 = db.byId[x.toUpperCase()]; return e2 ? e2.n : gloss(x.replace(/ group$/, '')) || x; }).join(' · ') + ')';
+      if (lab) oth += '<div data-why="' + esc(k) + '"><small>' + esc(lab) + '</small><b>' + (s[k] > 0 ? '+' : '') + s[k] + '</b></div>'; });
+    Object.keys(r.breakdown).forEach(function (k) { r.breakdown[k].forEach(function (x) { if (!x.cond || !x.v) return; var se = db.byId[x.src]; cond += '<div class="cnd"><b>' + (x.v > 0 ? '+' : '') + x.v + '</b> ' + esc(gloss(k) || k) + ' <span>' + esc(glossAuto ? gsub(x.cond) : x.cond) + '</span><small>' + esc(se ? se.n : '') + '</small></div>'; }); });
+    if (oth || cond) h += sec('other', '그 밖의 보정', (oth ? '<div class="vit oth">' + oth + '</div>' : '') + (cond ? '<p class="hint" style="margin:8px 0 4px">조건부 보정 (위 수치에는 들어가지 않아요)</p>' + cond : ''), false);
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
   }

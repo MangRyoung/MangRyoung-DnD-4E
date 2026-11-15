@@ -199,3 +199,8 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .kv2{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin:6px 0;background:var(--bg)}.kv2 .kh{display:flex;gap:6px;align-items:center;margin-bottom:4px}.kv2 .kh b{min-width:64px;font-size:13.5px;color:var(--acc)}
 .kv2 .kh input{flex:1;font-size:12.5px;color:var(--sub);padding:2px 6px}.kv2 textarea,.kv2>input{width:100%}.kwbox{display:flex;flex-wrap:wrap;gap:0 2px;margin-bottom:4px}.kwbox .opt{font-size:12.5px}
 .atk{display:flex;gap:6px;align-items:center;margin-bottom:4px}.atk select{width:auto;flex:1}
+/* 공격 · 피해 줄, 그 밖의 보정 */
+.pc .pa{display:flex;gap:14px;align-items:baseline;flex-wrap:wrap;padding:5px 12px;font-size:13.5px;background:#fff8e6;border-bottom:1px solid color-mix(in srgb,var(--pc) 30%,transparent)}
+.pc .pa b{font-size:15px;color:color-mix(in srgb,var(--pc) 85%,#000)}.pc .pa small{margin-left:auto;color:#8a7f6e;font-size:11.5px}
+.vit.oth{grid-template-columns:repeat(auto-fill,minmax(120px,1fr))}.vit.oth b{font-size:16px}.vit.oth small{white-space:normal}
+.cnd{font-size:13px;padding:2px 4px;border-bottom:1px solid var(--line)}.cnd span{color:var(--sub)}.cnd small{float:right;color:var(--sub);font-size:11.5px}
