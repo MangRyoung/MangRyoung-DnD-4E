@@ -47,14 +47,17 @@
     if (!p.nonatk) tip.push(a.Damage && '피해 주사위: ' + a.Damage, a.Description && '명중시: ' + a.Description, a.Miss && '빗나감: ' + a.Miss);
     tip.push(a.Effect && '효과: ' + a.Effect, a.Special && '특수: ' + a.Special);
     var cmd = T()[p.nonatk ? 'nonatk' : 'attack'].replace(/"\+(\w+)\+"/g, function (m, k) { return v[k] == null ? '' : String(v[k]); });
-    return { label: a.pname, group: act[0], color: use[3], font: 'white', sort: use[2], command: cmd, tip: tip.filter(Boolean).join('\n').replace(/<br>/g, '\n').replace(/&#(\d+);/g, function (m, c) { return String.fromCharCode(+c); }) };
+    return { label: a.pname, group: p.group || act[0], color: p.group && a.usage === '#407040' ? 'silver' : use[3], font: p.group && a.usage === '#407040' ? 'black' : 'white', sort: use[2], command: cmd, tip: tip.filter(Boolean).join('\n').replace(/<br>/g, '\n').replace(/&#(\d+);/g, function (m, c) { return String.fromCharCode(+c); }) };
   }
   function skillMacro(s) {
     var c = T().skill.replace(/\bDex\b/g, s.abil).replace(/is_skill_trained = \d+/, 'is_skill_trained = ' + s.trained).replace(/trained_bonus = \d+/, 'trained_bonus = ' + (s.trained ? 5 : 0))
       .replace(/is_applicable_armor_check_penalty = \d+/, 'is_applicable_armor_check_penalty = ' + s.acp).replace(/misc_bonus = -?\d+/, 'misc_bonus = ' + s.misc).replace(/&nbsp;[^<(]*\(\w+\)<\/b>/, '&nbsp;' + s.name + ' (' + s.abil + ')</b>');
     return { label: s.name + ' (' + (s.total >= 0 ? '+' : '') + s.total + ')', group: 'Skills', color: s.trained ? 'blue' : 'gray', font: 'white', sort: String(s.sort), command: c, tip: '' };
   }
-  function allMacros(d) { return d.powers.map(powerMacro).concat(d.skills.map(skillMacro)); }
+  var want = { item: true, hb: true, feat: true };
+  try { Object.assign(want, JSON.parse(localStorage.getItem('d4e_mtwant') || '{}')); } catch (e) {}
+  function chosen(d) { return d.powers.filter(function (p) { return p.src === 'power' || want[p.src]; }); }
+  function allMacros(d) { return chosen(d).map(powerMacro).concat(d.skills.map(skillMacro)); }
 
   /* ----- 토큰 그림: 초상이 있으면 PNG 로, 없으면 이름 첫 글자 동그라미 ----- */
   function tokenImage(d) {
@@ -89,7 +92,7 @@
     return d;
   }
   /* 붙여 넣기용 글: 맵툴의 decode() 로 풀 수 있게 주소 인코딩 */
-  function pasteText() { var d = A().mtData(); return encodeURIComponent(JSON.stringify({ v: 1, name: d.name, props: d.props, powers: d.powers.map(function (p) { return { nonatk: p.nonatk, args: p.args }; }), macros: d.skills.map(skillMacro) })); }
+  function pasteText() { var d = A().mtData(); return encodeURIComponent(JSON.stringify({ v: 1, name: d.name, props: d.props, powers: chosen(d).filter(function (p) { return !p.group; }).map(function (p) { return { nonatk: p.nonatk, args: p.args }; }), macros: d.skills.map(skillMacro).concat(chosen(d).filter(function (p) { return p.group; }).map(powerMacro).map(function (m) { return { label: m.label, group: m.group, color: m.color, font: m.font, sort: m.sort, command: m.command }; })) })); }
 
   /* 캠페인에 한 번 넣어 두는 매크로 (캠페인 매크로나 GM 매크로로) */
   var LOADER = [
@@ -109,8 +112,9 @@
     '}]',
     '[h, foreach(m, json.get(d, "macros")), code: {',
     '  [h: lab = json.get(m, "label")]',
-    '  [h: nm = substring(lab, 0, indexOf(lab, " ("))]',
-    '  [h, foreach(i, getMacros()), if(startsWith(i, nm + " (")): removeMacro(listGet(getMacroIndexes(i), 0))]',
+    '  [h: cut = indexOf(lab, " (")]',
+    '  [h, if(cut < 0): nm = lab; nm = substring(lab, 0, cut)]',
+    '  [h, foreach(i, getMacros()), if(i == lab || startsWith(i, nm + " (")): removeMacro(listGet(getMacroIndexes(i), 0))]',
     '  [h: mp = "autoexec=true;"]',
     '  [h: mp = setStrProp(mp, "group", json.get(m, "group"))]',
     '  [h: mp = setStrProp(mp, "color", json.get(m, "color"))]',
@@ -125,16 +129,18 @@
     if (!A() || !A().hasChar()) { alert('먼저 데이터를 불러오고 캐릭터를 골라 주세요.'); return; }
     var d = A().mtData(), box = document.getElementById('mtBox');
     if (!box) { box = document.createElement('div'); box.id = 'mtBox'; box.className = 'mtbox'; document.body.appendChild(box); }
-    var atk = d.powers.filter(function (p) { return !p.nonatk; }).length;
+    var atk = d.powers.filter(function (p) { return !p.nonatk; }).length, cnt = function (k) { return d.powers.filter(function (p) { return p.src === k; }).length; }, nItem = cnt('item'), nHb = cnt('hb'), nFeat = cnt('feat');
     box.innerHTML = '<div class="mtin"><button class="mtx" data-mt="close" title="닫기">×</button><h3>맵툴로 내보내기</h3>' +
-      '<p class="hint">' + he(d.name) + ' · 능력 ' + d.powers.length + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
+      '<p class="hint">' + he(d.name) + ' · 파워 ' + cnt('power') + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
+      '<div class="mtwant"><b>버튼으로 더 넣을 것</b>' + [['item', '장비 속성 · 파워', nItem], ['hb', '홈브류 특성', nHb], ['feat', '클래스 · 종족 특성 (글로만 된 것)', nFeat]].map(function (w) { return '<label><input type="checkbox" data-mtw="' + w[0] + '"' + (want[w[0]] ? ' checked' : '') + '> ' + w[1] + ' <span class="hint">' + w[2] + '개</span></label>'; }).join('') + '<span class="hint">클래스 · 종족 특성이 주는 파워는 파워에 이미 들어 있어요</span></div>' +
       '<div class="mtrow"><div><b>가) 토큰 파일</b><p class="hint">.rptok 을 받아 맵 위로 끌어다 놓으면 돼요. 「PC 기본」 토큰의 매크로가 그대로 들어 있어요.</p><button data-mt="tok">토큰 파일 받기</button></div>' +
       '<div><b>나) 있는 토큰에 덮어쓰기</b><p class="hint">캠페인에 「시트 불러오기」 매크로를 한 번 넣어 두고, 토큰을 고른 뒤 그 매크로에 글을 붙여 넣어요. 수치와 능력 버튼만 바뀌어요.</p><button data-mt="copy">시트 글 복사</button> <button data-mt="loader">불러오기 매크로 복사</button></div></div>' +
       '<details><summary>수치 미리 보기</summary><div class="mtprev">' + Object.keys(d.props).map(function (k) { return '<span>' + he(k) + ' <b>' + he(d.props[k]) + '</b></span>'; }).join('') + '</div>' +
-      '<table class="mttab"><tr><th>능력</th><th>공격</th><th>피해</th></tr>' + d.powers.map(function (p) { var a = p.args; return '<tr><td>' + he(a.pname) + '</td><td>' + (p.nonatk ? '—' : '1d20 + ' + (+a.Amod + d.props[a.AHit === 'Hit' ? 'hit' : 'Hit2']) + ' vs ' + he(a.Attack)) + '</td><td>' + (p.nonatk || !a.Damage ? '—' : he(a.Damage) + ' + ' + he(a.ADM)) + '</td></tr>'; }).join('') + '</table></details>' +
+      '<table class="mttab"><tr><th>능력</th><th>공격</th><th>피해</th></tr>' + d.powers.filter(function (p) { return p.src === 'power'; }).map(function (p) { var a = p.args; return '<tr><td>' + he(a.pname) + '</td><td>' + (p.nonatk ? '—' : '1d20 + ' + (+a.Amod + d.props[a.AHit === 'Hit' ? 'hit' : 'Hit2']) + ' vs ' + he(a.Attack)) + '</td><td>' + (p.nonatk || !a.Damage ? '—' : he(a.Damage) + ' + ' + he(a.ADM)) + '</td></tr>'; }).join('') + '</table></details>' +
       '<p class="hint" id="mtMsg"></p></div>';
     box.style.display = 'flex';
     var msg = function (t) { document.getElementById('mtMsg').textContent = t; }, copy = function (t, okMsg) { navigator.clipboard.writeText(t).then(function () { msg(okMsg); }, function () { var ta = document.createElement('textarea'); ta.value = t; box.firstChild.appendChild(ta); ta.select(); msg('자동 복사가 막혀서 글을 아래에 띄웠어요. 직접 복사해 주세요.'); }); };
+    box.onchange = function (e) { var w = e.target.getAttribute && e.target.getAttribute('data-mtw'); if (w) { want[w] = e.target.checked; localStorage.setItem('d4e_mtwant', JSON.stringify(want)); } };
     box.onclick = function (e) { var k = e.target.getAttribute && e.target.getAttribute('data-mt');
       if (e.target === box || k === 'close') box.style.display = 'none';
       else if (k === 'tok') { msg('만드는 중…'); saveToken().then(function () { msg('토큰 파일을 받았어요. 맵툴 맵 위로 끌어다 놓아 보세요.'); }, function (er) { msg('만들지 못했어요: ' + er.message); }); }

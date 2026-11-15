@@ -337,3 +337,4 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .pchg{position:absolute;left:0;right:0;bottom:0;padding:4px;text-align:center;font-size:12px;color:#fff;background:rgba(0,0,0,.5);opacity:0;transition:opacity .15s}
 .pslot:hover .px,.pslot:hover .pchg{opacity:1}
 @media (max-width:560px){.pslot{flex:none;width:150px;height:200px;min-height:0;align-self:center}.px{opacity:1}}
+.mtwant{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:13px}.mtwant b{width:100%}.mtwant label{display:inline-flex;align-items:center;gap:4px}

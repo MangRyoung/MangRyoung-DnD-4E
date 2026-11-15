@@ -341,6 +341,22 @@
       a.Description = txt(p, 'Hit'); a.Miss = txt(p, 'Miss');
       powers.push({ nonatk: 0, args: a });
     });
+    /* 장비의 속성 · 파워와 홈브류 특성도 버튼으로: 굴림 없이 내용만 찍는 비공격 틀을 쓴다 */
+    var clean = function (x) { return String(x || '').replace(/[\"';]/g, '').trim(); }, blankArgs = function (name, kind, usage, action, range, eff, special, group) {
+      return { nonatk: 1, group: group, args: { group: '', pname: clean(name), pkind: safe(kind), usage: usage, keyword: '', action: action, range: range || '-', Trigger: '', Target: '-', Effect: eff, Special: special || '', A_Memo: '', submit: '' } }; };
+    (r.worn || []).forEach(function (e) { if (e.t !== 'Magic Item') return; var sp = e.sp || {}, t = T[e.id] || {}, nm0 = t.n || e.n, done = false;
+      Object.keys(sp).forEach(function (k) { if (!/^(Power|Utility Power|Attack Power)/.test(k) || !sp[k]) return; var raw = String(sp[k]), u = /Daily/i.test(raw.slice(0, 40) + k) ? '#404040' : /Encounter/i.test(raw.slice(0, 40) + k) ? '#704040' : '#407040';
+        var am = /(Standard|Move|Minor|Free|Immediate Interrupt|Immediate Reaction|Opportunity|No) Action|Immediate (Interrupt|Reaction)/i.exec(raw), act = am ? (MT_ACT[lc(am[0])] || MT_ACT[lc(am[0]) + ' action'] || MT_ACT[lc(am[0]).replace(' action', '')] || '-') : '-';
+        powers.push(blankArgs(nm0, '장비 파워', u, act, '-', txt(e, k), sp['Property'] ? '속성: ' + txt(e, 'Property') : '', act === '-' ? '0. 장비' : '')); done = true; });
+      if (!done && sp['Property']) powers.push(blankArgs(nm0, '장비 속성', '#407040', '-', '-', txt(e, 'Property'), '', '0. 장비')); });
+    (ch.hbx || []).forEach(function (x) { powers.push(blankArgs(x.n, '홈브류' + (x.cat ? ' · ' + x.cat : ''), '#407040', '-', '-', safe(x.text || ''), '', '0. 홈브류')); });
+    (ch.hb || []).forEach(function (id) { var e = db.byId[id]; if (!e || (e.t === 'Power' && e.sp && e.sp['Power Usage'])) return; var sp = e.sp || {}, body = e.body || sp['Benefit'] || sp['Effect'] || sp['Short Description'] || '';
+      powers.push(blankArgs((T[id] || {}).n || e.n, '홈브류' + (sp['분류'] ? ' · ' + sp['분류'] : ''), '#407040', '-', '-', safe(body), '', '0. 홈브류')); });
+    /* 클래스 특성 · 종족 특성 가운데 파워가 따로 없는(글로만 된) 것. 파워를 주는 특성은 그 파워가 이미 위에 들어 있다 */
+    ['Class Feature', 'Racial Trait'].forEach(function (ty) { ownedOf(r, ty).forEach(function (e) { var sp = e.sp || {}; if (!e.body || sp['Powers'] || sp['_DisplayPowers'] || /^Choose /.test(e.n)) return;
+      var hasSel = (e.r || []).some(function (x) { return x[0] === 'select'; }) && String(e.body).length < 90; if (hasSel) return;
+      var tb = (T[e.id] || {}).body || (T[e.id] || {}).t, x = blankArgs((T[e.id] || {}).n || e.n, ty === 'Class Feature' ? '클래스 특성' : '종족 특성', '#407040', '-', '-', safe(tb || (glossAuto ? gsub(e.body) : e.body)), sp['하우스룰'] ? '하우스룰: ' + safe(sp['하우스룰']) : '', '0. 특성'); x.src = 'feat'; powers.push(x); }); });
+    powers.forEach(function (p) { if (!p.src) p.src = /^장비/.test(p.args.pkind) ? 'item' : /^홈브류/.test(p.args.pkind) ? 'hb' : 'power'; });
     return { name: ch.name || '이름 없음', port: ch.port || '', props: P, skills: skills, powers: powers };
   }
 
