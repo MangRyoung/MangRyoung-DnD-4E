@@ -266,3 +266,6 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .tc-row .at{box-shadow:inset 0 -3px 0 var(--at)}.tc-row .enc{box-shadow:inset 0 -3px 0 var(--enc)}.tc-row .day{box-shadow:inset 0 -3px 0 var(--day)}.tc-row .util{box-shadow:inset 0 -3px 0 var(--util)}
 .tc-act{padding:8px 12px 12px;display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:auto}.tc-act select{max-width:100%}
 .team .tc-name p{color:#fff;margin:2px 0 0}.team .tc-who{margin:0}
+.tc-row .pwc{cursor:pointer;transition:background .12s}.tc-row .pwc:hover,.tc-row .pwc.on{background:var(--acc2)}
+.tc-pw{display:flex;flex-wrap:wrap;gap:4px}.tc-pw[hidden]{display:none}
+.tc-pchip{border:0;border-radius:7px;padding:3px 9px;font-size:12.5px;color:#fff;cursor:pointer;background:var(--at)}.tc-pchip.enc{background:var(--enc)}.tc-pchip.day{background:var(--day)}.tc-pchip.util{background:var(--util)}.tc-pchip:hover{filter:brightness(1.15)}

@@ -921,14 +921,25 @@
         '<div class="tc-body"><p class="tc-who">' + (role ? '<span class="tc-role">' + esc(role) + '</span>' : '') + '<span>' + esc(d.owner || '?') + '</span></p>' +
         '<div class="tc-hp"><span><small>HP</small><b>' + (s.hp || 0) + '</b></span><span class="mid"><small>반죽음</small><b>' + Math.floor((s.hp || 0) / 2) + '</b></span><span class="sg"><small>원기</small><b>' + (s.hsv || Math.floor((s.hp || 0) / 4)) + '</b><i>×' + (s.surges || 0) + '</i></span></div>' +
         '<div class="tc-def">' + cell('AC', s.ac || 0) + cell('Fort', s.fort || 0) + cell('Ref', s.ref || 0) + cell('Will', s.will || 0) + '</div>' +
-        '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at') + cell('조우', pw.enc, 'enc') + cell('일일', pw.day, 'day') + cell('활용', pw.util, 'util') : cell('파워', (s.powers || []).length)) + '</div></div>';
-      var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c; c = acts;
+        '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
+      var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
+      var built = function () { if (d.set) D4EHouse.apply(db, d.set);
+        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {} }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+      /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
+      var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
+      card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
+        if (!db) { alert('파워 내용은 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
+        var u = el.getAttribute('data-u'); card0().querySelectorAll('.pwc').forEach(function (x) { x.classList.remove('on'); });
+        if (pwOpen === u) { pwOpen = ''; pwBox.hidden = true; return; }
+        pwOpen = u; el.classList.add('on'); var bb = built(), list = ownedOf(bb.r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && p.n !== 'Second Wind' && usageClass(p) === u; });
+        trCtx = { map: bb.ch.tr || {}, edit: false }; calcCtx = bb; pwBox.hidden = false; pwBox.innerHTML = list.length ? '' : '<span class="hint">없어요</span>';
+        list.forEach(function (p) { var b = document.createElement('button'); b.className = 'tc-pchip ' + u; var t = (bb.ch.tr || {})[p.id]; b.textContent = (t && t.n) || p.n;
+          b.onclick = function () { trCtx = { map: bb.ch.tr || {}, edit: false }; calcCtx = bb; openDetail(p); $('mTitle').textContent = (d.name || '') + ' · ' + b.textContent; $('mDetail').innerHTML = powerCard(p, true); }; pwBox.appendChild(b); });
+      }; });
       var b1 = document.createElement('button'); b1.className = 'mini'; b1.textContent = '시트 보기';
       b1.onclick = function () {
         if (!db) { alert('전체 시트는 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
-        if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {} }, r = E.build(db, ch);
-        ch.eq = d.eq || {}; var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = sheetHtml(ch, r, d.owner); teamCtx = { map: ch.tr || {}, edit: false }; teamCalc = { r: r, ch: ch }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
+        var bb = built(), ch = bb.ch, r = bb.r; var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = sheetHtml(ch, r, d.owner); teamCtx = { map: ch.tr || {}, edit: false }; teamCalc = { r: r, ch: ch }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
       b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); cur = n; saveChars(); tab('edit'); };
