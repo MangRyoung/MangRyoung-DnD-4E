@@ -404,7 +404,7 @@
     var s = r.stats, hp = s['hit points'] || 0, half = Math.floor(ch.level / 2);
     var race = ownedOf(r, 'Race')[0], cls = ownedOf(r, 'Class')[0];
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
-    var h = '<div class="shead">' + (ch.port ? '<img class="port" src="' + esc(ch.port) + '" alt="">' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
+    var pmine = ch === cur, h = '<div class="shead">' + (ch.port || pmine ? '<div class="pslot' + (ch.port ? '' : ' empty') + '"' + (pmine ? ' data-port="1" title="그림을 끌어다 놓거나 눌러서 고르기"' : '') + '>' + (ch.port ? '<img src="' + esc(ch.port) + '" alt="">' + (pmine ? '<button class="px" data-portdel="1" title="포트 빼기">×</button><span class="pchg">바꾸기</span>' : '') : '<span class="pnone">포트<small>끌어다 놓기<br>또는 눌러서 고르기</small></span>') + '</div>' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
     var hsv = Math.floor(hp / 4) + (s['healing surge value'] || 0);
     h += '<div class="hpbar" data-why="hit points" title="눌러서 HP 내역 보기"><div class="hpfill"></div><div class="hpmid"></div><span class="hpl"><small>HP</small><b>' + hp + '</b></span><span class="hpb"><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></span></div>';
     h += '<div class="vrow"><div class="surge"><span class="sgt">원기 <small>Healing Surge</small></span><span data-why="healing surge value"><small>회복량</small><b>' + hsv + '</b></span><span data-why="healing surges"><small>횟수</small><b>' + (s['healing surges'] || 0) + '<i>회</i></b></span></div>' +
@@ -462,6 +462,8 @@
     box.onclick = function (ev) {
       if (ev.target.closest('[data-whyx]')) { box.querySelector('#why').hidden = true; return; }
       if (ev.target.closest('[data-pcall]')) { ev.preventDefault(); var all = box.querySelectorAll('details.pc'), any = false; all.forEach(function (d) { if (!d.open) any = true; }); all.forEach(function (d) { d.open = any; }); return; }
+      if (ev.target.closest('[data-portdel]')) { if (cur.port) { delete cur.port; rebuild(); } return; }
+      if (ev.target.closest('[data-port]')) { $('portFile').click(); return; }
       var fs = ev.target.closest('[data-fsel]'), fd = ev.target.closest('[data-fdel]');
       if (fd) { var fk = fd.getAttribute('data-fdel'), fi = fd.getAttribute('data-fid'); cur.choices[fk] = (cur.choices[fk] || []).filter(function (x) { return x !== fi; }); saveChars(); rebuild(); return; }
       if (fs) { var sx = (res.selects || []).filter(function (x) { return x.key === fs.getAttribute('data-fsel'); })[0]; if (sx) openPicker(sx); return; }
@@ -500,7 +502,7 @@
         else { var f2 = hx.closest('.hxform'), g = function (k) { return f2.querySelector('[data-hx=' + k + ']').value.trim(); }, nmv = g('n'); if (!nmv) { toast('이름을 적어 주세요', true); return; }
           var xid = f2.getAttribute('data-hxid'), ex = cur.hbx.filter(function (x) { return x.id === xid; })[0]; if (!ex) { ex = { id: 'hx' + Date.now().toString(36) }; cur.hbx.push(ex); }
           ex.n = nmv; ex.cat = g('cat'); ex.step = g('step'); ex.text = f2.querySelector('[data-hx=text]').value.trim(); }
-        hbEditing = ''; saveChars(); redraw(); return; }
+        hbEditing = ''; saveChars(); redraw(); renderSelects(); return; }
       var t = ev.target.closest('[data-hbadd],[data-hbnew],[data-hbedit],[data-hbdel]');
       if (t) { ev.preventDefault(); if (t.hasAttribute('data-hbadd')) { buildTab = 'hb'; localStorage.setItem('d4e_btab', buildTab); var bp = document.querySelector('[data-sec=b_pick]'); if (bp) bp.open = true; renderSelects(); $('selects').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
         else if (t.hasAttribute('data-hbnew')) D4EHouse.newEl('Homebrew Feature'); else if (t.hasAttribute('data-hbedit')) D4EHouse.editEl(t.getAttribute('data-hbedit'));
@@ -602,7 +604,7 @@
     groups.forEach(function (list, g) { if (list.length) tabs.push({ key: 'g' + g, label: SEL_GROUPS[g][0], list: list, left: list.filter(function (x) { return x[1]; }).length }); });
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
     var hbEvery = D4EHouse.custom(db), hbAll = isGM() ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
-    if (hbEvery.length || cur.hb.length) tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length });
+    tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length + (cur.hbx || []).length });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
     tabs.forEach(function (t) { var b = document.createElement('button'); b.className = t.key === buildTab ? 'on' : ''; b.setAttribute('data-btab', t.label);
@@ -610,12 +612,18 @@
       b.onclick = function () { buildTab = t.key; localStorage.setItem('d4e_btab', buildTab); renderSelects(); }; bar.appendChild(b); });
     box.appendChild(bar); $('equip').hidden = buildTab !== 'eq';
     if (buildTab === 'hb') { var hbx = document.createElement('div'); hbx.className = 'hbpick'; var gmNow = isGM();
-      hbx.innerHTML = '<p class="hint">GM 이 하우스룰 탭에서 새로 만든 능력이에요. 눌러서 이 캐릭터에 넣거나 빼요. 수치 보정이나 파워가 딸려 있으면 시트에 바로 반영돼요.</p>' +
+      var own = (cur.hbx || []).slice().sort(function (a, b) { var x = HB_ORDER.indexOf(a.cat), y = HB_ORDER.indexOf(b.cat); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || String(a.step || '').localeCompare(String(b.step || ''), 'ko', { numeric: true }); });
+      hbx.innerHTML = '<div class="hbcat">이 캐릭터의 홈브류 <span class="hint">' + own.length + '</span></div>' + (own.length ? '<div class="hbgrid">' + own.map(function (x) {
+          return '<div class="hbt on" data-hxgo="' + esc(x.id) + '"><div class="hbt-h"><b>' + (x.step ? '<i class="hbs">' + esc(x.step) + '</i>' : '') + esc(x.n) + '</b>' + (x.cat ? '<span class="badge hbb">' + esc(x.cat) + '</span>' : '') + '</div><small>' + esc(String(x.text || '').slice(0, 120)) + '</small><div class="hbt-a"><span>눌러서 고치기</span></div></div>'; }).join('') + '</div>' : '<p class="hint">아직 없어요.</p>') +
+        '<div class="hb-bar"><button class="mini" data-hxgo="new">+ 추가</button></div>' +
+        (hbAll.length || gmNow ? '<div class="hbcat" style="margin-top:14px">공용 홈브류 <span class="hint">GM 이 만든 것 · 눌러서 넣거나 빼요</span></div>' : '') +
         (hbAll.length ? hbGroups(hbAll).map(function (g) { return '<div class="hbcat">' + esc(g[0]) + ' <span class="hint">' + g[1].length + '</span></div><div class="hbgrid">' + g[1].map(function (e) { var on = cur.hb.indexOf(e.id) >= 0, d = (e.sp && (e.sp['Short Description'] || e.sp['Benefit'] || e.sp['Effect'])) || e.body || '', inf = hbInfo(e), other = inf.who.length && !hbFor(e, cur.name);
           return '<div class="hbt' + (on ? ' on' : '') + (other ? ' oth' : '') + '" data-hbt="' + esc(e.id) + '"><div class="hbt-h"><b>' + hbStep(e) + esc(e.n) + '</b><span class="badge hbb">' + esc(typeKo(e.t)) + '</span></div>' + (inf.who.length ? '<div class="hbw">' + esc(inf.who.join(', ')) + ' 전용' + (other ? ' · 이 캐릭터 것이 아니에요' : '') + '</div>' : '') + '<small>' + esc(String(d).slice(0, 140)) + '</small><div class="hbt-a"><span>' + (on ? '✔ 넣었어요' : '눌러서 넣기') + '</span><button class="mini ghost" data-hbsee="' + esc(e.id) + '">내용</button>' + (gmNow ? '<button class="mini ghost" data-hbedit="' + esc(e.id) + '">고치기</button>' : '') + '</div></div>'; }).join('') + '</div>'; }).join('')
-          : '<p class="hint">이 세팅에는 아직 만든 홈브류가 없어요.' + (gmNow ? '' : ' GM 이 만들면 여기에 나와요.') + '</p>') +
+          : (gmNow ? '<p class="hint">아직 만든 공용 홈브류가 없어요.</p>' : '')) +
         (gmNow ? '<div class="hb-bar"><button class="mini" data-hbnew="Homebrew Feature">+ 새 홈브류 특성 (GM)</button><button class="mini ghost" data-hbnew="Power">+ 새 홈브류 파워 (GM)</button></div>' : '');
-      hbx.onclick = function (ev) { var see = ev.target.closest('[data-hbsee]'), ed2 = ev.target.closest('[data-hbedit]'), nw = ev.target.closest('[data-hbnew]'), tl = ev.target.closest('[data-hbt]');
+      hbx.onclick = function (ev) { var go = ev.target.closest('[data-hxgo]');
+        if (go) { hbEditing = go.getAttribute('data-hxgo'); $('featBox').innerHTML = extraHtml(cur, res); var hs = $('featBox').querySelector('[data-sec=hb]'); if (hs) { hs.open = true; hs.scrollIntoView({ behavior: 'smooth', block: 'center' }); var fi = hs.querySelector('.hxform [data-hx=n]'); if (fi) fi.focus({ preventScroll: true }); } return; }
+        var see = ev.target.closest('[data-hbsee]'), ed2 = ev.target.closest('[data-hbedit]'), nw = ev.target.closest('[data-hbnew]'), tl = ev.target.closest('[data-hbt]');
         if (see) { openDetail(db.byId[see.getAttribute('data-hbsee')]); return; } if (ed2) { D4EHouse.editEl(ed2.getAttribute('data-hbedit')); return; } if (nw) { D4EHouse.newEl(nw.getAttribute('data-hbnew')); return; }
         if (tl) { var id = tl.getAttribute('data-hbt'), i = cur.hb.indexOf(id); if (i >= 0) cur.hb.splice(i, 1); else cur.hb.push(id); saveChars(); rebuild(); } };
       box.appendChild(hbx); }
