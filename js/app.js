@@ -438,7 +438,7 @@
     (r.selects || []).forEach(function (x) { if (x.type !== 'Feat' || x.swap) return; (x.picked || []).forEach(function (id) { fsel[id] = x; }); if ((x.picked || []).length < x.number && !x.optional) fopen.push(x); });
     var fwhere = function (x) { var se = db.byId[x.from]; return !se ? '' : se.t === 'Level' ? se.n + '레벨' : nm(se); };
     if (feats.length || (mine && fopen.length)) h += sec('feat', '재주 <span class="hint">' + feats.length + (mine ? ' · 「바꾸기」로 여기서 바로 고쳐요' : '') + '</span>', '<div class="ftiles">' + feats.map(function (e) { var t = (ch.tr || {})[e.id], d = (e.sp && e.sp['Short Description']) || '', x = fsel[e.id];
-      return '<div class="ftile" data-el="' + esc(e.id) + '"><b>' + esc((t && t.n) || nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</b>' + (d ? '<small>' + esc(glossAuto ? gsub(d) : d) + '</small>' : '') +
+      return '<div class="ftile" data-el="' + esc(e.id) + '"><b>' + esc((t && t.n) || nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</b>' + (d ? '<small>' + esc(t && t.f && t.f['Short Description'] && !trOrig[e.id] ? t.f['Short Description'] : glossAuto ? gsub(d) : d) + '</small>' : '') +
         (mine && x ? '<span class="ft-a"><i>' + esc(fwhere(x)) + '</i><button class="mini ghost" data-fsel="' + esc(x.key) + '">바꾸기</button><button class="mini ghost" data-fdel="' + esc(x.key) + '" data-fid="' + esc(e.id) + '" title="빼기">×</button></span>' : '') + '</div>'; }).join('') +
       (mine ? fopen.map(function (x) { return '<div class="ftile todo" data-fsel="' + esc(x.key) + '"><b>+ 재주 고르기</b><small>' + esc(fwhere(x)) + ' · 비어 있어요</small></div>'; }).join('') : '') + '</div>');
     var langs = ownedOf(r, 'Language');
