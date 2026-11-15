@@ -338,3 +338,13 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .pslot:hover .px,.pslot:hover .pchg{opacity:1}
 @media (max-width:560px){.pslot{flex:none;width:150px;height:200px;min-height:0;align-self:center}.px{opacity:1}}
 .mtwant{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center;border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-top:8px;font-size:13px}.mtwant b{width:100%}.mtwant label{display:inline-flex;align-items:center;gap:4px}
+
+/* 패시브 효과 */
+.pasg{border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin-bottom:8px;background:var(--card)}.pasg.hid{opacity:.7;border-style:dashed}
+.pasg-h{display:flex;align-items:center;gap:6px;margin-bottom:4px;padding-bottom:4px;border-bottom:1px solid var(--line)}.pasg-h b{font-size:14px}.pasg-h input{flex:1;font-weight:700}
+.pasl{display:grid;grid-template-columns:minmax(120px,30%) minmax(0,1fr);gap:4px 10px;padding:3px 0;font-size:13.5px;line-height:1.5}.pasl[data-el]{cursor:pointer}.pasl[data-el]:hover b{text-decoration:underline}
+.pasl span{color:var(--ink)}.pasl+.pasl{border-top:1px dashed var(--line)}
+.pasl.ed{display:block;padding:6px 0}.pasl-t{display:flex;gap:6px;align-items:center;margin-bottom:3px}.pasl-t b,.pasl-t input{flex:1;min-width:0}.pasl-t select{max-width:150px;font-size:12.5px;padding:2px 4px}.pasl.ed textarea{width:100%;font-size:13px}
+.pas-bar{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:8px}
+@media(max-width:520px){.pasl{grid-template-columns:1fr}}
+.sklang{float:right;font-size:13px;font-weight:400;color:var(--ink)}.sklang small{color:var(--sub);margin-right:2px}.sklang i{font-style:normal;cursor:pointer}.sklang i:hover{text-decoration:underline}

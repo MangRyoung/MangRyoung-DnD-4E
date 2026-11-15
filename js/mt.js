@@ -54,7 +54,7 @@
       .replace(/is_applicable_armor_check_penalty = \d+/, 'is_applicable_armor_check_penalty = ' + s.acp).replace(/misc_bonus = -?\d+/, 'misc_bonus = ' + s.misc).replace(/&nbsp;[^<(]*\(\w+\)<\/b>/, '&nbsp;' + s.name + ' (' + s.abil + ')</b>');
     return { label: s.name + ' (' + (s.total >= 0 ? '+' : '') + s.total + ')', group: 'Skills', color: s.trained ? 'blue' : 'gray', font: 'white', sort: String(s.sort), command: c, tip: '' };
   }
-  var want = { item: true, hb: true, feat: true };
+  var want = { item: true, pas: true };
   try { Object.assign(want, JSON.parse(localStorage.getItem('d4e_mtwant') || '{}')); } catch (e) {}
   function chosen(d) { return d.powers.filter(function (p) { return p.src === 'power' || want[p.src]; }); }
   function allMacros(d) { return chosen(d).map(powerMacro).concat(d.skills.map(skillMacro)); }
@@ -129,10 +129,10 @@
     if (!A() || !A().hasChar()) { alert('먼저 데이터를 불러오고 캐릭터를 골라 주세요.'); return; }
     var d = A().mtData(), box = document.getElementById('mtBox');
     if (!box) { box = document.createElement('div'); box.id = 'mtBox'; box.className = 'mtbox'; document.body.appendChild(box); }
-    var atk = d.powers.filter(function (p) { return !p.nonatk; }).length, cnt = function (k) { return d.powers.filter(function (p) { return p.src === k; }).length; }, nItem = cnt('item'), nHb = cnt('hb'), nFeat = cnt('feat');
+    var atk = d.powers.filter(function (p) { return !p.nonatk; }).length, cnt = function (k) { return d.powers.filter(function (p) { return p.src === k; }).length; }, nItem = cnt('item'), nPas = cnt('pas');
     box.innerHTML = '<div class="mtin"><button class="mtx" data-mt="close" title="닫기">×</button><h3>맵툴로 내보내기</h3>' +
       '<p class="hint">' + he(d.name) + ' · 파워 ' + cnt('power') + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
-      '<div class="mtwant"><b>버튼으로 더 넣을 것</b>' + [['item', '장비 속성 · 파워', nItem], ['hb', '홈브류 특성', nHb], ['feat', '클래스 · 종족 특성 (글로만 된 것)', nFeat]].map(function (w) { return '<label><input type="checkbox" data-mtw="' + w[0] + '"' + (want[w[0]] ? ' checked' : '') + '> ' + w[1] + ' <span class="hint">' + w[2] + '개</span></label>'; }).join('') + '<span class="hint">클래스 · 종족 특성이 주는 파워는 파워에 이미 들어 있어요</span></div>' +
+      '<div class="mtwant"><b>버튼으로 더 넣을 것</b>' + [['item', '장비 파워', nItem], ['pas', '패시브 묶음 (재주 · 특성 · 장비 속성 · 홈브류 …)', nPas]].map(function (w) { return '<label><input type="checkbox" data-mtw="' + w[0] + '"' + (want[w[0]] ? ' checked' : '') + '> ' + w[1] + ' <span class="hint">' + w[2] + '개</span></label>'; }).join('') + '<span class="hint">패시브 묶음은 시트의 「패시브 효과」에서 편집해요. 클래스 · 종족 특성이 주는 파워는 파워에 이미 들어 있어요</span></div>' +
       '<div class="mtrow"><div><b>가) 토큰 파일</b><p class="hint">.rptok 을 받아 맵 위로 끌어다 놓으면 돼요. 「PC 기본」 토큰의 매크로가 그대로 들어 있어요.</p><button data-mt="tok">토큰 파일 받기</button></div>' +
       '<div><b>나) 있는 토큰에 덮어쓰기</b><p class="hint">캠페인에 「시트 불러오기」 매크로를 한 번 넣어 두고, 토큰을 고른 뒤 그 매크로에 글을 붙여 넣어요. 수치와 능력 버튼만 바뀌어요.</p><button data-mt="copy">시트 글 복사</button> <button data-mt="loader">불러오기 매크로 복사</button></div></div>' +
       '<details><summary>수치 미리 보기</summary><div class="mtprev">' + Object.keys(d.props).map(function (k) { return '<span>' + he(k) + ' <b>' + he(d.props[k]) + '</b></span>'; }).join('') + '</div>' +
