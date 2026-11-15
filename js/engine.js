@@ -47,10 +47,12 @@
         var tk = ors[j].trim();
         if (!tk) { ok = true; break; }
         if (tk.charAt(0) === '$') tk = vars[tk] || tk;
-        var cats = el.cat || [], k = lc(tk), cid = db.catName[k];
+        var cats = el.cat || [], k = lc(tk), cid = db.catName[k], named = db.byName[k] || [];
         if (el.id === tk || lc(el.n) === k) ok = true;
         for (var c = 0; c < cats.length && !ok; c++) {
           if (cats[c] === tk || lc(cats[c]) === k || (cid && cats[c] === cid)) ok = true;
+          /* 분류 이름이 다른 요소의 이름일 때(예: Human Power Selection): 그 요소의 id 를 분류로 가진 것도 맞는다 */
+          for (var q = 0; q < named.length && !ok; q++) if (named[q].id === cats[c]) ok = true;
         }
       }
       if (!ok) return false;
@@ -234,7 +236,7 @@
 
   /* 고르기 칸의 후보 목록 */
   function options(db, sel, vars) {
-    return (db.byType[sel.type] || []).filter(function (e) { return matchCategory(db, e, sel.category, vars || {}); });
+    return (db.byType[sel.type] || []).filter(function (e) { return e.id !== sel.from && matchCategory(db, e, sel.category, vars || {}); });
   }
 
   var api = { Db: Db, build: build, options: options, matchCategory: matchCategory, evalRequires: evalRequires, ABILITIES: ABILITIES };
