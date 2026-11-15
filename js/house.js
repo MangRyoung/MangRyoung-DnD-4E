@@ -10,7 +10,7 @@
   var docs = {}, orig = {}, editing = null;
   /* 세팅(룰 세트): 캠페인마다 메이킹 룰과 하우스룰이 다를 수 있다. kind dnd4e_cfg 의 set_* 문서 = {name, points, level, memo}.
    * 하우스룰 문서의 set 이 비어 있으면 모든 세팅 공통, 있으면 그 세팅에서만 적용된다. */
-  var CFG = 'dnd4e_cfg', sets = {}, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
+  var CFG = 'dnd4e_cfg', sets = { set_bidan: { name: '비단화살 룰', points: 22, level: 1, memo: '' } }, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
   var DEFAULT_SETS = { set_bidan: { name: '비단화살 룰', points: 22, level: 1, memo: '' } };
   function setOf(id) { return sets[id] || sets[Object.keys(sets)[0]] || DEFAULT_SETS.set_bidan; }
   function setIds() { return Object.keys(sets).sort(function (a, b) { return sets[a].name < sets[b].name ? -1 : 1; }); }

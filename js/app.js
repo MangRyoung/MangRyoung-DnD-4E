@@ -152,7 +152,8 @@
     var skl = '<div class="skills">';
     (db.byType['Skill'] || []).slice().sort(function (a, b) { return a.n < b.n ? -1 : 1; }).forEach(function (sk) {
       var v = s[lc(sk.n)] || 0, tr = (s[lc(sk.n + ' trained')] || 0) > 0;
-      skl += '<div class="skl' + (tr ? ' tr' : '') + '" data-why="' + esc(lc(sk.n)) + '"><span>' + esc(nm(sk)) + '</span><b>' + (v >= 0 ? '+' : '') + v + '</b></div>'; });
+      var kn = koName('Skill', sk.n);
+      skl += '<div class="skl' + (tr ? ' tr' : '') + '" data-why="' + esc(lc(sk.n)) + '"><span>' + esc(kn || sk.n) + (kn ? ' <small>' + esc(sk.n) + '</small>' : '') + '</span><b>' + (v >= 0 ? '+' : '') + v + '</b></div>'; });
     skl += '</div>';
     h += '<div class="two">' + sec('abil', '능력치', ab) + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + '</div>';
     var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }), pb = '';
