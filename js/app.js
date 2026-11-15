@@ -129,14 +129,53 @@
   function pedKeys(e) { var sp = e.sp || {}, keys = [], seen = {}, add = function (k) { if (!seen[k]) { seen[k] = 1; keys.push(k); } };
     PED_FIELDS.forEach(function (k) { if (k === 'Target' && sp['Targets'] != null && sp['Target'] == null) k = 'Targets'; add(k); });
     Object.keys(sp).forEach(function (k) { if (k.charAt(0) !== '_' && !/^(Display|Class|Level|Power Type|type|Full Text)$/.test(k)) add(k); }); return keys; }
+  /* 성능 고치기 창: 자주 쓰는 값은 단추 · 목록으로 고르고, 글 칸은 그 결과를 담는다(직접 고쳐도 됨) */
+  var PED_ACT = ['Standard Action', 'Move Action', 'Minor Action', 'Free Action', 'Immediate Interrupt', 'Immediate Reaction', 'Opportunity Action', 'No Action'];
+  var PED_RANGE = [['Melee weapon', '근접 무기', 0], ['Melee touch', '근접 접촉', 0], ['Melee', '근접 N', 1], ['Ranged weapon', '원거리 무기', 0], ['Ranged', '원거리 N', 1], ['Close burst', '근거리 폭발 N', 1], ['Close blast', '근거리 분사 N', 1], ['Area burst', '범위 폭발 N (M칸 안)', 2], ['Area wall', '범위 벽 N (M칸 안)', 2], ['Personal', '자신', 0]];
+  var vocabOf = function (k, n) { return window.D4EApp ? window.D4EApp.vocab(k, n) : []; };
   function pedForm(e) {
-    var ed = ((cur.ed || {})[e.id] || {}).f || {}, sp = e.sp || {}, h = '<div class="gc misc trform pedform" data-id="' + esc(e.id) + '"><div class="gh"><span class="pn">' + esc(e.n) + ' · 성능 고치기</span><span class="pd">이 시트에서만 바뀌어요. 공격 · 피해 계산과 맵툴 내보내기에도 반영돼요</span></div><div class="tfs">';
-    pedKeys(e).forEach(function (k) { var o = sp[k] == null ? '' : String(sp[k]), v = ed[k] != null ? ed[k] : o, one = /^(Power Usage|Keywords|Action Type|Attack Type|Attack)$/.test(k);
-      h += '<div class="tf' + (ed[k] != null ? ' chg' : '') + '"><b>' + esc(PED_KO[k] || gloss(k) || ROW_KO[k] || k) + '</b>' + (o ? '<div class="to">' + esc(o) + '</div>' : '') +
-        (one ? '<input type="text" data-pk="' + esc(k) + '" value="' + esc(v) + '">' : '<textarea data-pk="' + esc(k) + '">' + esc(v) + '</textarea>') + '</div>'; });
-    return h + '</div><p class="hint" style="margin:4px 10px">공격은 「Charisma vs. Will」, 명중은 「2[W] + Strength modifier damage」나 「2d6 + Charisma modifier damage」처럼 원문 꼴로 적으면 수치가 다시 계산돼요. 칸을 비우면 그 줄이 빠져요.</p>' +
+    var ed = ((cur.ed || {})[e.id] || {}).f || {}, sp = e.sp || {}, AB = E.ABILITIES, opt = function (v, l, on) { return '<option value="' + esc(v) + '"' + (on ? ' selected' : '') + '>' + esc(l) + '</option>'; };
+    var h = '<div class="gc misc trform pedform" data-id="' + esc(e.id) + '"><div class="gh"><span class="pn">' + esc(e.n) + ' · 성능 고치기</span><span class="pd">이 시트에서만 바뀌어요. 공격 · 피해 계산과 맵툴 내보내기에도 반영돼요</span></div><div class="tfs">';
+    var chips = function (k, list, cur0, multi) { return '<div class="kwbox">' + list.map(function (w) { var on = multi ? cur0.split(',').map(function (x) { return lc(x.trim()); }).indexOf(lc(w)) >= 0 : lc(cur0) === lc(w), g = gsub(w);
+      return '<button type="button" class="opt' + (on ? ' on' : '') + '" data-' + (multi ? 'ptog' : 'pset') + '="' + esc(k) + '" data-v="' + esc(w) + '" title="' + esc(w) + '">' + esc(g !== w ? g : (ACT_KO[lc(w)] || w)) + '</button>'; }).join('') + '</div>'; };
+    pedKeys(e).forEach(function (k, n) { var o = sp[k] == null ? '' : String(sp[k]), v = ed[k] != null ? ed[k] : o, help = '', one = true, dl = '';
+      if (k === 'Power Usage') help = chips(k, ['At-Will', 'Encounter', 'Daily'], /daily/i.test(v) ? 'Daily' : /encounter/i.test(v) ? 'Encounter' : 'At-Will');
+      else if (k === 'Keywords') help = chips(k, vocabOf('Keywords', 48), v, true);
+      else if (k === 'Action Type') help = chips(k, PED_ACT, v);
+      else if (k === 'Attack Type') { var rm = /^(Melee weapon|Melee touch|Ranged weapon|Personal|Melee|Ranged|Close burst|Close blast|Area burst|Area wall)\s*(\d+)?(?:\s+within\s+(\d+))?/i.exec(v) || [];
+        help = '<div class="pbld" data-pbuild="range"><select data-r="k">' + opt('', '직접 적기', !rm[1]) + PED_RANGE.map(function (r) { return opt(r[0], r[1], lc(rm[1] || '') === lc(r[0])); }).join('') + '</select><label>N <input type="number" min="1" max="30" data-r="n" value="' + esc(rm[2] || '') + '"></label><label>M칸 안 <input type="number" min="1" max="30" data-r="m" value="' + esc(rm[3] || '') + '"></label></div>'; }
+      else if (k === 'Attack') { var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)(\s*[+-]\s*\d+)?\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(v) || [];
+        help = '<div class="pbld" data-pbuild="atk"><select data-a="ab">' + opt('', '공격 굴림 없음', !am[1]) + AB.map(function (a) { return opt(a, a.slice(0, 3).toUpperCase() + ' ' + AB_KO[a], lc(am[1] || '') === lc(a)); }).join('') + '</select><label>보정 <input type="number" min="-10" max="10" data-a="mod" value="' + esc((am[2] || '').replace(/\s/g, '')) + '"></label><span>vs</span><select data-a="def">' + ['AC', 'Fortitude', 'Reflex', 'Will'].map(function (d) { return opt(d, d === 'AC' ? 'AC' : d.slice(0, 4).replace('Refl', 'Ref').replace('Will', 'Will'), lc(am[3] || 'AC') === lc(d)); }).join('') + '</select></div>'; }
+      else if (k === 'Hit') { one = false; var hm = /^(\d+)\s*(\[W\]|d\d+)(?:\s*\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier)?\s*(\w+(?: and \w+)?)?\s*damage/i.exec(v) || [];
+        help = '<div class="pbld" data-pbuild="hit"><label>피해 <input type="number" min="1" max="12" data-h="n" value="' + esc(hm[1] || '1') + '"></label><select data-h="die">' + ['[W]', 'd4', 'd6', 'd8', 'd10', 'd12'].map(function (d) { return opt(d, d === '[W]' ? '[W] 무기 주사위' : d, lc(hm[2] || '[W]') === lc(d)); }).join('') + '</select><span>+</span><select data-h="ab">' + opt('', '능력치 없음', !hm[3]) + AB.map(function (a) { return opt(a, a.slice(0, 3).toUpperCase() + ' ' + AB_KO[a], lc(hm[3] || '') === lc(a)); }).join('') + '</select>' +
+          '<input type="text" data-h="type" list="pedDT" placeholder="피해 종류 (없어도 됨)" value="' + esc(hm[4] && !/^modifier$/i.test(hm[4]) ? hm[4] : '') + '"><datalist id="pedDT">' + ['fire', 'cold', 'lightning', 'thunder', 'radiant', 'necrotic', 'psychic', 'force', 'poison', 'acid'].map(function (d) { return '<option value="' + d + '" label="' + esc(gsub(d)) + '">'; }).join('') + '</datalist><button type="button" class="mini ghost" data-h="go">피해 줄에 넣기</button></div>'; }
+      else if (k === 'Target' || k === 'Targets') help = chips(k, vocabOf(sp['Targets'] != null ? 'Targets' : 'Target', 10).concat(vocabOf('Target', 10)).filter(function (x, i2, a) { return a.indexOf(x) === i2; }).slice(0, 10), v);
+      else if (k === 'Miss') { one = false; help = chips(k, vocabOf('Miss', 6), v); }
+      else if (k === 'Trigger' || k === 'Requirement') { one = false; dl = 'pedL' + n; help = '<datalist id="' + dl + '">' + vocabOf(k, 40).map(function (w) { return '<option value="' + esc(w) + '">'; }).join('') + '</datalist>'; one = true; }
+      else one = false;
+      h += '<div class="tf' + (ed[k] != null ? ' chg' : '') + '"><b>' + esc(PED_KO[k] || gloss(k) || ROW_KO[k] || k) + '</b>' + (o && o !== v ? '<div class="to">원래: ' + esc(o) + '</div>' : '') + help +
+        (one ? '<input type="text" data-pk="' + esc(k) + '" value="' + esc(v) + '"' + (dl ? ' list="' + dl + '" placeholder="적거나 목록에서 골라요"' : '') + '>' : '<textarea data-pk="' + esc(k) + '">' + esc(v) + '</textarea>') + '</div>'; });
+    return h + '</div><p class="hint" style="margin:4px 10px">단추와 목록으로 고르면 아래 글 칸이 채워져요. 글 칸을 직접 고쳐도 되고, 비우면 그 줄이 빠져요. 공격과 명중의 피해 줄은 이 꼴이어야 수치가 다시 계산돼요.</p>' +
       '<div class="trb" data-id="' + esc(e.id) + '"><button class="mini" data-tr="pedsave">저장</button>' + ((cur.ed || {})[e.id] ? '<button class="mini ghost" data-tr="peddel">원래대로</button>' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button></div></div>';
   }
+  /* 성능 고치기 창의 단추 · 목록 → 글 칸 */
+  (function () {
+    var fld = function (form, k) { return form.querySelector('[data-pk="' + k + '"]'); };
+    var build = function (bx) { var form = bx.closest('.pedform'), kind = bx.getAttribute('data-pbuild'), g = function (a, k) { var x = bx.querySelector('[data-' + a + '="' + k + '"]'); return x ? x.value : ''; };
+      if (kind === 'atk') { var ab = g('a', 'ab'), md = +g('a', 'mod') || 0; fld(form, 'Attack').value = ab ? ab + (md ? ' ' + (md > 0 ? '+ ' : '- ') + Math.abs(md) : '') + ' vs. ' + g('a', 'def') : ''; }
+      if (kind === 'range') { var rk = g('r', 'k'), def = PED_RANGE.filter(function (r) { return r[0] === rk; })[0]; if (!def) return; var n = g('r', 'n') || '1', m = g('r', 'm') || '10';
+        fld(form, 'Attack Type').value = def[2] === 0 ? rk : def[2] === 1 ? rk + ' ' + n : rk + ' ' + n + ' within ' + m + ' squares'; } };
+    document.addEventListener('change', function (ev) { var bx = ev.target.closest && ev.target.closest('.pedform [data-pbuild]'); if (bx && bx.getAttribute('data-pbuild') !== 'hit') build(bx); });
+    document.addEventListener('input', function (ev) { var bx = ev.target.closest && ev.target.closest('.pedform [data-pbuild]'); if (bx && bx.getAttribute('data-pbuild') !== 'hit' && ev.target.type === 'number') build(bx); });
+    document.addEventListener('click', function (ev) { var t = ev.target; if (!t.closest || !t.closest('.pedform')) return; var form = t.closest('.pedform');
+      if (t.hasAttribute('data-pset')) { ev.preventDefault(); var k = t.getAttribute('data-pset'), f = fld(form, k), was = t.classList.contains('on'); t.parentNode.querySelectorAll('.opt').forEach(function (x) { x.classList.remove('on'); });
+        if (was && k !== 'Power Usage' && k !== 'Action Type') f.value = ''; else { f.value = t.getAttribute('data-v'); t.classList.add('on'); } return; }
+      if (t.hasAttribute('data-ptog')) { ev.preventDefault(); var f2 = fld(form, t.getAttribute('data-ptog')), v = t.getAttribute('data-v'), list = f2.value.split(',').map(function (x) { return x.trim(); }).filter(Boolean), i = list.map(lc).indexOf(lc(v));
+        if (i >= 0) list.splice(i, 1); else list.push(v); f2.value = list.join(', '); t.classList.toggle('on', i < 0); return; }
+      if (t.getAttribute('data-h') === 'go') { ev.preventDefault(); var bx = t.closest('[data-pbuild]'), g = function (k) { return bx.querySelector('[data-h="' + k + '"]').value; }, die = g('die'), ab = g('ab'), ty = g('type').trim();
+        var line = g('n') + die + (ab ? ' + ' + ab + ' modifier' : '') + (ty ? ' ' + ty : '') + ' damage', f3 = fld(form, 'Hit'), old = f3.value, re = /^\d+\s*(\[W\]|d\d+)[^.,\n]*?damage/i;
+        f3.value = re.test(old) ? old.replace(re, line) : line + (old ? (/^[,.]/.test(old) ? '' : '. ') + old : '.'); } });
+  })();
   function trBar(e) {
     var has = glossAuto || !!TR(e), isP = e.t === 'Power' && e.sp && e.sp['Power Usage'], edd = isP && calcCtx && calcCtx.ch && calcCtx.ch.ed && calcCtx.ch.ed[e.id]; if (!has && !trCtx.edit && !edd) return '';
     return '<div class="trb" data-id="' + esc(e.id) + '">' + (has ? '<span class="trtab"><button data-tr="vtr" class="' + (trOrig[e.id] ? '' : 'on') + '">번역</button><button data-tr="vor" class="' + (trOrig[e.id] ? 'on' : '') + '">원문</button></span>' : '') +
