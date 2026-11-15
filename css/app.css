@@ -195,3 +195,7 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 #featBox{margin-top:6px}details.ft.cfd>summary{font-size:13.5px}details.ft.cfd>summary .hint{font-weight:400}details.ft.cfd>.gc{margin:0 8px 8px;border-radius:8px}
 @media (max-width:480px){.abstrip{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .verbar{position:sticky;top:0;z-index:30;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap;background:var(--acc);color:#fff;padding:6px 12px;font-size:14px}.verbar button{background:#fff;color:var(--acc)}
+/* 하우스룰 칸 편집 */
+.kv2{border:1px solid var(--line);border-radius:8px;padding:6px 8px;margin:6px 0;background:var(--bg)}.kv2 .kh{display:flex;gap:6px;align-items:center;margin-bottom:4px}.kv2 .kh b{min-width:64px;font-size:13.5px;color:var(--acc)}
+.kv2 .kh input{flex:1;font-size:12.5px;color:var(--sub);padding:2px 6px}.kv2 textarea,.kv2>input{width:100%}.kwbox{display:flex;flex-wrap:wrap;gap:0 2px;margin-bottom:4px}.kwbox .opt{font-size:12.5px}
+.atk{display:flex;gap:6px;align-items:center;margin-bottom:4px}.atk select{width:auto;flex:1}

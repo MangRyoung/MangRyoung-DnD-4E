@@ -139,7 +139,7 @@
     h += '<label>분류 꼬리표 (쉼표로 나눔 · 고르기 칸의 필터가 이것을 봐요)</label><input type="text" id="hfC">';
     h += '<label>풍미 글</label><input type="text" id="hfF">';
     h += '<label>설명</label><textarea id="hfB"></textarea>';
-    h += '<label>칸 (시트와 고르기 창에 「이름: 내용」으로 보여요)</label><div id="hfSp"></div><button class="mini ghost" id="hfSpAdd">칸 더하기</button>';
+    h += '<label>칸 (카드에 줄로 보여요. 빈 칸은 저장할 때 빠져요)</label><div id="hfSp"></div><button class="mini ghost" id="hfSpAdd">칸 더하기</button>';
     h += '<label>규칙 (시트 계산에 쓰여요)</label><div id="hfR"></div><button class="mini ghost" id="hfRAdd">규칙 더하기</button>';
     h += '<div class="acts"><button id="hfSave">저장해서 팀에 반영</button><button id="hfPrev" class="ghost">미리 보기</button><button id="hfCancel" class="ghost">그만두기</button></div><div id="hfCard" style="margin-top:10px"></div></div>';
     box.innerHTML = h;
@@ -154,15 +154,44 @@
     $('hfN').value = el.n || ''; $('hfT').value = el.t || ''; showPw(); $('hfS').value = (el.src || []).join(', '); $('hfP').value = el.pp || el.pre || '';
     $('hfC').value = (el.cat || []).join(', '); $('hfF').value = el.fl || ''; $('hfB').value = el.body || '';
     var sp = Object.keys(el.sp).map(function (k) { return [k, el.sp[k]]; });
+    /* 파워 칸: 자주 쓰는 값은 목록에서 고른다. 목록은 불러온 데이터에서 많이 쓰인 순으로 뽑는다. */
+    var KNOWN = ['Keywords', 'Action Type', 'Attack Type', 'Trigger', 'Requirement', 'Target', 'Attack', 'Hit', 'Miss', 'Effect', 'Sustain Minor', 'Special'];
+    var LAB = { 'Keywords': '키워드', 'Action Type': '행동 유형', 'Attack Type': '공격 유형', 'Target': '대상', 'Attack': '공격', 'Hit': '명중', 'Miss': '빗나감', 'Effect': '효과', 'Trigger': '유발 조건', 'Requirement': '요구 조건', 'Special': '특별', 'Sustain Minor': '유지 (보조)', 'Short Description': '요약', 'Benefit': '혜택' };
+    var koMode = localStorage.getItem('d4e_hko') === '1', val = function (x) { return koMode ? app.gsub(x) : x; };
     function drawSp() {
       var b = $('hfSp'); b.innerHTML = '';
+      var top = document.createElement('label'); top.className = 'hint'; top.innerHTML = '<input type="checkbox"' + (koMode ? ' checked' : '') + '> 목록에서 고른 값을 용어집의 한국어로 넣기';
+      top.querySelector('input').onchange = function (ev) { koMode = ev.target.checked; localStorage.setItem('d4e_hko', koMode ? '1' : '0'); drawSp(); }; b.appendChild(top);
       sp.forEach(function (kv, i) {
-        var row = document.createElement('div'); row.className = 'kv';
-        var k = document.createElement('input'); k.type = 'text'; k.placeholder = '칸 이름'; k.value = kv[0]; k.oninput = function () { kv[0] = k.value; };
-        var v = document.createElement('textarea'); v.style.minHeight = '34px'; v.placeholder = '내용'; v.value = kv[1]; v.oninput = function () { kv[1] = v.value; };
-        var x = document.createElement('button'); x.className = 'mini ghost'; x.textContent = '빼기'; x.onclick = function () { sp.splice(i, 1); drawSp(); };
-        row.appendChild(k); row.appendChild(v); row.appendChild(x); b.appendChild(row);
+        var key = kv[0], row = document.createElement('div'); row.className = 'kv2';
+        var head = document.createElement('div'); head.className = 'kh';
+        var k = document.createElement('input'); k.type = 'text'; k.placeholder = '칸 이름'; k.value = key; k.setAttribute('list', 'hfKeys'); k.onchange = function () { kv[0] = k.value.trim(); drawSp(); };
+        var lab = document.createElement('b'); lab.textContent = LAB[key] || ''; var x = document.createElement('button'); x.className = 'mini ghost'; x.textContent = '빼기'; x.onclick = function () { sp.splice(i, 1); drawSp(); };
+        head.appendChild(lab); head.appendChild(k); head.appendChild(x); row.appendChild(head);
+        var set = function (v) { kv[1] = v; };
+        if (key === 'Keywords') {
+          var have = String(kv[1] || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean), box = document.createElement('div'); box.className = 'kwbox';
+          var inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = '쉼표로 나눠 직접 적어도 돼요'; inp.value = kv[1] || ''; inp.oninput = function () { set(inp.value); };
+          app.vocab('Keywords', 44).forEach(function (w) { var shown = val(w), on = have.indexOf(w) >= 0 || have.indexOf(shown) >= 0, o = document.createElement('button'); o.className = 'opt' + (on ? ' on' : ''); o.textContent = app.gsub(w) !== w ? app.gsub(w) + ' ' + w : w;
+            o.onclick = function () { var cur = String(kv[1] || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean); var at = cur.indexOf(w) >= 0 ? cur.indexOf(w) : cur.indexOf(shown); if (at >= 0) cur.splice(at, 1); else cur.push(shown); set(cur.join(', ')); drawSp(); }; box.appendChild(o); });
+          row.appendChild(box); row.appendChild(inp);
+        } else if (key === 'Attack') {
+          var line = document.createElement('div'); line.className = 'atk'; var m = /^(\w+)\s+vs\.?\s+(\w+)/i.exec(kv[1] || '');
+          var mk = function (opts, cur0) { var sl = document.createElement('select'); sl.innerHTML = '<option value="">—</option>' + opts.map(function (o) { return '<option' + (cur0 && cur0.toLowerCase() === o.toLowerCase() ? ' selected' : '') + '>' + o + '</option>'; }).join(''); return sl; };
+          var a1 = mk(['Strength', 'Constitution', 'Dexterity', 'Intelligence', 'Wisdom', 'Charisma'], m && m[1]), d1 = mk(['AC', 'Fortitude', 'Reflex', 'Will'], m && m[2]), t1 = document.createElement('input'); t1.type = 'text'; t1.value = kv[1] || ''; t1.placeholder = 'Strength vs. AC';
+          var sync = function () { if (a1.value && d1.value) { t1.value = val(a1.value + ' vs. ' + d1.value); set(t1.value); } }; a1.onchange = sync; d1.onchange = sync; t1.oninput = function () { set(t1.value); };
+          var vs = document.createElement('span'); vs.textContent = 'vs.'; line.appendChild(a1); line.appendChild(vs); line.appendChild(d1); row.appendChild(line); row.appendChild(t1);
+        } else if (/^(Action Type|Attack Type|Target|Trigger|Requirement)$/.test(key)) {
+          var id = 'hfL' + i, dl = document.createElement('datalist'); dl.id = id; app.vocab(key, key === 'Action Type' ? 10 : 40).forEach(function (w) { var o = document.createElement('option'); o.value = val(w); if (!koMode && app.gsub(w) !== w) o.label = app.gsub(w); dl.appendChild(o); });
+          var t2 = document.createElement('input'); t2.type = 'text'; t2.setAttribute('list', id); t2.value = kv[1] || ''; t2.placeholder = '눌러서 목록에서 고르거나 직접 적기'; t2.oninput = function () { set(t2.value); };
+          var quick = document.createElement('div'); quick.className = 'kwbox'; app.vocab(key, key === 'Action Type' ? 8 : 10).forEach(function (w) { var o = document.createElement('button'); o.className = 'opt' + ((kv[1] || '') === val(w) ? ' on' : ''); o.textContent = app.gsub(w); o.title = w; o.onclick = function () { set(val(w)); drawSp(); }; quick.appendChild(o); });
+          row.appendChild(quick); row.appendChild(t2); row.appendChild(dl);
+        } else {
+          var v = document.createElement('textarea'); v.style.minHeight = /^(Hit|Miss|Effect|Special)$/.test(key) ? '54px' : '34px'; v.placeholder = '내용'; v.value = kv[1]; v.oninput = function () { set(v.value); }; row.appendChild(v);
+        }
+        b.appendChild(row);
       });
+      if (!$('hfKeys')) { var kl = document.createElement('datalist'); kl.id = 'hfKeys'; KNOWN.concat(['Short Description', 'Benefit', 'Prerequisite']).forEach(function (kk) { var o = document.createElement('option'); o.value = kk; o.label = LAB[kk] || ''; kl.appendChild(o); }); document.body.appendChild(kl); }
     }
     function drawR() {
       var b = $('hfR'); b.innerHTML = '';
