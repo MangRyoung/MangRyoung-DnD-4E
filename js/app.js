@@ -407,7 +407,7 @@
     var hasShared = mine && D4EHouse.custom(db).length > 0;
     var hbSec = (hb || mine) ? sec('hb', '홈브류 특성 <span class="hint">' + items.length + '</span>', (hb || (mine && hbEditing !== 'new' ? '<p class="hint">이 캐릭터만의 능력을 여기에 적어요.</p>' : '')) +
       (mine ? (hbEditing === 'new' ? hxForm() : '<div class="hb-bar"><button class="mini" data-hxadd="1">+ 추가</button>' + (hasShared ? '<button class="mini ghost" data-hbadd="1">공용에서 고르기</button>' : '') + '</div>') : '')) : '';
-    return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') + hbSec +
+    return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') + hbSec + (function () { var lg = ownedOf(r, 'Language'); return lg.length ? sec('lang', '언어 <span class="hint">' + lg.length + '</span>', '<div class="ltags">' + lg.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + '</span>'; }).join('') + '</div>') : ''; })() +
       (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
   }
   function sheetHtml(ch, r, who) {
@@ -435,8 +435,7 @@
     skl += '</div>';
     var strip = '<div class="abstrip">' + E.ABILITIES.map(function (a) { var v = s[lc(a)] || 10, m = Math.floor((v - 10) / 2);
       return '<div data-why="' + lc(a) + '" title="' + AB_KO[a] + ' · 레벨 절반 더하면 ' + (m + half >= 0 ? '+' : '') + (m + half) + '"><small>' + a.slice(0, 3).toUpperCase() + '</small><b>' + v + '</b><i>' + (m >= 0 ? '+' : '') + m + '</i></div>'; }).join('') + '</div>';
-    var lg = ownedOf(r, 'Language');
-    h += strip + sec('skill', '기술 <span class="hint">● 숙련</span>' + (lg.length ? '<span class="sklang"><small>언어</small> ' + lg.map(function (e) { return '<i data-el="' + esc(e.id) + '">' + esc(koName('Language', e.n) || e.n) + '</i>'; }).join(', ') + '</span>' : ''), skl);
+    h += strip + sec('skill', '기술 <span class="hint">● 숙련</span>', skl);
     if (who) h += extraHtml(ch, r);
     var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }).map(function (p) { return eff(p, ch); }), pb = '';
     [['at', '무제한'], ['enc', '조우'], ['day', '일일'], ['util', '활용']].forEach(function (g) {
