@@ -140,7 +140,7 @@
     h += '<label>풍미 글</label><input type="text" id="hfF">';
     h += '<label>설명</label><textarea id="hfB"></textarea>';
     h += '<label>칸 (카드에 줄로 보여요. 빈 칸은 저장할 때 빠져요)</label><div id="hfSp"></div><button class="mini ghost" id="hfSpAdd">칸 더하기</button>';
-    h += '<label>규칙 (시트 계산에 쓰여요)</label><div id="hfR"></div><button class="mini ghost" id="hfRAdd">규칙 더하기</button>';
+    h += '<label>규칙 (시트 계산에 쓰여요)</label><div id="hfR"></div><button class="mini ghost" id="hfRAdd">규칙 더하기</button> <span class="hfq"><span class="hint">빠른 규칙:</span> <select id="hfQU"><option value="at-will">무제한 파워</option><option value="encounter">조우 파워</option><option value="daily">일일 파워</option><option value="utility" selected>활용 파워</option></select><input type="text" id="hfQL" placeholder="레벨 (예: 2,6,10 · 비우면 전부)" style="width:190px"><button class="mini ghost" id="hfQAdd">자기 클래스 파워 하나 더 고르기</button></span>';
     h += '<div class="acts"><button id="hfSave">저장해서 팀에 반영</button><button id="hfPrev" class="ghost">미리 보기</button><button id="hfCancel" class="ghost">그만두기</button></div><div id="hfCard" style="margin-top:10px"></div></div>';
     box.innerHTML = h;
     $('hfAll').checked = !!common;
@@ -169,7 +169,15 @@
         var lab = document.createElement('b'); lab.textContent = LAB[key] || ''; var x = document.createElement('button'); x.className = 'mini ghost'; x.textContent = '빼기'; x.onclick = function () { sp.splice(i, 1); drawSp(); };
         head.appendChild(lab); head.appendChild(k); head.appendChild(x); row.appendChild(head);
         var set = function (v) { kv[1] = v; };
-        if (key === 'Keywords') {
+        if (key === '분류') {
+          var cb = document.createElement('div'); cb.className = 'kwbox'; var ci = document.createElement('input'); ci.type = 'text'; ci.value = kv[1] || ''; ci.placeholder = '분류 이름 (직접 적어도 돼요)'; ci.oninput = function () { set(ci.value); };
+          ['공격', '생존', '활용', '공용'].forEach(function (w) { var o = document.createElement('button'); o.className = 'opt' + ((kv[1] || '') === w ? ' on' : ''); o.textContent = w; o.onclick = function () { set(w); drawSp(); }; cb.appendChild(o); }); row.appendChild(cb); row.appendChild(ci);
+        } else if (key === '단계' || key === '대상 캐릭터') {
+          var oi = document.createElement('input'); oi.type = 'text'; oi.value = kv[1] || ''; oi.placeholder = key === '단계' ? '예: 1, 2, 1-2 (앞 단계를 강화하는 것은 1-2 처럼)' : '캐릭터 이름. 비우면 모두가 고를 수 있어요. 여럿이면 쉼표로';
+          if (key === '대상 캐릭터') { oi.setAttribute('list', 'hfWho'); if (!$('hfWho')) { var wl = document.createElement('datalist'); wl.id = 'hfWho'; document.body.appendChild(wl); }
+            $('hfWho').innerHTML = (app.charNames ? app.charNames() : []).map(function (n) { return '<option value="' + app.esc(n) + '">'; }).join(''); }
+          oi.oninput = function () { set(oi.value); }; row.appendChild(oi);
+        } else if (key === 'Keywords') {
           var have = String(kv[1] || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean), box = document.createElement('div'); box.className = 'kwbox';
           var inp = document.createElement('input'); inp.type = 'text'; inp.placeholder = '쉼표로 나눠 직접 적어도 돼요'; inp.value = kv[1] || ''; inp.oninput = function () { set(inp.value); };
           app.vocab('Keywords', 44).forEach(function (w) { var shown = val(w), on = have.indexOf(w) >= 0 || have.indexOf(shown) >= 0, o = document.createElement('button'); o.className = 'opt' + (on ? ' on' : ''); o.textContent = app.gsub(w) !== w ? app.gsub(w) + ' ' + w : w;
@@ -191,7 +199,7 @@
         }
         b.appendChild(row);
       });
-      if (!$('hfKeys')) { var kl = document.createElement('datalist'); kl.id = 'hfKeys'; KNOWN.concat(['Short Description', 'Benefit', 'Prerequisite']).forEach(function (kk) { var o = document.createElement('option'); o.value = kk; o.label = LAB[kk] || ''; kl.appendChild(o); }); document.body.appendChild(kl); }
+      if (!$('hfKeys')) { var kl = document.createElement('datalist'); kl.id = 'hfKeys'; KNOWN.concat(['Short Description', 'Benefit', 'Prerequisite', '분류', '단계', '대상 캐릭터']).forEach(function (kk) { var o = document.createElement('option'); o.value = kk; o.label = LAB[kk] || ''; kl.appendChild(o); }); document.body.appendChild(kl); }
     }
     function drawR() {
       var b = $('hfR'); b.innerHTML = '';
@@ -224,6 +232,8 @@
     drawSp(); drawR();
     $('hfSpAdd').onclick = function () { sp.push(['', '']); drawSp(); };
     $('hfRAdd').onclick = function () { el.r.push(['statadd', {}]); drawR(); };
+    $('hfQAdd').onclick = function () { var u = $('hfQU').value, lv = $('hfQL').value.split(/[,\s|]+/).filter(function (x) { return /^\d+$/.test(x); });
+      el.r.push(['select', { type: 'Power', number: '1', name: ($('hfN').value.trim() || '홈브류') + ' 파워', category: '$$CLASS,' + u + (lv.length ? ',' + lv.join('|') : '') }]); drawR(); };
     $('hfCancel').onclick = function () { editing = null; box.innerHTML = '<p class="hint">왼쪽에서 고르거나 위 버튼으로 새로 만들어 주세요.</p>'; };
     function collect() {
       var list = function (v) { return v.split(',').map(function (x) { return x.trim(); }).filter(Boolean); };
@@ -293,7 +303,7 @@
   /* 홈브류: 새로 만든 요소(ID_HOUSE_…) 가운데 지금 세팅에서 쓰는 것. 만들기의 「홈브류」 탭에서 PL 이 고른다 */
   function custom(db) { return Object.keys(docs).filter(function (id) { var d = docs[id]; return d.el && /^ID_HOUSE_/.test(id) && !d.off && (!d.set || d.set === appliedSet) && db.byId[id]; }).map(function (id) { return db.byId[id]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; }); }
   function openHouse() { var b = document.querySelector('.tabs [data-tab=house]'); if (b) b.click(); }
-  function newEl(type) { openHouse(); var e = blank(); e.t = type || 'Homebrew Feature'; e.sp = { 'Short Description': '' }; edit(e, true); $('hEdit').scrollIntoView({ behavior: 'smooth' }); }
+  function newEl(type) { openHouse(); var e = blank(); e.t = type || 'Homebrew Feature'; e.sp = { '분류': '', '단계': '', '대상 캐릭터': '', 'Short Description': '' }; if (e.t === 'Power') { e.sp['Power Usage'] = 'Encounter'; e.sp['Action Type'] = 'Standard Action'; } edit(e, true); $('hEdit').scrollIntoView({ behavior: 'smooth' }); }
   function editEl(id) { var d = docs[id]; if (!d || !d.el) return; openHouse(); edit(JSON.parse(JSON.stringify(d.el)), false, d.set ? false : true); $('hEdit').scrollIntoView({ behavior: 'smooth' }); }
   window.D4EHouse = { custom: custom, newEl: newEl, editEl: editEl, CFG: CFG, gm: function () { return gmDoc; }, setGm: function (d) { gmDoc = d; }, teams: function () { return teams; }, glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
 })();
