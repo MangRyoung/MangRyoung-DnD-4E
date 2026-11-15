@@ -59,7 +59,7 @@
   async function refresh() {
     var app = A();
     try { await load(app.db()); } catch (e) { $('hList').innerHTML = '<p class="hint">읽지 못했어요: ' + app.esc(e.message) + '</p>'; return; }
-    renderList(); app.houseChanged();
+    renderList(); app.houseChanged(); $('cfgPoints').value = app.campaign().points;
   }
 
   /* ---------- 고치는 칸 ---------- */
@@ -150,6 +150,9 @@
   }
 
   function start() {
+    var pi = $('cfgPoints');
+    $('cfgSave').onclick = async function () { var n = Math.round(+pi.value); if (!(n >= 0 && n <= 99)) { alert('0~99 사이로 적어 주세요.'); return; }
+      try { await A().setPoints(n); $('cfgMsg').textContent = '저장했어요. 팀 모두에게 반영돼요.'; } catch (e) { $('cfgMsg').textContent = '저장하지 못했어요: ' + e.message; } };
     $('hNew').onclick = function () { edit(blank(), true); };
     $('hRefresh').onclick = refresh;
     $('hFrom').onclick = function () {
