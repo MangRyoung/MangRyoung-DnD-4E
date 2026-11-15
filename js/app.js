@@ -322,13 +322,15 @@
   }
   function wireSheet(box, r) {
     box.onclick = function (ev) {
+      if (ev.target.closest('[data-whyx]')) { box.querySelector('#why').hidden = true; return; }
       if (ev.target.closest('[data-pcall]')) { ev.preventDefault(); var all = box.querySelectorAll('details.pc'), any = false; all.forEach(function (d) { if (!d.open) any = true; }); all.forEach(function (d) { d.open = any; }); return; }
       var w = ev.target.closest('[data-why]'), e = ev.target.closest('[data-el]');
       if (e) { openDetail(db.byId[e.getAttribute('data-el')]); return; }
       if (!w) return;
       var k = w.getAttribute('data-why'), rows = r.breakdown[k] || [], why = box.querySelector('#why');
-      why.hidden = false;
-      why.innerHTML = '<b>' + esc(k) + ' = ' + (r.stats[k] || 0) + '</b><br>' + rows.map(function (x) {
+      if (!why.hidden && why.getAttribute('data-k') === k) { why.hidden = true; return; }
+      why.hidden = false; why.setAttribute('data-k', k);
+      why.innerHTML = '<button class="mini ghost wx" data-whyx="1">닫기</button><b>' + esc(k) + ' = ' + (r.stats[k] || 0) + '</b><br>' + rows.map(function (x) {
         var se = db.byId[x.src], src = !se ? x.src : se.t === 'Level' ? se.n + '레벨 기본 규칙' : se.n + ' (' + typeKo(se.t) + ')';
         return '<span class="' + (x.off ? 'off' : '') + '">' + (x.v >= 0 ? '+' : '') + x.v + ' ' + esc(src) + (x.type ? ' [' + esc(x.type) + ']' : '') + (x.cond ? ' — ' + esc(x.cond) : '') + '</span>';
       }).join('<br>') + '<br><span class="hint">줄 그어진 것은 겹치지 않아 빠졌거나 조건부 보너스예요.</span>';

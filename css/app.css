@@ -214,3 +214,4 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .cnd i{font-style:normal;color:var(--acc);font-size:12px}
 .pc summary{align-items:center}.pc .ps{margin-left:auto;font-size:13px;font-weight:700;background:rgba(255,255,255,.18);border-radius:999px;padding:0 9px;white-space:nowrap}.pc .ps+.pd{margin-left:0}
 .pc .pr.md{background:#e6efe0 !important}.pc .pr.md b{font-size:11.5px;line-height:1.3}select.swp{width:100%;margin-top:2px}
+.why{position:relative}.why .wx{float:right;margin:-2px -2px 4px 8px}
