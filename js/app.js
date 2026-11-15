@@ -22,6 +22,8 @@
     if (m) return ({ Encounter: '조우', Daily: '일일', Utility: '활용', 'At-Will': '무제한' })[m[1]] + ' 파워 (' + m[2] + '레벨)';
     return typeKo(s.type) + (s.name ? ' · ' + s.name : '');
   };
+  var selLabel0 = selLabel; selLabel = function (s) { return selLabel0(s) + (s.swap ? ' 교체' : '');
+  };
   /* 이름 번역: 「한국어 (English)」. 번역표에 없으면 영어 그대로. */
   /* 팀 용어집(영어 → 한국어). 클래스 · 기술 이름과 카드의 칸 이름에 먼저 쓴다. */
   var gloss = function (en) { var G = gloss.map; if (!G || gloss.src !== D4EHouse.glossary()) { G = gloss.map = {}; gloss.src = D4EHouse.glossary(); gloss.src.forEach(function (p) { G[lc(p[0])] = p[1]; }); } return G[lc(en)] || ''; };
@@ -187,7 +189,9 @@
     var atk = half + mod(am[1]) + prof + enh + ga.sum;
     var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), Dp = [];
     var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4];
-    if (dm) dice = (+dm[1] * +die[1]) + 'd' + die[2]; else { var d2 = /(\d+d\d+)/.exec(hit); if (d2) dice = d2[1]; }
+    var cut = hit.search(/damage/i), head = cut >= 0 ? hit.slice(0, cut) : hit, terms = [], maxDice = 0, tk, tre = /(\d+)\[W\]|(\d+)d(\d+)/g;
+    while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; }
+    dice = terms.join('+');
     if (mm) Dp.push({ v: mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' });
     if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
     var two = isW && W && /versatile/i.test(wsp['Properties'] || '') && !(ch.eq || {}).off; if (two) Dp.push({ v: 1, label: '양손으로 쥠 (Versatile, 보조 손이 비어 있음)' });
@@ -196,7 +200,7 @@
     var dmg = dice ? dice + (dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '') : (isDmg && dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '');
     /* 치명타: 주사위 최댓값 + 보정, 그리고 강화 +N 마다 추가 주사위(마법 무기에 치명타 칸이 있으면 그 글), High Crit 무기는 [W] 추가 */
     var crit = '';
-    if (dice) { var dd = /(\d+)d(\d+)/.exec(dice), mx = +dd[1] * +dd[2] + dbonus, ex = [];
+    if (dice) { var mx = maxDice + dbonus, ex = [];
       if (enh) ex.push(itemEnh >= inh && enhItem && (enhItem.sp || {})['Critical'] ? (enhItem.sp['Critical']) : '+' + enh + 'd6');
       if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
       crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
@@ -207,7 +211,7 @@
     var isW = /(^|,)\s*weapon/.test(kws), isI = /(^|,)\s*implement/.test(kws), W = isW ? db.byId[q.main] : null, I = isI ? db.byId[q.impl] || null : null;
     var main = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Attack'] || sp['Primary Attack'], sp['Hit']); if (!main) return null;
     var out = { main: main }, off = db.byId[q.off];
-    if (isW && off && off.t === 'Weapon') out.off = calcAttack(p, ctx, off, null, null, sp['Attack'] || sp['Primary Attack'], sp['Hit']);
+    if (isW && off && off.t === 'Weapon') out.off = calcAttack(p, ctx, off, null, db.byId[q.offM] || null, sp['Attack'] || sp['Primary Attack'], sp['Hit']);
     if (sp['Secondary Attack']) out.sec = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Secondary Attack'], '');
     return out;
   }
@@ -242,6 +246,8 @@
     var sp = p.sp || {}, cls = usageClass(p), act = sp['Action Type'] || '', rows = [], seen = {};
     var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : gloss(k.trim()) || ROW_KO[k.trim()] || k) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
     add('하우스룰'); ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
+    if (calcCtx && calcCtx.r.mods) calcCtx.r.mods.forEach(function (m) { if (m.name !== p.n || (m.type && m.type !== 'Power') || !String(m.value).trim() || /^[\d.+-]+$/.test(String(m.value).trim())) return;
+      var se = db.byId[m.src]; rows.push('<div class="pr md"><b>' + esc(se ? se.n : m.field) + '</b><span>' + (tv && glossAuto ? rich(gsub(m.value)) : rich(m.value)) + '</span></div>'); });
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
     var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span>' + (function () { var a0 = attackInfo(p), m0 = a0 && a0.main; return m0 ? '<span class="ps">' + (m0.atk >= 0 ? '+' : '') + m0.atk + (m0.dmg ? ' · ' + esc(m0.dmg) : '') + '</span>' : ''; })() + '<span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
@@ -468,6 +474,13 @@
           c.innerHTML = esc(e ? nm(e) : id) + (e ? PRE_BADGE[prereq(e, res, cur.level)].replace('조건 확인', '?') : '') + '<b title="빼기">×</b>';
           c.onclick = function (ev) { ev.stopPropagation(); if (ev.target.tagName === 'B') { cur.choices[s.key] = (cur.choices[s.key] || []).filter(function (x) { return x !== id; }); rebuild(); } else if (e) openDetail(e); };
           chips.appendChild(c); });
+        if (s.swap && s.picked.length) {
+          var use = /encounter|daily|utility/i.exec(s.category || ''), uw = use ? lc(use[0]) : '', cand = [];
+          res.selects.forEach(function (o) { if (o.type !== 'Power' || o.key === s.key || !new RegExp(uw, 'i').test((o.category || '') + ' ' + (o.name || ''))) return; o.picked.forEach(function (id) { var e = db.get(id, 'Power'); if (e && cand.indexOf(e) < 0) cand.push(e); }); });
+          var os = document.createElement('select'); os.className = 'mini swp'; os.innerHTML = '<option value="">대신 뺄 파워를 고르세요</option>' + cand.map(function (e) { return '<option value="' + esc(e.id) + '"' + (s.out[0] === e.id ? ' selected' : '') + '>' + esc(e.n) + ' 빼기</option>'; }).join('');
+          os.onclick = function (ev) { ev.stopPropagation(); }; os.onchange = function () { cur.choices[s.key + ':out'] = os.value ? [os.value] : []; rebuild(); }; chips.appendChild(os);
+          if (!s.out.length) { d.className += ' todo'; }
+        }
         var b = document.createElement('button'); b.className = 'mini' + (need ? '' : ' ghost'); b.textContent = s.picked.length >= s.number ? '바꾸기' : '고르기';
         b.onclick = function (ev) { ev.stopPropagation(); openPicker(s); };
         d.onclick = function () { openPicker(s); };
@@ -486,6 +499,7 @@
     ['bodyM', '갑옷 마법', function (e) { return e.t === 'Magic Item' && mit(e) === 'Armor'; }],
     ['main', '주 무기', function (e) { return e.t === 'Weapon'; }],
     ['mainM', '주 무기 마법', function (e) { return e.t === 'Magic Item' && mit(e) === 'Weapon'; }],
+    ['offM', '보조 손 마법', function (e) { return e.t === 'Magic Item' && mit(e) === 'Weapon'; }],
     ['off', '방패 · 보조 손', function (e) { return (e.t === 'Armor' && lc(e.sp && e.sp['Armor Type']) === 'shield') || e.t === 'Weapon' || (e.t === 'Magic Item' && slotOf(e) === 'off-hand'); }],
     ['impl', '도구', function (e) { return e.t === 'Superior Implement' || (e.t === 'Magic Item' && IMPL.test(mit(e))); }],
     ['head', '머리', function (e) { return e.t === 'Magic Item' && slotOf(e) === 'head'; }],
@@ -507,7 +521,7 @@
     '<path d="M30 56h60a10 10 0 0 1 10 10v8H20v-8a10 10 0 0 1 10-10z"/><rect x="34" y="70" width="52" height="66" rx="8"/><rect x="14" y="68" width="16" height="78" rx="8"/><rect x="90" y="68" width="16" height="78" rx="8"/>' +
     '<circle cx="22" cy="154" r="9"/><circle cx="98" cy="154" r="9"/><rect x="36" y="132" width="48" height="16" rx="6"/><rect x="36" y="146" width="21" height="92" rx="9"/><rect x="63" y="146" width="21" height="92" rx="9"/>' +
     '<rect x="30" y="236" width="28" height="14" rx="6"/><rect x="62" y="236" width="28" height="14" rx="6"/></g></svg>';
-  var EQ_SIDE = { L: ['head', 'neck', 'body', 'bodyM', 'arms', 'hands', 'waist', 'feet'], R: ['main', 'mainM', 'off', 'impl', 'ring1', 'ring2'] };
+  var EQ_SIDE = { L: ['head', 'neck', 'body', 'bodyM', 'arms', 'hands', 'waist', 'feet'], R: ['main', 'mainM', 'off', 'offM', 'impl', 'ring1', 'ring2'] };
   function renderEquip() {
     var box = $('equip'); if (!box) return; box.innerHTML = ''; var q = cur.eq = cur.eq || {};
     if (setNow.gold) {

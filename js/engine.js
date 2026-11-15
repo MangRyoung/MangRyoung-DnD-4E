@@ -107,14 +107,14 @@
   function onePass(db, ch, prevIds, prevNames) {
     var st = {
       level: ch.level || 1, prevIds: prevIds, prevNames: prevNames,
-      owned: {}, order: [], adds: [], alias: {}, text: {}, selects: [], warnings: [], vars: {}
+      owned: {}, order: [], adds: [], alias: {}, text: {}, selects: [], warnings: [], vars: {}, mods: [], swapOut: []
     };
     var choices = ch.choices || {};
 
     function apply(el, via) {
       if (!el || st.owned[el.id]) return;
       st.owned[el.id] = el; st.order.push({ id: el.id, via: via || null });
-      var rules = el.r || [], selN = 0;
+      var rules = el.r || [], selN = 0, repN = 0;
       for (var i = 0; i < rules.length; i++) {
         var tag = rules[i][0], a = rules[i][1];
         if (a.level && st.level < +a.level) { if (tag === 'select') selN++; continue; }
@@ -132,6 +132,15 @@
           continue;
         }
         if (a.requires && !evalRequires(a.requires, st)) continue;
+        if (tag === 'replace') {
+          /* 13레벨부터의 파워 교체: 새 파워를 하나 고르고, 대신 뺄 파워를 하나 정한다(칸 열쇠 뒤에 :out). 재훈련은 고른 것을 그냥 바꾸면 되므로 따로 다루지 않는다. */
+          if (!a.powerswap) continue;
+          var rkey = el.id + '#r' + (repN++), rp = (choices[rkey] || []).slice(0, 1), ro = (choices[rkey + ':out'] || []).slice(0, 1);
+          st.selects.push({ key: rkey, from: el.id, type: 'Power', name: a.name || null, number: 1, category: a.powerswap, optional: false, swap: true, picked: rp, out: ro });
+          if (rp.length) { var np = db.get(rp[0], 'Power'); if (np) apply(np, rkey); if (ro.length) st.swapOut.push(ro[0]); }
+          continue;
+        }
+        if (tag === 'modify') { if (a.name && a.value != null) st.mods.push({ name: a.name, type: a.type || '', field: a.field || '', value: a.value, src: el.id }); continue; }
         if (tag === 'grant') {
           var ge = db.get(a.name, a.type);
           if (!ge) { st.warnings.push('grant 대상 없음: ' + a.name + ' (' + el.id + ')'); continue; }
@@ -152,6 +161,8 @@
 
     /* 세팅이 모든 캐릭터에게 주는 것(내재 보너스 · 기술 특화 등) */
     (ch.grants || []).forEach(function (id) { if (db.byId[id]) apply(db.byId[id], 'setting'); });
+
+    st.swapOut.forEach(function (id) { delete st.owned[id]; });
 
     /* 장비: 찬 것의 규칙도 그대로 적용한다. wearing="armor:heavy" 같은 조건은 찬 장비를 보고 가린다. */
     var worn = [];
@@ -218,7 +229,7 @@
     Object.keys(byStat).forEach(function (k) { stats[k] = stat(k); });
     ABILITIES.forEach(function (ab) { stats[lc(ab)] = stat(ab); });
     return { stats: stats, breakdown: breakdown, owned: st.owned, order: st.order, selects: st.selects,
-      text: st.text, vars: st.vars, warnings: st.warnings, worn: worn, stat: function (n) { return stat(n); } };
+      text: st.text, vars: st.vars, warnings: st.warnings, worn: worn, mods: st.mods, stat: function (n) { return stat(n); } };
   }
 
   /* 고르기 칸의 후보 목록 */
