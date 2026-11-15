@@ -238,3 +238,4 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .mtin textarea{width:100%;height:80px;margin-top:8px}
 @media(max-width:560px){.mtrow{grid-template-columns:1fr}}
 .surge .sgt small{color:#fff;display:block}
+.hpbar .hpb{left:auto;right:50%;padding-right:10px}.surge small{white-space:nowrap}
