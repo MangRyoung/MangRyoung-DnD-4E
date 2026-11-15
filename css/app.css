@@ -299,3 +299,12 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .ggold small{font-size:12px;color:var(--sub);margin-right:6px}.ggold b{font-size:18px;color:#8a6a1f}.ggold.bad b{color:#a03a32}
 .gg-bar{flex:1;height:8px;border-radius:99px;background:var(--bg);overflow:hidden;min-width:40px}.gg-bar i{display:block;height:100%;background:#b08a3c}.ggold.bad .gg-bar i{background:#c9584f}
 @media(max-width:520px){.gmain{grid-template-columns:54px minmax(0,1fr)}.gm-s{grid-column:2;justify-self:start}}
+
+.gmain[data-gslot]{cursor:pointer}.gmain[data-gslot]:hover{border-color:var(--gc)}.gtile[data-gkey]{cursor:pointer}.gtile[data-gkey]:hover{border-color:var(--gc)}
+.gadd{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;align-items:center}.gadd::before{content:"더 차기";font-size:12px;color:var(--sub);margin-right:4px}
+.gpl{display:flex;flex-direction:column;gap:6px;margin-top:8px}.gpl>div{display:grid;grid-template-columns:86px minmax(0,1fr) auto;gap:8px;align-items:center;border:1px solid var(--line);border-radius:8px;padding:6px 8px}.gpl small{color:var(--sub)}.gpl span{display:flex;gap:4px}
+.pedb{font-size:11px;font-weight:700;border-radius:999px;padding:1px 8px;background:#b08a3c;color:#fff;margin-left:6px}
+.pedform .tf.chg{box-shadow:inset 3px 0 0 #b08a3c}.pedform textarea{min-height:54px}
+.ft-a{display:flex;align-items:center;gap:4px;margin-top:4px}.ft-a i{font-style:normal;font-size:11px;color:var(--sub);margin-right:auto}.ft-a .mini{padding:0 7px;font-size:12px}
+.ftile.todo{border-style:dashed;border-left-style:solid;background:var(--acc2)}.ftile.todo b{color:var(--acc)}
+.tsbar{position:sticky;top:0;z-index:5;display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,.08)}.tsbar b{font-size:15px}.tsbar .hint{margin-right:auto}
