@@ -10,7 +10,7 @@
   var docs = {}, orig = {}, editing = null;
   /* 세팅(룰 세트): 캠페인마다 메이킹 룰과 하우스룰이 다를 수 있다. kind dnd4e_cfg 의 set_* 문서 = {name, points, level, memo}.
    * 하우스룰 문서의 set 이 비어 있으면 모든 세팅 공통, 있으면 그 세팅에서만 적용된다. */
-  var CFG = 'dnd4e_cfg', PRESETS = window.D4E_PRESETS || {}, sets = presetSets(), glossary = (window.D4E_GLOSSARY || []).slice(), presetIds = {}, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
+  var CFG = 'dnd4e_cfg', PRESETS = window.D4E_PRESETS || {}, sets = presetSets(), glossary = (window.D4E_GLOSSARY || []).slice(), presetIds = {}, gmDoc = { hashes: [], names: [] }, teams = {}, viewSet = localStorage.getItem('d4e_set') || 'set_bidan', appliedSet = null;
   function presetSets() { var o = {}; Object.keys(window.D4E_PRESETS || {}).forEach(function (id) { o[id] = JSON.parse(JSON.stringify(window.D4E_PRESETS[id].set)); }); if (!Object.keys(o).length) o.set_bidan = { name: '비단화살 룰', points: 22, level: 1, memo: '' }; return o; }
   var DEFAULT_SETS = presetSets();
   /* 세팅 기본 조정: 공식 요소를 통째로 베끼지 않고 달라지는 부분만 얹는다.
@@ -54,10 +54,12 @@
     var rows = await window.D4EShare.list(KIND);
     docs = {};
     rows.forEach(function (r) { if (r.data) docs[r.id] = r.data; });
-    sets = presetSets();
+    sets = presetSets(); teams = {};
     try { (await window.D4EShare.list(CFG)).forEach(function (r) {
       if (/^set_/.test(r.id) && r.data && r.data.name) sets[r.id] = Object.assign({}, sets[r.id] || {}, r.data);
       if (r.id === 'glossary' && r.data && typeof r.data.text === 'string') glossary = parseGloss(r.data.text);
+      if (r.id === 'gm' && r.data && Array.isArray(r.data.hashes)) gmDoc = r.data;
+      if (/^team_/.test(r.id) && r.data && r.data.name) teams[r.id] = r.data;
     }); } catch (e) {}
     if (!sets[viewSet]) viewSet = setIds()[0];
     if (db) apply(db, appliedSet);
@@ -81,6 +83,7 @@
       if (!d.off) { var b = document.createElement('button'); b.className = 'mini'; b.textContent = '고치기'; b.onclick = function () { edit(JSON.parse(JSON.stringify(d.el)), false, d.set ? false : true); }; row.appendChild(b); }
       var x = document.createElement('button'); x.className = 'mini ghost'; x.textContent = d.off ? '다시 쓰기' : orig[id] ? '원래대로' : '지우기';
       x.onclick = async function () {
+        if (!A().canGM('하우스룰')) return;
         if (!confirm('「' + e.n + '」: ' + x.textContent + ' 할까요? 팀 모두에게 반영돼요.')) return;
         try { await window.D4EShare.del(id, KIND); await refresh(); } catch (err) { alert('하지 못했어요: ' + err.message); }
       };
@@ -106,6 +109,7 @@
     $('glossText').value = glossText(); $('glossN').textContent = glossary.length + '개';
   }
   async function saveSet(id) {
+    if (!A().canGM('세팅')) return;
     var n = Math.round(+$('cfgPoints').value), lv = Math.round(+$('setLevel').value) || 1, name = $('setName').value.trim();
     if (!name) { alert('세팅 이름을 적어 주세요.'); return; }
     if (!(n >= 0 && n <= 99)) { alert('포인트는 0~99 사이로 적어 주세요.'); return; }
@@ -216,6 +220,7 @@
     }
     $('hfPrev').onclick = function () { var o = collect(); if (o) $('hfCard').innerHTML = app.card(o); };
     $('hfSave').onclick = async function () {
+      if (!A().canGM('하우스룰')) return;
       var out = collect(); if (!out) return;
       if (!out.id) out.id = newId(out.t);
       try {
@@ -232,7 +237,7 @@
     $('cfgSave').onclick = function () { saveSet(viewSet); };
     $('setNew').onclick = function () { var name = prompt('새 세팅 이름'); if (!name) return; var id = 'set_' + Date.now().toString(36); sets[id] = { name: name.trim(), points: 22, level: 1, memo: '' }; viewSet = id; renderSets(); renderList(); $('cfgMsg').textContent = '내용을 적고 「세팅 저장」을 눌러 주세요.'; };
     $('setSel').onchange = function () { viewSet = $('setSel').value; localStorage.setItem('d4e_set', viewSet); renderSets(); renderList(); };
-    $('glossSave').onclick = async function () { var g = parseGloss($('glossText').value);
+    $('glossSave').onclick = async function () { if (!A().canGM('용어집')) return; var g = parseGloss($('glossText').value);
       try { await window.D4EShare.put('glossary', { text: g.map(function (p) { return p[0] + '\t' + p[1]; }).join('\n'), at: Date.now() }, CFG); glossary = g; $('glossN').textContent = g.length + '개'; $('glossMsg').textContent = '저장했어요.'; A().houseChanged(); }
       catch (e) { $('glossMsg').textContent = '저장하지 못했어요: ' + e.message; } };
     $('hNewPower').onclick = function () { edit(powerBlank(), true); };
@@ -248,6 +253,7 @@
           { label: '복사해서 새 요소로', fn: function () { var c = JSON.parse(JSON.stringify(e)); c.id = ''; c.n = e.n + ' (자작)'; c.src = ['하우스룰']; edit(c, true); } },
           { label: '이 요소를 고쳐 덮어쓰기', fn: function () { edit(JSON.parse(JSON.stringify(e)), false); } },
           { label: '쓰지 않게 하기', ghost: true, fn: async function () {
+              if (!A().canGM('하우스룰')) return;
               if (!confirm('「' + e.n + '」을(를) 팀 모두의 후보에서 뺄까요?')) return;
               try { await window.D4EShare.put(e.id, { off: true, set: viewSet, by: (localStorage.getItem('d4e_me') || ''), at: Date.now() }, KIND); await refresh(); } catch (err) { alert(err.message); } } }
         ];
@@ -255,5 +261,5 @@
     }
   }
 
-  window.D4EHouse = { glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
+  window.D4EHouse = { CFG: CFG, gm: function () { return gmDoc; }, setGm: function (d) { gmDoc = d; }, teams: function () { return teams; }, glossary: function () { return glossary; }, sets: function () { return sets; }, setIds: setIds, setOf: setOf, load: load, apply: apply, renderList: renderList, refresh: refresh, start: start, count: function () { return Object.keys(docs).length; } };
 })();

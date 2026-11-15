@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611160610">
+<link rel="stylesheet" href="css/app.css?v=202611160710">
 </head>
 <body>
 <header class="top">
@@ -17,6 +17,8 @@
     <button data-tab="data">데이터</button>
   </nav>
   <span id="status" class="status"></span>
+  <label class="hint" title="카드의 글에서 팀 용어집의 영어 용어를 한국어로 바꿔 보여 줘요"><input type="checkbox" id="gAuto"> 용어 자동 번역</label>
+  <button id="signBtn" class="mini">서명하기</button>
 </header>
 
 <main id="tab-data" class="tab" hidden>
@@ -41,7 +43,8 @@
     <button id="chNew">새로 만들기</button>
     <button id="chDel" class="ghost">지우기</button>
     <span class="sp"></span>
-    <label>내 이름 <input id="me" size="8" placeholder="플레이어"></label>
+    <input id="me" hidden>
+    <label>팀 <select id="chTeam"></select></label>
     <button id="chShare">팀에 올리기</button>
   </section>
   <div class="cols wideL">
@@ -64,7 +67,7 @@
 </main>
 
 <main id="tab-team" class="tab" hidden>
-  <section class="card bar"><h2>팀 시트</h2><span class="sp"></span><button id="teamRefresh">새로 읽기</button></section>
+  <section class="card bar"><h2>팀 시트</h2><div id="teamBar" class="tbar"></div><span class="sp"></span><button id="teamAdd" class="mini ghost gm">팀 추가</button><button id="teamRen" class="mini ghost gm" hidden>이름 바꾸기</button><button id="teamDelBtn" class="mini ghost gm" hidden>팀 지우기</button><button id="teamRefresh">새로 읽기</button></section>
   <div id="teamList" class="team"></div>
   <section class="card" id="teamSheet" hidden></section>
 </main>
@@ -92,6 +95,16 @@
   </div>
 </main>
 
+<div id="signBox" class="modal" hidden>
+  <div class="box fit">
+    <div class="mhead"><strong>서명</strong><span class="sp"></span><button id="sgClose" class="ghost">닫기</button></div>
+    <p class="hint" style="margin:0">이름과 비밀구로 자리를 구별해요. 같은 비밀구를 적은 브라우저가 같은 사람으로 통해요. 비밀구는 이 브라우저에만 남고, 시트에는 그 해시만 적혀요.</p>
+    <div class="form"><label>이름</label><input type="text" id="sgName"><label>비밀구</label><input type="text" id="sgSecret" autocomplete="off"></div>
+    <p id="sgState" class="hint" style="margin:0"></p><p id="sgGm" class="hint" style="margin:0"></p>
+    <div class="acts"><button id="sgSave">서명 저장</button><button id="sgClear" class="ghost">서명 지우기</button><button id="sgGmAdd" class="ghost" hidden>GM 으로 등록</button><button id="sgGmDel" class="ghost" hidden>GM 등록 풀기</button></div>
+  </div>
+</div>
+
 <div id="modal" class="modal" hidden>
   <div class="box">
     <div class="mhead"><strong id="mTitle"></strong><span class="sp"></span><button id="mClose" class="ghost">닫기</button></div>
@@ -105,13 +118,13 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611160610"></script>
-<script src="js/ko.js?v=202611160610"></script>
-<script src="js/presets.js?v=202611160610"></script>
-<script src="js/engine.js?v=202611160610"></script>
-<script src="js/data.js?v=202611160610"></script>
-<script src="js/share.js?v=202611160610"></script>
-<script src="js/house.js?v=202611160610"></script>
-<script src="js/app.js?v=202611160610"></script>
+<script src="js/config.js?v=202611160710"></script>
+<script src="js/ko.js?v=202611160710"></script>
+<script src="js/presets.js?v=202611160710"></script>
+<script src="js/engine.js?v=202611160710"></script>
+<script src="js/data.js?v=202611160710"></script>
+<script src="js/share.js?v=202611160710"></script>
+<script src="js/house.js?v=202611160710"></script>
+<script src="js/app.js?v=202611160710"></script>
 </body>
 </html>
