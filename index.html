@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611160430">
+<link rel="stylesheet" href="css/app.css?v=202611160520">
 </head>
 <body>
 <header class="top">
@@ -48,7 +48,9 @@
     <section class="card" id="build">
       <h2>만들기</h2>
       <div class="row"><label>이름 <input id="chName" size="14"></label>
-        <label>레벨 <select id="chLevel"></select></label></div>
+        <label>레벨 <select id="chLevel"></select></label>
+        <label>세팅 <select id="chSet"></select></label></div>
+      <details id="setNote" class="sec" data-sec="setnote" hidden><summary id="setNoteTitle"></summary><div class="secb" id="setNoteBody" style="white-space:pre-wrap;font-size:13.5px"></div></details>
       <div class="row" style="margin-top:8px;align-items:center"><div id="portDrop" class="drop">포트: 그림을 여기나 시트 위에 끌어다 놓거나, 눌러서 고르기</div><input type="file" id="portFile" accept="image/*" hidden><button id="portDel" class="ghost mini">포트 빼기</button></div>
       <h3>능력치 <span id="abilHead" style="font-weight:400"></span></h3>
       <div id="abil" class="abil"></div>
@@ -69,8 +71,14 @@
 
 <main id="tab-house" class="tab" hidden>
   <section class="card bar"><h2>하우스룰 · 자작 요소</h2><span class="sp"></span>
-    <button id="hNew">새 요소</button><button id="hFrom">기존 요소에서 시작</button><button id="hRefresh" class="ghost">새로 읽기</button></section>
-  <section class="card bar"><strong>캠페인 설정</strong><label>능력치 포인트 <input id="cfgPoints" type="number" min="0" max="99" style="width:70px" value="22"></label><button id="cfgSave" class="mini">저장</button><span id="cfgMsg" class="hint">기본은 22점이에요. 캐릭터의 능력치 칸이 이 포인트에 맞춰져요.</span></section>
+    <button id="hNewPower">새 파워</button><button id="hFromPower">기존 파워 고치기</button><button id="hNew" class="ghost">새 요소</button><button id="hFrom" class="ghost">기존 요소에서 시작</button><button id="hRefresh" class="ghost">새로 읽기</button></section>
+  <section class="card">
+    <div class="bar"><strong>세팅</strong><select id="setSel"></select><button id="setNew" class="mini ghost">새 세팅</button><span class="sp"></span>
+      <label>이름 <input id="setName" size="12"></label><label>능력치 포인트 <input id="cfgPoints" type="number" min="0" max="99" style="width:64px" value="22"></label><label>시작 레벨 <input id="setLevel" type="number" min="1" max="30" style="width:56px" value="1"></label>
+      <button id="cfgSave" class="mini">세팅 저장</button></div>
+    <div class="form"><label>메이킹 룰 메모 (만들기 화면 위에 보여요)</label><textarea id="setMemo" placeholder="예: 시작 3레벨, 배경 1개, 사용 가능 자료 …"></textarea></div>
+    <span id="cfgMsg" class="hint">세팅마다 메이킹 룰과 하우스룰을 따로 둘 수 있어요. 캐릭터는 「만들기」에서 세팅을 골라요.</span>
+  </section>
   <p class="hint">여기서 저장하면 팀 모두에게 바로 반영돼요. 공식 요소를 고치면 그 요소를 덮어쓰고, 지우면 원래대로 돌아와요.</p>
   <div class="cols">
     <section class="card"><h3 style="margin-top:0">등록된 것 <span class="hint" id="hCount"></span></h3><div id="hList"></div></section>
@@ -91,12 +99,12 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611160430"></script>
-<script src="js/ko.js?v=202611160430"></script>
-<script src="js/engine.js?v=202611160430"></script>
-<script src="js/data.js?v=202611160430"></script>
-<script src="js/share.js?v=202611160430"></script>
-<script src="js/house.js?v=202611160430"></script>
-<script src="js/app.js?v=202611160430"></script>
+<script src="js/config.js?v=202611160520"></script>
+<script src="js/ko.js?v=202611160520"></script>
+<script src="js/engine.js?v=202611160520"></script>
+<script src="js/data.js?v=202611160520"></script>
+<script src="js/share.js?v=202611160520"></script>
+<script src="js/house.js?v=202611160520"></script>
+<script src="js/app.js?v=202611160520"></script>
 </body>
 </html>

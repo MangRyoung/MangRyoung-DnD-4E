@@ -159,3 +159,10 @@ details.ft.pg{border-left:5px solid var(--at)}details.ft.pg.enc{border-left-colo
 .btabs button{background:none;color:var(--sub);border:0;border-radius:8px 8px 0 0;padding:6px 12px;font-weight:600;margin-bottom:-2px;border-bottom:2px solid transparent}
 .btabs button.on{color:var(--acc);border-bottom-color:var(--acc);background:var(--acc2)}
 .btabs i{font-style:normal;background:#c0392b;color:#fff;border-radius:999px;font-size:11px;padding:0 6px;margin-left:5px}.btabs em{font-style:normal;color:var(--sub);font-size:11px;margin-left:4px}
+.pwhelp{border:1px solid var(--line);border-left:5px solid var(--enc);border-radius:8px;padding:8px 10px;margin-top:10px;background:var(--bg)}.pwhelp .rf{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px}.pwhelp label{margin:4px 0 0}
+/* 내 번역 */
+.has-tr:not(.show-orig)>.pb:not(.trt),.has-tr:not(.show-orig)>.pm,.has-tr:not(.show-orig)>.gs,.has-tr:not(.show-orig)>.gm{display:none}.has-tr.show-orig>.trt{display:none}
+.pc.has-tr:not(.show-orig)>.pm{display:flex}
+.trt .pr>span{white-space:normal}.pn small.on{font-weight:400;font-size:11.5px;opacity:.85;margin-left:4px}
+.trb{padding:6px 10px;display:flex;gap:6px;flex-wrap:wrap;border-top:1px dashed #d8cdb6;background:rgba(0,0,0,.03)}.trb .mini.ghost{color:#5a5146;border-color:#cdbf9f}
+.trb input.trn,.trb textarea.trx{width:100%;background:#fffdf6;color:#2a2620;border:1px solid #cdbf9f;border-radius:6px;padding:5px 8px;font:inherit}.trb textarea.trx{min-height:110px;resize:vertical}
