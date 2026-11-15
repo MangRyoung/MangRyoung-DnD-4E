@@ -379,12 +379,23 @@
     var block = function (type) { return ownedOf(r, type).filter(function (e) { return e.body || (e.sp && Object.keys(e.sp).length); }).map(function (e) {
       return '<details class="ft cfd"><summary>' + esc(tview(e) && TR(e) && TR(e).n ? TR(e).n : nm(e)) + (e.sp && e.sp['하우스룰'] ? ' <span class="badge">하우스룰</span>' : '') + (e.sp && e.sp['Short Description'] ? ' <span class="hint">' + esc(glossAuto ? gsub(e.sp['Short Description']) : e.sp['Short Description']) + '</span>' : '') + '</summary>' + cardHtml(e) + '</details>'; }).join(''); };
     var cf = block('Class Feature'), rt = block('Racial Trait'), pf = ownedOf(r, 'Proficiency').filter(function (e) { return e.n !== 'Choose Nothing'; });
-    var mine = ch === cur, gm = mine && isGM(), hbs = (ch.hb || []).map(function (id) { return db.byId[id]; }).filter(Boolean);
-    var hbOne = function (e) { return '<details class="ft cfd hbd"><summary>' + hbStep(e) + esc(tview(e) && TR(e) && TR(e).n ? TR(e).n : e.n) + ' <span class="badge hbb">' + esc(typeKo(e.t)) + '</span>' + (e.sp && e.sp['Short Description'] ? ' <span class="hint">' + esc(e.sp['Short Description']) + '</span>' : '') +
-        (mine ? '<span class="hb-a">' + (gm ? '<button class="mini ghost" data-hbedit="' + esc(e.id) + '">고치기</button>' : '') + '<button class="mini ghost" data-hbdel="' + esc(e.id) + '" title="이 캐릭터에서 빼기">×</button></span>' : '') + '</summary>' + cardHtml(e) + '</details>'; };
-    var hbG = hbGroups(hbs), hb = hbG.map(function (g) { return (hbG.length > 1 || g[0] !== '그 밖' ? '<div class="hbcat">' + esc(g[0]) + '</div>' : '') + g[1].map(hbOne).join(''); }).join('');
-    var hbSec = (hb || mine) ? sec('hb', '홈브류 특성 <span class="hint">' + hbs.length + (mine ? ' · GM 이 만든 능력을 골라 넣어요' : '') + '</span>', (hb || '<p class="hint">아직 고른 홈브류 특성이 없어요.</p>') +
-      (mine ? '<div class="hb-bar"><button class="mini" data-hbadd="1">+ 홈브류 고르기</button>' + (gm ? '<button class="mini ghost" data-hbnew="1">새 홈브류 특성 만들기 (GM)</button>' : '') + '</div>' : '')) : '';
+    /* 홈브류 특성: PC 마다 다르므로 시트에서 바로 적는다(ch.hbx). GM 이 만든 공용 홈브류(ch.hb)도 같은 칸에 섞여 나온다 */
+    var mine = ch === cur, shared = (ch.hb || []).map(function (id) { return db.byId[id]; }).filter(Boolean), items = [];
+    shared.forEach(function (e) { var inf = hbInfo(e); items.push({ id: e.id, n: (tview(e) && TR(e) && TR(e).n) || e.n, cat: inf.cat, step: inf.step, short: (e.sp && e.sp['Short Description']) || '', html: cardHtml(e), shared: 1 }); });
+    (ch.hbx || []).forEach(function (x) { items.push({ id: x.id, n: x.n, cat: x.cat || '', step: x.step || '', short: '', html: '<div class="hx-body">' + esc(x.text || '').replace(/\n/g, '<br>') + '</div>', own: 1 }); });
+    var cats = {}, order = []; items.forEach(function (it) { var c = it.cat || '그 밖'; if (!cats[c]) { cats[c] = []; order.push(c); } cats[c].push(it); });
+    order.sort(function (a, b) { var x = HB_ORDER.indexOf(a), y = HB_ORDER.indexOf(b); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || (a < b ? -1 : 1); });
+    var hxForm = function (x) { x = x || { id: '', n: '', cat: '', step: '', text: '' };
+      return '<div class="hxform" data-hxid="' + esc(x.id) + '"><div class="hx-r"><input type="text" data-hx="n" placeholder="이름" value="' + esc(x.n) + '"><input type="text" data-hx="step" placeholder="단계" value="' + esc(x.step) + '" title="예: 1, 2, 1-2"></div>' +
+        '<div class="hx-r kwbox">' + HB_ORDER.map(function (c) { return '<button type="button" class="opt' + (x.cat === c ? ' on' : '') + '" data-hxcat="' + c + '">' + c + '</button>'; }).join('') + '<input type="text" data-hx="cat" placeholder="분류" value="' + esc(x.cat) + '"></div>' +
+        '<textarea data-hx="text" placeholder="내용 (효과를 그대로 적어요)">' + esc(x.text) + '</textarea><div class="hx-r"><button class="mini" data-hxsave="1">저장</button>' + (x.id ? '<button class="mini ghost" data-hxdel="' + esc(x.id) + '">지우기</button>' : '') + '<button class="mini ghost" data-hxcancel="1">그만두기</button></div></div>'; };
+    var hb = order.map(function (c) { return (order.length > 1 || c !== '그 밖' ? '<div class="hbcat">' + esc(c) + '</div>' : '') + cats[c].sort(function (a, b) { return a.step.localeCompare(b.step, 'ko', { numeric: true }) || (a.n < b.n ? -1 : 1); }).map(function (it) {
+      if (mine && it.own && hbEditing === it.id) return hxForm((ch.hbx || []).filter(function (x) { return x.id === it.id; })[0]);
+      return '<details class="ft cfd hbd"><summary>' + (it.step ? '<i class="hbs">' + esc(it.step) + '</i>' : '') + esc(it.n) + (it.shared ? ' <span class="badge hbb">공용</span>' : '') + (it.short ? ' <span class="hint">' + esc(it.short) + '</span>' : '') +
+        (mine ? '<span class="hb-a">' + (it.own ? '<button class="mini ghost" data-hxedit="' + esc(it.id) + '">고치기</button>' : '<button class="mini ghost" data-hbdel="' + esc(it.id) + '" title="이 캐릭터에서 빼기">×</button>') + '</span>' : '') + '</summary>' + it.html + '</details>'; }).join(''); }).join('');
+    var hasShared = mine && D4EHouse.custom(db).length > 0;
+    var hbSec = (hb || mine) ? sec('hb', '홈브류 특성 <span class="hint">' + items.length + '</span>', (hb || (mine && hbEditing !== 'new' ? '<p class="hint">이 캐릭터만의 능력을 여기에 적어요.</p>' : '')) +
+      (mine ? (hbEditing === 'new' ? hxForm() : '<div class="hb-bar"><button class="mini" data-hxadd="1">+ 추가</button>' + (hasShared ? '<button class="mini ghost" data-hbadd="1">공용에서 고르기</button>' : '') + '</div>') : '')) : '';
     return (cf ? sec('cf', '클래스 특성 <span class="hint">누르면 내용 · 번역 / 원문 탭</span>', cf) : '') + (rt ? sec('rt', '종족 특성', rt) : '') + hbSec +
       (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
   }
@@ -478,7 +489,19 @@
     cur.sum = summary(cur, res);
     saveChars(); renderSelects();
     $('sheet').innerHTML = sheetHtml(cur, res); wireSheet($('sheet'), res);
-    $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var t = ev.target.closest('[data-hbadd],[data-hbnew],[data-hbedit],[data-hbdel]');
+    $('featBox').innerHTML = extraHtml(cur, res); $('featBox').onclick = function (ev) { var hx = ev.target.closest('[data-hxadd],[data-hxedit],[data-hxsave],[data-hxdel],[data-hxcancel],[data-hxcat]');
+      if (hx) { ev.preventDefault(); var redraw = function () { $('featBox').innerHTML = extraHtml(cur, res); var d0 = $('featBox').querySelector('[data-sec=hb]'); if (d0) d0.open = true; };
+        if (hx.hasAttribute('data-hxcat')) { var fm = hx.closest('.hxform'), ci = fm.querySelector('[data-hx=cat]'), on = hx.classList.contains('on'); fm.querySelectorAll('[data-hxcat]').forEach(function (b) { b.classList.remove('on'); }); ci.value = on ? '' : hx.getAttribute('data-hxcat'); hx.classList.toggle('on', !on); return; }
+        if (hx.hasAttribute('data-hxadd')) { hbEditing = 'new'; redraw(); var ni = $('featBox').querySelector('.hxform [data-hx=n]'); if (ni) ni.focus(); return; }
+        if (hx.hasAttribute('data-hxedit')) { hbEditing = hx.getAttribute('data-hxedit'); redraw(); return; }
+        if (hx.hasAttribute('data-hxcancel')) { hbEditing = ''; redraw(); return; }
+        cur.hbx = cur.hbx || [];
+        if (hx.hasAttribute('data-hxdel')) { var did = hx.getAttribute('data-hxdel'); if (!confirm('이 홈브류 특성을 지울까요?')) return; cur.hbx = cur.hbx.filter(function (x) { return x.id !== did; }); }
+        else { var f2 = hx.closest('.hxform'), g = function (k) { return f2.querySelector('[data-hx=' + k + ']').value.trim(); }, nmv = g('n'); if (!nmv) { toast('이름을 적어 주세요', true); return; }
+          var xid = f2.getAttribute('data-hxid'), ex = cur.hbx.filter(function (x) { return x.id === xid; })[0]; if (!ex) { ex = { id: 'hx' + Date.now().toString(36) }; cur.hbx.push(ex); }
+          ex.n = nmv; ex.cat = g('cat'); ex.step = g('step'); ex.text = f2.querySelector('[data-hx=text]').value.trim(); }
+        hbEditing = ''; saveChars(); redraw(); return; }
+      var t = ev.target.closest('[data-hbadd],[data-hbnew],[data-hbedit],[data-hbdel]');
       if (t) { ev.preventDefault(); if (t.hasAttribute('data-hbadd')) { buildTab = 'hb'; localStorage.setItem('d4e_btab', buildTab); var bp = document.querySelector('[data-sec=b_pick]'); if (bp) bp.open = true; renderSelects(); $('selects').scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }
         else if (t.hasAttribute('data-hbnew')) D4EHouse.newEl('Homebrew Feature'); else if (t.hasAttribute('data-hbedit')) D4EHouse.editEl(t.getAttribute('data-hbedit'));
         else { var hid = t.getAttribute('data-hbdel'); cur.hb = (cur.hb || []).filter(function (x) { return x !== hid; }); saveChars(); rebuild(); } return; }
@@ -579,7 +602,7 @@
     groups.forEach(function (list, g) { if (list.length) tabs.push({ key: 'g' + g, label: SEL_GROUPS[g][0], list: list, left: list.filter(function (x) { return x[1]; }).length }); });
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
     var hbEvery = D4EHouse.custom(db), hbAll = isGM() ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
-    tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length });
+    if (hbEvery.length || cur.hb.length) tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
     tabs.forEach(function (t) { var b = document.createElement('button'); b.className = t.key === buildTab ? 'on' : ''; b.setAttribute('data-btab', t.label);
@@ -992,7 +1015,7 @@
     document.body.classList.toggle('is-gm', ME.gm || !g.hashes.length);
   }
   /* 홈브류의 분류 · 단계 · 대상 캐릭터 */
-  var HB_ORDER = ['공격', '생존', '활용', '공용'];
+  var HB_ORDER = ['공격', '생존', '활용'], hbEditing = '';
   function hbInfo(e) { var sp = e.sp || {}; return { cat: String(sp['분류'] || '').trim(), step: String(sp['단계'] || '').trim(), who: String(sp['대상 캐릭터'] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean) }; }
   function hbFor(e, name) { var w = hbInfo(e).who; return !w.length || w.map(lc).indexOf(lc(String(name || '').trim())) >= 0; }
   function hbGroups(list) { var g = {}, keys = []; list.forEach(function (e) { var c = hbInfo(e).cat || '그 밖'; if (!g[c]) { g[c] = []; keys.push(c); } g[c].push(e); });
@@ -1041,7 +1064,7 @@
       var ex = (await D4EShare.list()).filter(function (r) { return r.id === cur.id; })[0];
       if (ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && !ME.gm) { status(''); btn.disabled = false; btn.textContent = bt0; alert('이 시트는 「' + (ex.data.owner || '?') + '」 서명으로 올라가 있어요. 주인이나 GM 만 덮어쓸 수 있어요.'); return; }
       var keep = ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && ME.gm;
-      await D4EShare.put(cur.id, { name: cur.name, owner: keep ? ex.data.owner : me, ownerHash: keep ? ex.data.ownerHash : ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, ed: cur.ed || {}, hb: cur.hb || [], sum: summary(cur, res), at: Date.now() });
+      await D4EShare.put(cur.id, { name: cur.name, owner: keep ? ex.data.owner : me, ownerHash: keep ? ex.data.ownerHash : ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, ed: cur.ed || {}, hb: cur.hb || [], hbx: cur.hbx || [], sum: summary(cur, res), at: Date.now() });
       var tn = (D4EHouse.teams()[cur.team] || {}).name;
       status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')'); toast('「' + (cur.name || '이름 없음') + '」 시트를 ' + (tn ? '「' + tn + '」 팀에' : '팀 없이') + (ex ? ' 다시 올렸어요 (덮어씀)' : ' 올렸어요'));
       btn.textContent = '올렸어요 ✓'; setTimeout(function () { btn.textContent = bt0; }, 2500);
@@ -1075,7 +1098,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
@@ -1098,10 +1121,10 @@
           var loc = chars[row.id]; if (loc && !confirm('내 브라우저에 이 캐릭터가 이미 있어요.\n확인 = 팀에 올라온 판으로 덮어쓰고 고치기\n취소 = 내 브라우저의 판을 그대로 열기')) { cur = loc; saveChars(); tab('edit'); return; }
           var n = loc || newChar(); if (!loc) { delete chars[n.id]; n.id = row.id; chars[n.id] = n; }
           n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
-          n.set = d.set || ''; n.setInit = n.set; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.owner = d.owner || ''; cur = n; saveChars(); tab('edit'); toast('만들기 화면으로 가져왔어요. 고친 뒤 「팀에 올리기」를 누르면 반영돼요'); };
+          n.set = d.set || ''; n.setInit = n.set; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.owner = d.owner || ''; cur = n; saveChars(); tab('edit'); toast('만들기 화면으로 가져왔어요. 고친 뒤 「팀에 올리기」를 누르면 반영돼요'); };
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
-      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); cur = n; saveChars(); tab('edit'); };
+      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); cur = n; saveChars(); tab('edit'); };
       c.appendChild(b1); c.appendChild(document.createTextNode(' ')); c.appendChild(b2);
       if (ME.gm || (d.ownerHash ? d.ownerHash === ME.hash : (chars[row.id] || (d.owner && d.owner === ME.name)))) {
         var b3 = document.createElement('button'); b3.className = 'mini ghost'; b3.textContent = '내리기';
