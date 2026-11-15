@@ -73,6 +73,9 @@
   document.addEventListener('toggle', function (ev) { var d = ev.target; if (d && d.classList && d.classList.contains('sec')) { secState[d.getAttribute('data-sec')] = d.open; localStorage.setItem('d4e_sec', JSON.stringify(secState)); } }, true);
   var nm = function (e) { if (!e) return ''; var k = koName(e.t, e.n); return k ? k + ' (' + e.n + ')' : e.n; };
   var status = function (t) { $('status').textContent = t || ''; };
+  /* 화면 아래에 잠깐 뜨는 알림 — 머리의 상태 글은 화면을 내리면 안 보여서 */
+  var toastT = 0, toast = function (t, bad) { var b = $('toast'); if (!b) { b = document.createElement('div'); b.id = 'toast'; document.body.appendChild(b); }
+    b.textContent = t; b.className = 'toast on' + (bad ? ' bad' : ''); clearTimeout(toastT); toastT = setTimeout(function () { b.className = 'toast'; }, 3500); };
 
   /* ---------- 보관 ---------- */
   function loadChars() { try { chars = JSON.parse(localStorage.getItem('d4e_chars') || '{}'); } catch (e) { chars = {}; } }
@@ -85,6 +88,7 @@
 
   /* ---------- 요약 (공유 문서 · 목록용) ---------- */
   function ownedOf(r, type) { var o = []; for (var k in r.owned) if (r.owned[k].t === type) o.push(r.owned[k]); return o; }
+  function pwCount(list) { var c = { at: 0, enc: 0, day: 0, util: 0 }; list.forEach(function (p) { if (p && p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && p.n !== 'Second Wind') c[usageClass(p)]++; }); return c; }
   function summary(ch, r) {
     var one = function (t) { var a = ownedOf(r, t); return a.length ? a[0].n : ''; };
     var s = r.stats;
@@ -92,7 +96,8 @@
       ac: s['ac'] || 0, fort: s['fortitude defense'] || 0, ref: s['reflex defense'] || 0, will: s['will defense'] || 0,
       speed: s['speed'] || 0, init: s['initiative'] || 0,
       powers: ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id); }).map(function (p) { return p.n; }),
-      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }) };
+      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }), pw: pwCount(ownedOf(r, 'Power')), hsv: Math.floor((s['hit points'] || 0) / 4) + (s['healing surge value'] || 0),
+      role: ((ownedOf(r, 'Class')[0] || {}).sp || {})['Role'] || '', path: one('Paragon Path'), epic: one('Epic Destiny') };
   }
 
   /* ---------- 번역 ----------
@@ -881,13 +886,16 @@
   /* ---------- 팀 시트 ---------- */
   async function shareCur() {
     if (!ME.hash) { alert('먼저 서명해 주세요. 서명이 이 시트의 주인을 구별해요.'); openSign(); return; }
-    var me = ME.name; cur.owner = me; saveChars(); status('올리는 중…');
+    var me = ME.name, btn = $('chShare'), bt0 = '팀에 올리기'; cur.owner = me; saveChars(); status('올리는 중…'); btn.disabled = true; btn.textContent = '올리는 중…';
     try {
       var ex = (await D4EShare.list()).filter(function (r) { return r.id === cur.id; })[0];
-      if (ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && !ME.gm) { status(''); alert('이 시트는 「' + (ex.data.owner || '?') + '」 서명으로 올라가 있어요. 주인이나 GM 만 덮어쓸 수 있어요.'); return; }
+      if (ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && !ME.gm) { status(''); btn.disabled = false; btn.textContent = bt0; alert('이 시트는 「' + (ex.data.owner || '?') + '」 서명으로 올라가 있어요. 주인이나 GM 만 덮어쓸 수 있어요.'); return; }
       await D4EShare.put(cur.id, { name: cur.name, owner: me, ownerHash: ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, sum: summary(cur, res), at: Date.now() });
-      status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')');
-    } catch (e) { status(''); alert('올리지 못했어요: ' + e.message); }
+      var tn = (D4EHouse.teams()[cur.team] || {}).name;
+      status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')'); toast('「' + (cur.name || '이름 없음') + '」 시트를 ' + (tn ? '「' + tn + '」 팀에' : '팀 없이') + (ex ? ' 다시 올렸어요 (덮어씀)' : ' 올렸어요'));
+      btn.textContent = '올렸어요 ✓'; setTimeout(function () { btn.textContent = bt0; }, 2500);
+    } catch (e) { status(''); btn.textContent = bt0; toast('올리지 못했어요: ' + e.message, true); alert('올리지 못했어요: ' + e.message); }
+    btn.disabled = false;
   }
   async function renderTeam() {
     var box = $('teamList'); box.innerHTML = '<p class="hint">읽는 중이에요.</p>'; $('teamSheet').hidden = true;
@@ -901,10 +909,20 @@
     rows = rows.filter(function (r) { var t = (r.data || {}).team || ''; if (t && !T[t]) t = ''; return teamView === '' || (teamView === '_none' ? !t : t === teamView); });
     box.innerHTML = rows.length ? '' : '<p class="hint">여기에는 아직 올라온 시트가 없어요. 「내 캐릭터」에서 팀을 고르고 「팀에 올리기」를 눌러 보세요.</p>';
     rows.forEach(function (row) {
-      var d = row.data || {}, s = d.sum || {}, c = document.createElement('section'); c.className = 'card';
-      c.innerHTML = (d.port ? '<img class="port sm" src="' + esc(d.port) + '" alt="">' : '') + '<h3>' + esc(d.name || '이름 없음') + (T[d.team] ? ' <span class="badge">' + esc(T[d.team].name) + '</span>' : '') + '</h3><p>' + esc(d.owner || '?') + ' · ' + esc(koName('Race', s.race) || s.race || '') + ' ' + esc(koName('Class', s.cls) || s.cls || '') + ' · ' + (d.level || 1) + '레벨</p>' +
-        '<p>HP ' + (s.hp || 0) + ' · AC ' + (s.ac || 0) + ' · Fort ' + (s.fort || 0) + ' · Ref ' + (s.ref || 0) + ' · Will ' + (s.will || 0) + '</p>' +
-        '<p>' + esc((s.powers || []).slice(0, 8).join(', ')) + '</p>';
+      var d = row.data || {}, s = d.sum || {}, c = document.createElement('section'); c.className = 'tcard';
+      /* 옛 시트에는 파워 가짓수가 없어서, 룰 데이터가 있으면 이름으로 찾아 센다 */
+      var pw = s.pw || (db ? pwCount((s.powers || []).map(function (n) { return (db.byName[lc(n)] || []).filter(function (e) { return e.t === 'Power'; })[0]; })) : null);
+      var cls = db && (db.byName[lc(s.cls || '')] || []).filter(function (e) { return e.t === 'Class'; })[0], role = s.role || (cls && cls.sp && cls.sp['Role']) || '';
+      role = role ? String(role).split(/[.:]/)[0].trim() : ''; role = role ? (koName('Role', role) || gsub(role)) : '';
+      var sg = function (v) { return (v >= 0 ? '+' : '') + v; }, cell = function (l, v, k) { return '<div class="' + (k || '') + '"><small>' + l + '</small><b>' + v + '</b></div>'; };
+      c.innerHTML = '<div class="tc-top' + (d.port ? '' : ' none') + '">' + (d.port ? '<img src="' + esc(d.port) + '" alt="">' : '<span class="tc-ini">' + esc((d.name || '?').charAt(0)) + '</span>') +
+        (T[d.team] ? '<span class="tc-team">' + esc(T[d.team].name) + '</span>' : '') + '<span class="tc-lv">Lv ' + (d.level || 1) + '</span>' +
+        '<div class="tc-name"><h3>' + esc(d.name || '이름 없음') + '</h3><p>' + esc(koName('Race', s.race) || s.race || '종족 미정') + ' ' + esc(koName('Class', s.cls) || s.cls || '클래스 미정') + (s.path ? ' · ' + esc(s.path) : '') + '</p></div></div>' +
+        '<div class="tc-body"><p class="tc-who">' + (role ? '<span class="tc-role">' + esc(role) + '</span>' : '') + '<span>' + esc(d.owner || '?') + '</span></p>' +
+        '<div class="tc-hp"><span><small>HP</small><b>' + (s.hp || 0) + '</b></span><span class="mid"><small>반죽음</small><b>' + Math.floor((s.hp || 0) / 2) + '</b></span><span class="sg"><small>원기</small><b>' + (s.hsv || Math.floor((s.hp || 0) / 4)) + '</b><i>×' + (s.surges || 0) + '</i></span></div>' +
+        '<div class="tc-def">' + cell('AC', s.ac || 0) + cell('Fort', s.fort || 0) + cell('Ref', s.ref || 0) + cell('Will', s.will || 0) + '</div>' +
+        '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at') + cell('조우', pw.enc, 'enc') + cell('일일', pw.day, 'day') + cell('활용', pw.util, 'util') : cell('파워', (s.powers || []).length)) + '</div></div>';
+      var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c; c = acts;
       var b1 = document.createElement('button'); b1.className = 'mini'; b1.textContent = '시트 보기';
       b1.onclick = function () {
         if (!db) { alert('전체 시트는 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
@@ -922,7 +940,7 @@
         b3.onclick = async function () { if (!confirm('팀 시트에서 내릴까요? 내 브라우저의 캐릭터는 남아요.')) return; try { await D4EShare.del(row.id); renderTeam(); } catch (e) { alert(e.message); } };
         c.appendChild(document.createTextNode(' ')); c.appendChild(b3);
       }
-      box.appendChild(c);
+      box.appendChild(card);
     });
   }
 
