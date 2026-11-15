@@ -154,32 +154,77 @@
    * 공격 = 레벨 절반 + 능력 수정치 + 숙련(무기 파워, 숙련된 무기) + 강화(마법 무기 · 도구의 +N 과 내재 보너스 중 큰 쪽) + 범위가 맞는 보정.
    * 데이터의 보정은 "weapon,heavy blade group:attack" 처럼 꼬리표가 붙은 수치라, 파워 · 무기의 꼬리표가 다 맞을 때만 더한다.
    * 조건부 보정은 넣지 않는다. 서로 다른 수치에서 온 같은 종류 보너스가 겹치는 드문 경우는 가리지 못한다. */
-  var calcCtx = null, AB_FULL = { strength: 1, constitution: 1, dexterity: 1, intelligence: 1, wisdom: 1, charisma: 1 };
+  var calcCtx = null, teamCalc = null;
   function plusN(e) { var m = e && /\+(\d+)\s*$/.exec(e.n); return m ? +m[1] : 0; }
-  function attackInfo(p) {
-    if (!calcCtx) return null; var r = calcCtx.r, ch = calcCtx.ch, sp = p.sp || {}, st = r.stats, q = ch.eq || {};
-    var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(sp['Attack'] || ''); if (!am) return null;
+  var srcName = function (id) { var e = db.byId[id]; return !e ? String(id || '') : e.t === 'Level' ? e.n + '레벨 기본 규칙' : e.n; };
+  /* 한 번의 공격 계산. W = 무기(없으면 null), I = 도구, enhItem = 강화를 주는 마법 물품 */
+  function calcAttack(p, ctx, W, I, enhItem, atkText, hitText) {
+    var r = ctx.r, ch = ctx.ch, sp = p.sp || {}, st = r.stats, wsp = (W && W.sp) || {};
+    var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(atkText || ''); if (!am) return null;
     var kws = String(sp['Keywords'] || '').split(',').map(lc).filter(Boolean), isW = kws.indexOf('weapon') >= 0, isI = kws.indexOf('implement') >= 0;
-    var W = isW ? db.byId[q.main] : null, I = isI ? (db.byId[q.impl] || null) : null, wsp = (W && W.sp) || {};
     var tags = {}; kws.forEach(function (k) { tags[k] = 1; }); var at = lc(sp['Attack Type']).split(' ')[0]; if (at) tags[at] = 1; tags[lc(p.id)] = 1; (p.cat || []).forEach(function (c) { tags[lc(c)] = 1; });
-    if (W) { tags[lc(W.id)] = 1; tags[lc(W.n)] = 1; String(wsp['Group'] || '').split(',').forEach(function (g) { g = lc(g); if (g) { tags[g + ' group'] = 1; tags[g] = 1; } }); String(wsp['Properties'] || '').split(',').forEach(function (g) { if (lc(g)) tags[lc(g)] = 1; }); tags[lc(wsp['Hands Required'])] = 1; }
+    if (W) { tags[lc(W.id)] = 1; tags[lc(W.n)] = 1; String(wsp['Group'] || '').split(',').forEach(function (g) { g = lc(g); if (g) { tags[g + ' group'] = 1; tags[g] = 1; } }); String(wsp['Properties'] || '').split(',').forEach(function (g) { if (lc(g)) tags[lc(g)] = 1; }); if (wsp['Hands Required']) tags[lc(wsp['Hands Required'])] = 1; }
     if (I) { tags[lc(I.id)] = 1; var it = lc((I.sp || {})['Magic Item Type'] || I.n); tags[it] = 1; tags[it + ' implement'] = 1; }
-    var scoped = function (suffix) { var t = 0, parts = []; Object.keys(st).forEach(function (k) { var i = k.lastIndexOf(':'); if (i < 0 || k.slice(i + 1) !== suffix || !st[k]) return;
-      if (k.slice(0, i).split(',').every(function (x) { return tags[x.trim()]; })) { t += st[k]; parts.push(k.slice(0, i) + ' ' + (st[k] > 0 ? '+' : '') + st[k]); } }); return { t: t, parts: parts }; };
+    /* 꼬리표가 맞는 수치의 낱줄을 모아, 종류가 같은 보너스는 수치 이름이 달라도 가장 큰 것만 남긴다 */
+    var gather = function (suffix, plain) {
+      var rows = [], cond = [];
+      Object.keys(r.breakdown).forEach(function (k) { var i = k.lastIndexOf(':'), ok = plain.indexOf(k) >= 0;
+        if (!ok && i > 0 && k.slice(i + 1) === suffix) ok = k.slice(0, i).split(',').every(function (x) { return tags[x.trim()]; });
+        if (!ok) return;
+        r.breakdown[k].forEach(function (x) { if (!x.v) return; var o = { v: x.v, type: x.type || '', label: srcName(x.src), scope: i > 0 ? k.slice(0, i) : '' }; if (x.cond) { o.cond = x.cond; cond.push(o); } else if (!x.off) rows.push(o); }); });
+      var best = {}; rows.forEach(function (o) { var t = lc(o.type); if (t && o.v > 0) { if (!best[t] || o.v > best[t].v) { if (best[t]) best[t].off = true; best[t] = o; } else o.off = true; } });
+      return { rows: rows, cond: cond, sum: rows.reduce(function (a, o) { return a + (o.off ? 0 : o.v); }, 0) };
+    };
     var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0;
     var has = function (n) { for (var k in r.owned) if (lc(r.owned[k].n) === n) return true; return false; };
-    var prof = W && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(W.n) + ')')) ? +(wsp['Proficiency Bonus'] || 0) : 0;
-    var enh = Math.max(st['inherent attack'] || 0, isW ? plusN(db.byId[q.mainM]) : 0, isI ? plusN(I) : 0);
-    var sa = scoped('attack'), sd = scoped('damage'), misc = (st['attack rolls'] || 0), dmisc = (st['damage rolls'] || 0) + (st['damage'] || 0);
-    var atk = half + mod(am[1]) + prof + enh + sa.t + misc;
-    var hit = sp['Hit'] || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', dmod = 0, mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit);
-    if (mm) dmod += mod(mm[1]);
-    if (dm) { var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4]; dice = (+dm[1] * +die[1]) + 'd' + die[2]; }
-    else { var d2 = /(\d+d\d+)/.exec(hit); if (d2) dice = d2[1]; }
-    var dbonus = dmod + enh + sd.t + dmisc, dmg = dice ? dice + (dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '') : (hit && /damage/i.test(hit) && dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '');
-    var why = ['레벨 절반 ' + half, am[1].slice(0, 3).toUpperCase() + ' ' + mod(am[1])]; if (prof) why.push('숙련 ' + prof); if (enh) why.push('강화 ' + enh); sa.parts.forEach(function (x) { why.push(x); }); if (misc) why.push('공격 굴림 ' + misc);
-    return { atk: atk, vs: am[2], dmg: dmg, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), why: why.join(' · '), dwhy: [mm ? mm[1].slice(0, 3).toUpperCase() + ' ' + mod(mm[1]) : ''].concat(enh ? ['강화 ' + enh] : [], sd.parts, dmisc ? ['피해 굴림 ' + dmisc] : []).filter(Boolean).join(' · ') };
+    var profOk = W && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(W.n) + ')')), prof = isW && profOk ? +(wsp['Proficiency Bonus'] || 0) : 0;
+    var inh = st['inherent attack'] || 0, itemEnh = (isW || isI) ? plusN(enhItem) : 0, enh = Math.max(inh, itemEnh);
+    var ga = gather('attack', ['attack rolls']), gd = gather('damage', ['damage rolls', 'damage']);
+    var A = [{ v: half, label: '레벨 절반' }, { v: mod(am[1]), label: am[1].slice(0, 3).toUpperCase() + ' 수정치' }];
+    if (isW && W && !profOk) A.push({ v: 0, label: '숙련 없음 (' + W.n + ')', off: true }); else if (prof) A.push({ v: prof, label: '숙련 (' + W.n + ')' });
+    if (enh) A.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
+    A = A.concat(ga.rows);
+    var atk = half + mod(am[1]) + prof + enh + ga.sum;
+    var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), Dp = [];
+    var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4];
+    if (dm) dice = (+dm[1] * +die[1]) + 'd' + die[2]; else { var d2 = /(\d+d\d+)/.exec(hit); if (d2) dice = d2[1]; }
+    if (mm) Dp.push({ v: mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' });
+    if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
+    var two = isW && W && /versatile/i.test(wsp['Properties'] || '') && !(ch.eq || {}).off; if (two) Dp.push({ v: 1, label: '양손으로 쥠 (Versatile, 보조 손이 비어 있음)' });
+    Dp = Dp.concat(gd.rows);
+    var dbonus = Dp.reduce(function (a, o) { return a + (o.off ? 0 : o.v); }, 0), isDmg = /damage/i.test(hit);
+    var dmg = dice ? dice + (dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '') : (isDmg && dbonus ? (dbonus > 0 ? '+' : '') + dbonus : '');
+    /* 치명타: 주사위 최댓값 + 보정, 그리고 강화 +N 마다 추가 주사위(마법 무기에 치명타 칸이 있으면 그 글), High Crit 무기는 [W] 추가 */
+    var crit = '';
+    if (dice) { var dd = /(\d+)d(\d+)/.exec(dice), mx = +dd[1] * +dd[2] + dbonus, ex = [];
+      if (enh) ex.push(itemEnh >= inh && enhItem && (enhItem.sp || {})['Critical'] ? (enhItem.sp['Critical']) : '+' + enh + 'd6');
+      if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
+      crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
+    return { atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
   }
+  function attackInfo(p, ctx) {
+    ctx = ctx || calcCtx; if (!ctx) return null; var sp = p.sp || {}, q = ctx.ch.eq || {}, kws = lc(sp['Keywords']);
+    var isW = /(^|,)\s*weapon/.test(kws), isI = /(^|,)\s*implement/.test(kws), W = isW ? db.byId[q.main] : null, I = isI ? db.byId[q.impl] || null : null;
+    var main = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Attack'] || sp['Primary Attack'], sp['Hit']); if (!main) return null;
+    var out = { main: main }, off = db.byId[q.off];
+    if (isW && off && off.t === 'Weapon') out.off = calcAttack(p, ctx, off, null, null, sp['Attack'] || sp['Primary Attack'], sp['Hit']);
+    if (sp['Secondary Attack']) out.sec = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Secondary Attack'], '');
+    return out;
+  }
+  function attackDetail(p, ctx) {
+    var ai = attackInfo(p, ctx); if (!ai) return '';
+    var line = function (o) { return '<div class="' + (o.off ? 'off' : '') + '"><b>' + (o.v >= 0 ? '+' : '') + o.v + '</b> ' + esc(o.label) + (o.type ? ' <i>[' + esc(gloss(o.type + ' Bonus') || o.type) + ']</i>' : '') + (o.scope ? ' <small>' + esc(o.scope) + '</small>' : '') + (o.cond ? ' <small>— ' + esc(glossAuto ? gsub(o.cond) : o.cond) + '</small>' : '') + '</div>'; };
+    var block = function (x, title) { var h = '<div class="padc"><strong>' + title + ' · 공격 ' + (x.atk >= 0 ? '+' : '') + x.atk + ' vs ' + esc(gloss(x.vs === 'AC' ? 'Armor Class' : x.vs) || x.vs) + '</strong>' + x.A.map(line).join('');
+      if (x.dmg) h += '<strong>피해 ' + esc(x.dmg) + '</strong>' + (x.dice ? '<div><b>' + esc(x.dice) + '</b> 주사위</div>' : '') + x.D.map(line).join('') + (x.crit ? '<div><b>치명타</b> ' + esc(x.crit) + '</div>' : '');
+      if (x.condA.length || x.condD.length) h += '<strong class="cnh">조건부 (위 숫자에 넣지 않음)</strong>' + x.condA.map(function (o) { o = Object.assign({}, o, { label: '공격 · ' + o.label }); return line(o); }).join('') + x.condD.map(function (o) { o = Object.assign({}, o, { label: '피해 · ' + o.label }); return line(o); }).join('');
+      return h + '</div>'; };
+    return block(ai.main, ai.main.tool || '공격') + (ai.off ? block(ai.off, '보조 손 · ' + ai.off.tool) : '') + (ai.sec ? block(ai.sec, '2차 공격') : '') + '<p class="hint" style="margin:4px 0 0">줄 그어진 것은 같은 종류의 더 큰 보너스에 밀려 빠진 것이에요.</p>';
+  }
+  document.addEventListener('click', function (ev) {
+    var pa = ev.target.closest('.pa'); if (!pa) return; var card = pa.closest('.pc'), e = card && db.byId[card.getAttribute('data-pc')]; if (!e) return;
+    var nx = pa.nextElementSibling; if (nx && nx.classList.contains('pad')) { nx.remove(); return; }
+    var ctx = pa.closest('#teamSheet') && teamCalc ? teamCalc : (res ? { r: res, ch: cur } : calcCtx), d = document.createElement('div'); d.className = 'pad'; d.innerHTML = attackDetail(e, ctx); pa.after(d);
+  });
 
   /* ---------- 파워 카드 ---------- */
   var USE_KO = { 'at-will': '무제한', 'encounter': '조우', 'daily': '일일' };
@@ -198,9 +243,9 @@
     var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : gloss(k.trim()) || ROW_KO[k.trim()] || k) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
     add('하우스룰'); ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
-    var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span><span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
+    var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span>' + (function () { var a0 = attackInfo(p), m0 = a0 && a0.main; return m0 ? '<span class="ps">' + (m0.atk >= 0 ? '+' : '') + m0.atk + (m0.dmg ? ' · ' + esc(m0.dmg) : '') + '</span>' : ''; })() + '<span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
-    var ai = attackInfo(p); if (ai) h += '<div class="pa" title="공격: ' + esc(ai.why) + (ai.dwhy ? '\n피해: ' + esc(ai.dwhy) : '') + '"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.tool ? '<small>' + esc(ai.tool) + '</small>' : '') + '</div>';
+    var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (ai.tool ? '<small>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + (tv && TR(p) && TR(p).fl ? esc(TR(p).fl) : esc(p.fl)) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + tx(p, '_body', p.body) + '</span></div>' : '') +
       (p.src ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + trBar(p) + '</details>';
     return h;
@@ -223,7 +268,7 @@
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
     var h = '<div class="shead">' + (ch.port ? '<img class="port" src="' + esc(ch.port) + '" alt="">' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
     h += '<div class="vit">' + st('hit points', 'HP') + '<div><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></div><div data-why="healing surge value"><small>원기 수치</small><b>' + (Math.floor(hp / 4) + (s['healing surge value'] || 0)) + '</b></div>' +
-      st('healing surges', '원기 횟수') + st('speed', '이동 속도') + st('initiative', '우선권') + '</div>';
+      st('healing surges', '원기 횟수') + (race ? st('speed', '이동 속도') : '<div title="이동 속도는 종족에서 와요. 종족을 고르면 채워져요"><small>이동 속도</small><b>—</b></div>') + st('initiative', '우선권') + '</div>';
     h += '<div class="vit def">' + st('ac', 'AC') + st('fortitude defense', 'Fort') + st('reflex defense', 'Ref') + st('will defense', 'Will') + '</div></div></div>';
     if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격 굴림과 피해 굴림 +' + (s['inherent attack'] || 0) + ' (치명타 +' + (s['inherent attack'] || 0) + 'd6) · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요</span></p>';
     h += '<div class="why" id="why" hidden></div>';
@@ -261,6 +306,10 @@
       if (!lab && (m = /^(.+):(attack|damage)$/.exec(k))) lab = (m[2] === 'attack' ? '공격' : '피해') + ' (' + m[1].split(',').map(function (x) { x = x.trim(); var e2 = db.byId[x.toUpperCase()]; return e2 ? e2.n : gloss(x.replace(/ group$/, '')) || x; }).join(' · ') + ')';
       if (lab) oth += '<div data-why="' + esc(k) + '"><small>' + esc(lab) + '</small><b>' + (s[k] > 0 ? '+' : '') + s[k] + '</b></div>'; });
     Object.keys(r.breakdown).forEach(function (k) { r.breakdown[k].forEach(function (x) { if (!x.cond || !x.v) return; var se = db.byId[x.src]; cond += '<div class="cnd"><b>' + (x.v > 0 ? '+' : '') + x.v + '</b> ' + esc(gloss(k) || k) + ' <span>' + esc(glossAuto ? gsub(x.cond) : x.cond) + '</span><small>' + esc(se ? se.n : '') + '</small></div>'; }); });
+    var txt = ''; (r.worn || []).forEach(function (e) { if (e.t !== 'Magic Item') return; var sp2 = e.sp || {}, parts = [];
+      ['Enhancement', 'Property', 'Critical', 'Special'].forEach(function (k) { if (sp2[k] && (!e.r || k !== 'Enhancement')) parts.push('<i>' + esc(F_KO[k] || k) + '</i> ' + esc(glossAuto ? gsub(sp2[k]) : sp2[k])); });
+      if (parts.length) txt += '<div class="cnd" data-el="' + esc(e.id) + '" style="cursor:pointer"><b>' + esc(e.n) + '</b> ' + (e.r ? '' : '<span class="badge unk">계산 안 됨</span> ') + '<span>' + parts.join(' · ') + '</span></div>'; });
+    if (txt) cond += '<p class="hint" style="margin:8px 0 4px">물품의 글로 된 효과 (직접 확인하세요. 무기 · 도구의 +N 강화는 공격과 피해에 들어가 있어요)</p>' + txt;
     if (oth || cond) h += sec('other', '그 밖의 보정', (oth ? '<div class="vit oth">' + oth + '</div>' : '') + (cond ? '<p class="hint" style="margin:8px 0 4px">조건부 보정 (위 수치에는 들어가지 않아요)</p>' + cond : ''), false);
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
@@ -796,7 +845,7 @@
         if (!db) { alert('전체 시트는 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
         if (d.set) D4EHouse.apply(db, d.set);
         var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {} }, r = E.build(db, ch);
-        var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = sheetHtml(ch, r, d.owner); teamCtx = { map: ch.tr || {}, edit: false }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
+        ch.eq = d.eq || {}; var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = sheetHtml(ch, r, d.owner); teamCtx = { map: ch.tr || {}, edit: false }; teamCalc = { r: r, ch: ch }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
       b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); cur = n; saveChars(); tab('edit'); };
