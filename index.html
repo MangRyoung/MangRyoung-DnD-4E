@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>4판 캐릭터 제작기</title>
+<link rel="stylesheet" href="css/app.css?v=202611160200">
+</head>
+<body>
+<header class="top">
+  <h1>4판 캐릭터 제작기</h1>
+  <nav class="tabs">
+    <button data-tab="edit" class="on">내 캐릭터</button>
+    <button data-tab="team">팀 시트</button>
+    <button data-tab="data">데이터</button>
+  </nav>
+  <span id="status" class="status"></span>
+</header>
+
+<main id="tab-data" class="tab" hidden>
+  <section class="card">
+    <h2>룰 데이터</h2>
+    <p id="dataState">확인하는 중이에요.</p>
+    <p class="hint">Character Builder 폴더의 <code>Cache/combined.dnd40.merged.xml</code> 을 고르면 이 브라우저에 보관돼요. 한 번만 하면 됩니다. 파일은 어디에도 올라가지 않아요.</p>
+    <p><input type="file" id="xmlFile" accept=".xml"> <button id="dataClear" class="ghost">보관한 데이터 지우기</button></p>
+    <p id="dataProg" class="hint"></p>
+  </section>
+</main>
+
+<main id="tab-edit" class="tab">
+  <section class="card bar">
+    <label>캐릭터 <select id="chSel"></select></label>
+    <button id="chNew">새로 만들기</button>
+    <button id="chDel" class="ghost">지우기</button>
+    <span class="sp"></span>
+    <label>내 이름 <input id="me" size="8" placeholder="플레이어"></label>
+    <button id="chShare">팀에 올리기</button>
+  </section>
+  <div class="cols">
+    <section class="card" id="build">
+      <h2>만들기</h2>
+      <div class="row"><label>이름 <input id="chName" size="14"></label>
+        <label>레벨 <select id="chLevel"></select></label></div>
+      <h3>능력치 <span class="hint">종족 · 레벨 보너스를 뺀 기본값</span></h3>
+      <div id="abil" class="abil"></div>
+      <h3>고르기 <span class="hint" id="selCount"></span></h3>
+      <label class="hint"><input type="checkbox" id="hideOpt"> 선택 사항 칸 숨기기</label>
+      <div id="selects"></div>
+    </section>
+    <section class="card" id="sheet"></section>
+  </div>
+</main>
+
+<main id="tab-team" class="tab" hidden>
+  <section class="card bar"><h2>팀 시트</h2><span class="sp"></span><button id="teamRefresh">새로 읽기</button></section>
+  <div id="teamList" class="team"></div>
+  <section class="card" id="teamSheet" hidden></section>
+</main>
+
+<div id="modal" class="modal" hidden>
+  <div class="box">
+    <div class="mhead"><strong id="mTitle"></strong><span class="sp"></span><button id="mClose" class="ghost">닫기</button></div>
+    <input id="mSearch" placeholder="이름 · 설명 검색">
+    <div class="mbody">
+      <div id="mList" class="mlist"></div>
+      <div id="mDetail" class="mdetail"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<script src="js/config.js?v=202611160200"></script>
+<script src="js/engine.js?v=202611160200"></script>
+<script src="js/data.js?v=202611160200"></script>
+<script src="js/share.js?v=202611160200"></script>
+<script src="js/app.js?v=202611160200"></script>
+</body>
+</html>
