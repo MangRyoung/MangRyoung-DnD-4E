@@ -4,5 +4,7 @@ window.D4E_CONFIG = {
   supabaseUrl: "https://jsnvqcvwspxzfnhdethl.supabase.co",
   supabaseKey: "sb_publishable_HDcgWnb1QS1P6GOiBPqdAA_yBJNhU7R",
   table: "docs",
-  kind: "dnd4e_char"
+  kind: "dnd4e_char",
+  /* 하우스룰 · 자작 요소: 문서 하나 = 요소 하나 */
+  houseKind: "dnd4e_house"
 };

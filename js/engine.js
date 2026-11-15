@@ -20,6 +20,16 @@
     }
     return this;
   };
+  /* 하우스룰용: 같은 id 가 있으면 바꿔 끼우고, 없으면 더한다. 바뀌기 전 요소를 돌려준다. */
+  Db.prototype.remove = function (id) {
+    var old = this.byId[id]; if (!old) return null;
+    delete this.byId[id];
+    var drop = function (arr) { var i = arr ? arr.indexOf(old) : -1; if (i >= 0) arr.splice(i, 1); };
+    drop(this.byName[lc(old.n)]); drop(this.byType[old.t]);
+    if (old.t === 'Category' && this.catName[lc(old.n)] === id) delete this.catName[lc(old.n)];
+    return old;
+  };
+  Db.prototype.put = function (e) { var old = this.remove(e.id); this.add([e]); return old; };
   Db.prototype.get = function (ref, type) {
     if (this.byId[ref]) return this.byId[ref];
     var c = this.byName[lc(ref)] || [];
@@ -48,6 +58,17 @@
     return true;
   }
 
+  /* 식을 & | 로 자르다 남은 짝 없는 괄호만 벗긴다. "Shield Proficiency (Heavy)" 의 괄호는 이름의 일부라 남긴다. */
+  function unwrap(t) {
+    t = String(t).trim();
+    for (;;) {
+      var o = (t.match(/\(/g) || []).length, c = (t.match(/\)/g) || []).length;
+      if (o > c && t.charAt(0) === '(') t = t.slice(1).trim();
+      else if (c > o && t.charAt(t.length - 1) === ')') t = t.slice(0, -1).trim();
+      else if (o && o === c && t.charAt(0) === '(' && t.charAt(t.length - 1) === ')' && t.indexOf(')') === t.length - 1) t = t.slice(1, -1).trim();
+      else return t;
+    }
+  }
   /* requires: & | ! 와 쉼표(그리고). 토큰 = 가진 요소의 id · 이름, 또는 "11 level". */
   function evalRequires(expr, st) {
     if (!expr) return true;
@@ -55,9 +76,8 @@
     for (var i = 0; i < ands.length; i++) {
       var ors = ands[i].split('|'), ok = false;
       for (var j = 0; j < ors.length && !ok; j++) {
-        var tk = ors[j].trim().replace(/^\(+|\)+$/g, '').trim(), neg = false;
-        while (tk.charAt(0) === '!') { neg = !neg; tk = tk.slice(1).trim(); }
-        tk = tk.replace(/^\(+|\)+$/g, '').trim();
+        var tk = unwrap(ors[j]), neg = false;
+        while (tk.charAt(0) === '!') { neg = !neg; tk = unwrap(tk.slice(1)); }
         var m = /^(\d+)\s*level$/i.exec(tk), has;
         if (m) has = st.level >= +m[1];
         else has = !!(st.prevIds[tk] || st.prevNames[lc(tk)]);
@@ -130,6 +150,23 @@
 
     for (var L = 1; L <= st.level; L++) apply(db.byId['ID_INTERNAL_LEVEL_' + L], 'level');
 
+    /* 장비: 찬 것의 규칙도 그대로 적용한다. wearing="armor:heavy" 같은 조건은 찬 장비를 보고 가린다. */
+    var worn = [];
+    (ch.equip || []).forEach(function (id) { var e = db.byId[id]; if (e) { worn.push(e); apply(e, 'equip'); } });
+    function wears(expr) {
+      var i = String(expr).indexOf(':'), kind = lc(i < 0 ? expr : expr.slice(0, i)), val = lc(i < 0 ? '' : expr.slice(i + 1));
+      for (var w = 0; w < worn.length; w++) {
+        var e = worn[w], sp = e.sp || {};
+        var kindOk = kind === 'armor' ? e.t === 'Armor' : kind === 'weapon' ? e.t === 'Weapon' :
+          (lc(sp['Magic Item Type']).indexOf(kind) >= 0 || lc(e.t) === kind || lc(sp['Properties']).indexOf(kind) >= 0);
+        if (!kindOk) continue;
+        if (!val || lc(e.n) === val) return true;
+        var f = ['Armor Type', 'Armor Category', 'Group', 'Weapon Category', 'Properties', 'Hands Required'];
+        for (var k = 0; k < f.length; k++) if (lc(sp[f[k]]).indexOf(val) >= 0) return true;
+      }
+      return false;
+    }
+
     /* 수치 계산: 종류(type)가 있는 보너스는 같은 종류끼리 가장 큰 것만, 없는 것 · 벌점은 전부 더함.
      * 능력 수정치(Ability)는 음수여도 둘 중 큰 것 하나만(포티 = 힘/건강 중 높은 쪽). */
     var cache = {}, busy = {}, breakdown = {};
@@ -147,7 +184,9 @@
       var total = base[k] || 0, typed = {}, rows = [];
       if (base[k]) rows.push({ v: base[k], src: '기본', type: '' });
       (byStat[k] || []).forEach(function (ad) {
-        if (ad.condition || ad.wearing) { rows.push({ v: valueOf(ad.value), src: ad.src, type: ad.type, cond: ad.condition || ('착용: ' + ad.wearing), off: true }); return; }
+        if (ad.wearing && !wears(ad.wearing)) return;
+        if (ad.notWearing && wears(ad.notWearing)) return;
+        if (ad.condition) { rows.push({ v: valueOf(ad.value), src: ad.src, type: ad.type, cond: ad.condition, off: true }); return; }
         var v = valueOf(ad.value), t = lc(ad.type), row = { v: v, src: ad.src, type: ad.type };
         if (t && (v > 0 || t === 'ability')) {
           if (!typed[t] || v > typed[t].v) { if (typed[t]) typed[t].off = true; typed[t] = row; } else row.off = true;
@@ -176,7 +215,7 @@
     Object.keys(byStat).forEach(function (k) { stats[k] = stat(k); });
     ABILITIES.forEach(function (ab) { stats[lc(ab)] = stat(ab); });
     return { stats: stats, breakdown: breakdown, owned: st.owned, order: st.order, selects: st.selects,
-      text: st.text, vars: st.vars, warnings: st.warnings, stat: function (n) { return stat(n); } };
+      text: st.text, vars: st.vars, warnings: st.warnings, worn: worn, stat: function (n) { return stat(n); } };
   }
 
   /* 고르기 칸의 후보 목록 */

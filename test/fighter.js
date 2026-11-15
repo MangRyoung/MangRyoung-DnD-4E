@@ -28,4 +28,15 @@ console.log('남은 칸:', r.selects.filter(s => !s.picked.length).map(s => s.ty
 r.warnings.slice(0, 5).forEach(w => console.log('경고:', w));
 ch.level = 11; r = D.build(db, ch);
 console.log('11레벨: HP', r.stats['hit points'], '(기대', 15 + 15 + 60 + 10, ') 힘', r.stats['strength'], '포티', r.stats['fortitude defense'], '티어', !!r.owned['ID_INTERNAL_TIER_PARAGON']);
-process.exit(bad ? 1 : 0);
+if (bad) process.exitCode = 1;
+// 장비: 판금 갑옷(숙련 없음 → 반사 -2) · 사슬 갑옷 + 대형 방패
+{
+  const D2 = require('../js/engine.js'); const fs2 = require('fs'), path2 = require('path'); const db2 = new D2.Db();
+  for (const g of Object.keys(JSON.parse(fs2.readFileSync(path2.join(process.argv[2], 'index.json'))).groups)) db2.add(JSON.parse(fs2.readFileSync(path2.join(process.argv[2], g + '.json'))));
+  const c2 = { level: 1, abilities: { Strength: 16, Constitution: 14, Dexterity: 13, Intelligence: 10, Wisdom: 12, Charisma: 8 }, choices: { 'ID_INTERNAL_LEVEL_1#0': ['ID_FMP_RACE_7'], 'ID_INTERNAL_LEVEL_1#1': ['ID_FMP_CLASS_3'] } };
+  const id = n => db2.get(n).id;
+  c2.equip = [id('Leather Armor')]; let r2 = D2.build(db2, c2); console.log('가죽 갑옷 AC', r2.stats['ac'], '(기대 13)');
+  c2.equip = [id('Scale Armor'), id('Heavy Shield')]; r2 = D2.build(db2, c2); console.log('비늘 + 대형 방패 AC', r2.stats['ac'], '(기대 19) 반사', r2.stats['reflex defense'], '(기대 14) 이동', r2.stats['speed'], '(기대 5)');
+  c2.equip = [id('Plate Armor')]; r2 = D2.build(db2, c2); console.log('판금(숙련 없음) AC', r2.stats['ac'], '(기대 18) 반사', r2.stats['reflex defense'], '(기대 10)');
+  c2.equip = [id('Scale Armor'), id('Magic Armor +1'), id('Amulet of Protection +1')]; r2 = D2.build(db2, c2); console.log('비늘 +1 · 목걸이 +1 AC', r2.stats['ac'], '(기대 18) 인내', r2.stats['fortitude defense'], '(기대 17)');
+}

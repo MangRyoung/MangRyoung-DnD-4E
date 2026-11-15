@@ -113,7 +113,44 @@
     } catch (e) { return null; }
   }
 
+  /* 묶음 파일(d4e-data.json.gz): 종류별 묶음을 한 파일로. 팀에 건네거나 사이트의 data/ 폴더에 둘 수 있다. */
+  var PACK = 'd4e-data.json.gz';
+  async function gunzip(blob) {
+    var st = blob.stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(st).text());
+  }
+  async function exportPack() {
+    var d = await loadStored();
+    if (!d) throw new Error('이 브라우저에 보관한 룰 데이터가 없어요.');
+    var st = new Blob([JSON.stringify({ v: 1, groups: d.groups })]).stream().pipeThrough(new CompressionStream('gzip'));
+    var blob = await new Response(st).blob();
+    var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = PACK;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(a.href); }, 60000);
+    return blob.size;
+  }
+  async function storePack(pack, name) {
+    if (!pack || !pack.groups || !pack.groups.core) throw new Error('묶음 파일 꼴이 아니에요.');
+    var total = 0;
+    for (var i = 0; i < NAMES.length; i++) { var arr = pack.groups[NAMES[i]] || []; total += arr.length; await idbPut(NAMES[i], arr); }
+    await idbPut('meta', { total: total, bad: 0, at: Date.now(), file: name });
+    return { groups: pack.groups, total: total, bad: 0 };
+  }
+  async function importAny(file, onProgress) {
+    if (/\.gz$/i.test(file.name)) return storePack(await gunzip(file), file.name);
+    if (/\.json$/i.test(file.name)) return storePack(JSON.parse(await file.text()), file.name);
+    return importXml(file, onProgress);
+  }
+
   async function loadSite() {
+    try {
+      var rp = await fetch('data/' + PACK, { cache: 'no-cache' });
+      if (rp.ok) {
+        var pack = await gunzip(await rp.blob()), tot = 0;
+        Object.keys(pack.groups).forEach(function (g) { tot += pack.groups[g].length; });
+        return { groups: pack.groups, total: tot, meta: { site: true } };
+      }
+    } catch (e) {}
     try {
       var r = await fetch('data/index.json', { cache: 'no-cache' });
       if (!r.ok) return null;
@@ -123,5 +160,5 @@
     } catch (e) { return null; }
   }
 
-  window.D4EData = { importXml: importXml, loadStored: loadStored, loadSite: loadSite, clear: idbClear, NAMES: NAMES };
+  window.D4EData = { importXml: importXml, importAny: importAny, exportPack: exportPack, loadStored: loadStored, loadSite: loadSite, clear: idbClear, NAMES: NAMES };
 })();

@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611160200">
+<link rel="stylesheet" href="css/app.css?v=202611160310">
 </head>
 <body>
 <header class="top">
@@ -13,6 +13,7 @@
   <nav class="tabs">
     <button data-tab="edit" class="on">내 캐릭터</button>
     <button data-tab="team">팀 시트</button>
+    <button data-tab="house">하우스룰</button>
     <button data-tab="data">데이터</button>
   </nav>
   <span id="status" class="status"></span>
@@ -23,8 +24,14 @@
     <h2>룰 데이터</h2>
     <p id="dataState">확인하는 중이에요.</p>
     <p class="hint">Character Builder 폴더의 <code>Cache/combined.dnd40.merged.xml</code> 을 고르면 이 브라우저에 보관돼요. 한 번만 하면 됩니다. 파일은 어디에도 올라가지 않아요.</p>
-    <p><input type="file" id="xmlFile" accept=".xml"> <button id="dataClear" class="ghost">보관한 데이터 지우기</button></p>
+    <p><input type="file" id="xmlFile" accept=".xml,.gz,.json"> <button id="dataClear" class="ghost">보관한 데이터 지우기</button></p>
     <p id="dataProg" class="hint"></p>
+  </section>
+  <section class="card">
+    <h2>묶음 파일</h2>
+    <p class="hint">보관한 데이터를 파일 하나(<code>d4e-data.json.gz</code>, 5MB 안팎)로 내보내요. 이 파일도 위 칸에서 그대로 불러올 수 있어요.</p>
+    <p class="hint">사이트의 <code>data/</code> 폴더에 이 파일이 있으면 아무것도 불러오지 않은 브라우저가 그것을 읽어요. 저장소 화면에서 Add file → Upload files 로 <code>data</code> 폴더 안에 올리면 돼요.</p>
+    <p><button id="dataExport">묶음 파일로 내보내기</button> <span id="dataExportMsg" class="hint"></span></p>
   </section>
 </main>
 
@@ -37,16 +44,19 @@
     <label>내 이름 <input id="me" size="8" placeholder="플레이어"></label>
     <button id="chShare">팀에 올리기</button>
   </section>
-  <div class="cols">
+  <div class="cols wideL">
     <section class="card" id="build">
       <h2>만들기</h2>
       <div class="row"><label>이름 <input id="chName" size="14"></label>
         <label>레벨 <select id="chLevel"></select></label></div>
+      <div class="row" style="margin-top:8px"><label>포트 <input type="file" id="portFile" accept="image/*"></label><button id="portDel" class="ghost mini">포트 빼기</button></div>
       <h3>능력치 <span class="hint">종족 · 레벨 보너스를 뺀 기본값</span></h3>
       <div id="abil" class="abil"></div>
       <h3>고르기 <span class="hint" id="selCount"></span></h3>
       <label class="hint"><input type="checkbox" id="hideOpt"> 선택 사항 칸 숨기기</label>
       <div id="selects"></div>
+      <h3>장비 <span class="hint">찬 것의 수치가 시트에 반영돼요</span></h3>
+      <div id="equip" class="sgrid"></div>
     </section>
     <section class="card" id="sheet"></section>
   </div>
@@ -56,6 +66,16 @@
   <section class="card bar"><h2>팀 시트</h2><span class="sp"></span><button id="teamRefresh">새로 읽기</button></section>
   <div id="teamList" class="team"></div>
   <section class="card" id="teamSheet" hidden></section>
+</main>
+
+<main id="tab-house" class="tab" hidden>
+  <section class="card bar"><h2>하우스룰 · 자작 요소</h2><span class="sp"></span>
+    <button id="hNew">새 요소</button><button id="hFrom">기존 요소에서 시작</button><button id="hRefresh" class="ghost">새로 읽기</button></section>
+  <p class="hint">여기서 저장하면 팀 모두에게 바로 반영돼요. 공식 요소를 고치면 그 요소를 덮어쓰고, 지우면 원래대로 돌아와요.</p>
+  <div class="cols">
+    <section class="card"><h3 style="margin-top:0">등록된 것 <span class="hint" id="hCount"></span></h3><div id="hList"></div></section>
+    <section class="card" id="hEdit"><p class="hint">왼쪽에서 고르거나 위 버튼으로 새로 만들어 주세요.</p></section>
+  </div>
 </main>
 
 <div id="modal" class="modal" hidden>
@@ -70,10 +90,12 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611160200"></script>
-<script src="js/engine.js?v=202611160200"></script>
-<script src="js/data.js?v=202611160200"></script>
-<script src="js/share.js?v=202611160200"></script>
-<script src="js/app.js?v=202611160200"></script>
+<script src="js/config.js?v=202611160310"></script>
+<script src="js/ko.js?v=202611160310"></script>
+<script src="js/engine.js?v=202611160310"></script>
+<script src="js/data.js?v=202611160310"></script>
+<script src="js/share.js?v=202611160310"></script>
+<script src="js/house.js?v=202611160310"></script>
+<script src="js/app.js?v=202611160310"></script>
 </body>
 </html>

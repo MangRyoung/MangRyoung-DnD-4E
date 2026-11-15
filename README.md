@@ -13,9 +13,16 @@
 - `js/engine.js` — 룰 엔진 (grant · select · statadd · statalias · textstring)
 - `js/data.js` — XML 불러오기 · 브라우저 보관(IndexedDB)
 - `js/share.js` · `js/config.js` — 팀 시트 (Supabase docs 표, kind `dnd4e_char`)
-- `js/app.js` · `css/app.css` · `index.html` — 화면
+- `js/app.js` · `css/app.css` · `index.html` — 화면 (고르기 타일 · 장비 칸 · 파워 카드 · 포트)
+- `js/house.js` — 하우스룰 고치는 화면
+- `js/ko.js` — 이름 번역표
 - `tools/convert.py` — XML 을 JSON 묶음으로 바꾸는 변환기 (엔진 시험용)
 - `test/fighter.js` — 1레벨 인간 파이터 수치 대조: `node test/fighter.js <데이터 폴더>`
 
+## 하우스룰 · 번역
+- 「하우스룰」 탭에서 새 요소를 만들거나 공식 요소를 고쳐 덮어쓴다. 저장하면 팀 모두에게 바로 반영된다(Supabase kind `dnd4e_house`).
+- 이름 번역표는 `js/ko.js`. 화면에는 「한국어 (English)」로 보인다.
+- 「데이터」 탭의 「묶음 파일로 내보내기」로 `d4e-data.json.gz` 를 만들 수 있다. 사이트의 `data/` 폴더에 이 파일이 있으면 그것을 읽는다.
+
 ## 아직 없는 것
-modify · replace(재훈련) · 장비 착용 · 조건부 보너스 반영 · 선행 조건 자동 확인.
+modify · replace(재훈련) · 무기 공격 수치 계산 · 조건부 보너스 반영 · 선행 조건 자동 확인.
