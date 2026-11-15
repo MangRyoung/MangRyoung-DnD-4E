@@ -353,12 +353,12 @@
       pb += sec('pw_' + g[0], '<span class="pgh ' + g[0] + '"><i></i>' + g[1] + '</span> <span class="hint">' + list.length + '</span>', '<div class="pcards">' + list.map(function (p) { return powerCard(p, false); }).join('') + '</div>');
     });
     h += sec('power', '파워 <span class="hint">' + pws.length + '개 · 이름을 누르면 펼쳐져요</span> <button class="mini ghost" data-pcall="1">모두 펼치기 / 접기</button>', pb || '<p class="hint">아직 없어요.</p>');
-    if (r.worn && r.worn.length) { var eq = '<table class="tbl">';
-      r.worn.forEach(function (e) { eq += '<tr data-el="' + esc(e.id) + '" style="cursor:pointer"><td>' + ((ch.tr || {})[e.id] && ch.tr[e.id].n ? esc(ch.tr[e.id].n) + ' <span class="hint">' + esc(e.n) + '</span>' : esc(e.n)) + '</td><td class="hint">' + esc(eqLine(e)) + '</td></tr>'; });
-      h += sec('gear', '장비 <span class="hint">' + r.worn.length + '</span>', eq + '</table>'); }
-    var tags = function (key, title, type, filt, defOpen) { var a = ownedOf(r, type).filter(filt || function () { return true; }); if (!a.length) return '';
-      return sec(key, title + ' <span class="hint">' + a.length + '</span>', '<div class="tags">' + a.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</span>'; }).join('') + '</div>', defOpen); };
-    h += tags('feat', '재주', 'Feat') + tags('lang', '언어', 'Language');
+    if (r.worn && r.worn.length) h += sec('gear', '장비 <span class="hint">' + r.worn.length + '</span>', gearHtml(ch, r));
+    var feats = ownedOf(r, 'Feat');
+    if (feats.length) h += sec('feat', '재주 <span class="hint">' + feats.length + '</span>', '<div class="ftiles">' + feats.map(function (e) { var t = (ch.tr || {})[e.id], d = (e.sp && e.sp['Short Description']) || '';
+      return '<div class="ftile" data-el="' + esc(e.id) + '"><b>' + esc((t && t.n) || nm(e)) + (prereq(e, r, ch.level) === 'no' ? PRE_BADGE.no : '') + '</b>' + (d ? '<small>' + esc(glossAuto ? gsub(d) : d) + '</small>' : '') + '</div>'; }).join('') + '</div>');
+    var langs = ownedOf(r, 'Language');
+    if (langs.length) h += sec('lang', '언어 <span class="hint">' + langs.length + '</span>', '<div class="ltags">' + langs.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(nm(e)) + '</span>'; }).join('') + '</div>');
     /* 그 밖의 보정: 계산은 됐지만 위에 자리가 없는 값들 + 조건부 보정 */
     var OTH = { 'saving throws': '내성 굴림', 'death saving throws': '죽음 내성 굴림', 'attack rolls': '공격 굴림', 'damage rolls': '피해 굴림', 'damage': '피해', 'inherent attack': '내재 공격 · 피해', 'action points': '액션 포인트' }, oth = '', cond = '';
     Object.keys(s).sort().forEach(function (k) { if (!s[k]) return; var lab = OTH[k], m;
@@ -572,6 +572,28 @@
     else if (e.t === 'Armor') { a.push((sp['Armor Type'] || '') + ' ' + (sp['Armor Category'] || '')); if (sp['Armor Bonus']) a.push('방어 +' + sp['Armor Bonus']); if (sp['Check'] && sp['Check'] !== '-') a.push('판정 ' + sp['Check']); if (sp['Speed'] && sp['Speed'] !== '-') a.push('이동 ' + sp['Speed']); }
     else { if (sp['Level']) a.push(sp['Level'] + '레벨'); a.push(sp['Enhancement'] || mit(e) || ''); }
     return a.filter(Boolean).join(' · '); }
+  /* 시트의 장비 칸: 자리별 카드. 갑옷 · 무기는 본체와 마법을 한 장에 묶는다 */
+  var GEAR_KIND = { body: ['armor', '갑옷'], main: ['weapon', '주 무기'], off: ['shield', '방패 · 보조 손'], impl: ['impl', '도구'], head: ['slot', '머리'], neck: ['slot', '목'], arms: ['slot', '팔'], hands: ['slot', '손'], waist: ['slot', '허리'], feet: ['slot', '발'], ring1: ['slot', '반지'], ring2: ['slot', '반지'] };
+  function gearHtml(ch, r) {
+    var q = ch.eq || {}, used = {}, tiles = [], T = ch.tr || {}, name = function (e) { return (T[e.id] && T[e.id].n) || e.n; };
+    var chips = function (e) { var sp = e.sp || {}, a = [];
+      if (e.t === 'Weapon') { if (sp['Damage']) a.push(['피해', sp['Damage']]); if (sp['Proficiency Bonus']) a.push(['숙련', '+' + sp['Proficiency Bonus']]); if (sp['Range']) a.push(['사거리', sp['Range']]); if (sp['Group']) a.push(['', gsub(sp['Group'])]); if (sp['Properties']) a.push(['', gsub(sp['Properties'])]); }
+      else if (e.t === 'Armor') { if (sp['Armor Bonus']) a.push(['방어', '+' + sp['Armor Bonus']]); else if (sp['Shield Bonus']) a.push(['방어', '+' + sp['Shield Bonus']]); if (sp['Check'] && sp['Check'] !== '0' && sp['Check'] !== '-') a.push(['판정', sp['Check']]); if (sp['Speed'] && sp['Speed'] !== '0' && sp['Speed'] !== '-') a.push(['이동', sp['Speed']]); }
+      else { if (sp['Enhancement']) a.push(['', glossAuto ? gsub(sp['Enhancement']) : sp['Enhancement']]); if (sp['Critical']) a.push(['치명타', sp['Critical']]); }
+      return a; };
+    var tile = function (kind, slot, base, magic) { var top = magic || base, lv = magic && magic.sp && magic.sp['Level'], plus = magic ? plusN(magic) : 0, cs = (base ? chips(base) : []).concat(magic && magic !== base ? chips(magic) : []);
+      if (!cs.length && base && !magic) { var l = eqLine(base); if (l) cs.push(['', l]); }
+      tiles.push('<div class="gtile ' + kind + (magic ? ' magic' : '') + '"><div class="gt-h"><span class="gt-slot">' + slot + '</span>' + (lv ? '<span class="gt-lv">' + esc(lv) + '레벨</span>' : '') + '</div>' +
+        '<div class="gt-n" data-el="' + esc(top.id) + '">' + (plus ? '<i class="gt-plus">+' + plus + '</i>' : '') + '<b>' + esc(name(top)) + '</b></div>' +
+        (magic && base && magic !== base ? '<div class="gt-base" data-el="' + esc(base.id) + '">' + esc(name(base)) + '</div>' : '') +
+        '<div class="gt-c">' + cs.map(function (c) { return '<span>' + (c[0] ? '<small>' + c[0] + '</small> ' : '') + esc(c[1]) + '</span>'; }).join('') + '</div></div>'); };
+    [['body', 'bodyM'], ['main', 'mainM'], ['off', 'offM'], ['impl'], ['head'], ['neck'], ['arms'], ['hands'], ['waist'], ['feet'], ['ring1'], ['ring2']].forEach(function (pr) {
+      var b = db.byId[q[pr[0]]], m = pr[1] && db.byId[q[pr[1]]]; if (!b && !m) return; if (b) used[b.id] = 1; if (m) used[m.id] = 1;
+      var k = GEAR_KIND[pr[0]]; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } if (pr[0] === 'off' && (b || m) && (b || m).t === 'Weapon') k = ['weapon', '보조 손'];
+      tile(k[0], k[1], b, m); });
+    (r.worn || []).forEach(function (e) { if (!used[e.id]) tile('etc', '소지품', e.t === 'Magic Item' ? null : e, e.t === 'Magic Item' ? e : null); });
+    return '<div class="gtiles">' + tiles.join('') + '</div>';
+  }
   function syncEquip() { var q = cur.eq || {}, ids = []; EQ_SLOTS.forEach(function (sl) { if (q[sl[0]]) ids.push(q[sl[0]]); }); (q.other || []).forEach(function (id) { ids.push(id); }); cur.equip = ids; }
   var FIGURE = '<svg viewBox="0 0 120 260" class="fig" aria-hidden="true"><g fill="currentColor" opacity=".16"><circle cx="60" cy="26" r="18"/><rect x="52" y="42" width="16" height="12" rx="4"/>' +
     '<path d="M30 56h60a10 10 0 0 1 10 10v8H20v-8a10 10 0 0 1 10-10z"/><rect x="34" y="70" width="52" height="66" rx="8"/><rect x="14" y="68" width="16" height="78" rx="8"/><rect x="90" y="68" width="16" height="78" rx="8"/>' +
