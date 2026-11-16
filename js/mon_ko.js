@@ -321,6 +321,8 @@
   var PREFIX = [[/^miss$/i, '빗나감'], [/^hit$/i, '명중'], [/^effect$/i, '효과'], [/^aftereffect$/i, '후속 효과'], [/^secondary attack$/i, '2차 공격'], [/^tertiary attack$/i, '3차 공격'], [/^secondary target$/i, '2차 대상'], [/^primary target$/i, '1차 대상'], [/^first failed sav(?:e|ing throw)$/i, '첫 내성 실패'], [/^second failed sav(?:e|ing throw)$/i, '두 번째 내성 실패'], [/^third failed sav(?:e|ing throw)$/i, '세 번째 내성 실패'], [/^each failed sav(?:e|ing throw)$/i, '내성 실패마다'], [/^failed sav(?:e|ing throw)$/i, '내성 실패'], [/^special$/i, '특수'], [/^trigger$/i, '발동'], [/^requirements?$/i, '필요 조건'], [/^sustain minor$/i, '유지(보조)'], [/^sustain standard$/i, '유지(일반)'], [/^sustain move$/i, '유지(이동)'], [/^target$/i, '대상'], [/^attack$/i, '공격']];
   var SENSE = { darkvision: '암시야', 'low-light vision': '저조도 시야', truesight: '진시야', blindsight: '맹시', tremorsense: '진동 감지' };
   function clause(s) { var m, t = s.trim(), i; if (!t) return s; if (!latin(t)) return t;
+    /* 손으로 옮긴 문장(자료집 만들 때만 씀 — 사이트에서는 자료집의 tk 칸을 쓴다) */
+    var DK = window.D4E_MONKO_DICT; if (DK && DK[t]) return DK[t];
     /* 머리말: 「Miss: …」 */
     if ((m = /^([A-Za-z][A-Za-z ]{2,26}):\s*(.+)$/.exec(t))) for (i = 0; i < PREFIX.length; i++) if (PREFIX[i][0].test(m[1].trim())) return PREFIX[i][1] + ': ' + clause(m[2]);
     if ((m = /^if both (?:[a-z]+ )?(?:attacks )?hit(?: the same target)?, (.+)$/i.exec(t))) return '둘 다 같은 대상에게 명중하면, ' + clause(m[1]);
@@ -390,6 +392,7 @@
   function mon(m) { var o = {}; Object.keys(m).forEach(function (k) { o[k] = m[k]; });
     o.n = nm(m.n); o.n_en = m.n; o.type = typeKo(m.type); o.senses = sensesKo(m.senses); o.speed = speedKo(m.speed); o.align = ALIGN[m.align] || m.align; o.lang = listKo(m.lang, LANG); o.skills = listKo(m.skills, SKILL);
     o.immune = resKo(m.immune); o.resist = resKo(m.resist); o.vuln = resKo(m.vuln); o.hpnote = m.hpnote ? '빗나간 공격은 졸개에게 피해를 주지 못한다.' : '';
-    o.pw = (m.pw || []).map(function (p) { return { n: nm(p.n), k: p.k, act: actKo(p.act), use: useKo(p.use), kw: kwKo(p.kw), t: body(p.t) }; }); o._ko = 1; return o; }
+    o.pw = (m.pw || []).map(function (p) { return { n: p.nk || nm(p.n), k: p.k, act: p.ak || actKo(p.act), use: p.uk || useKo(p.use), kw: p.kk || kwKo(p.kw), t: p.tk || body(p.t) }; });
+    /* 손으로 옮긴 칸(자료집의 fk) */ if (m.fk) Object.keys(m.fk).forEach(function (k) { o[k] = m.fk[k]; }); o._ko = 1; return o; }
   window.D4E_MONKO = { name: nm, mon: mon, body: body };
 })();
