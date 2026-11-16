@@ -304,9 +304,9 @@
     if (act === 'save') { var o = { f: {} }; card.querySelectorAll('[data-k]').forEach(function (x) { var k = x.getAttribute('data-k'), v = x.value.trim(); if (!v) return; if (k === '_n') o.n = v; else if (k === '_fl') o.fl = v; else if (k === '_body') o.body = v; else o.f[k] = v; });
       cur.tr = cur.tr || {}; if (o.n || o.fl || o.body || Object.keys(o.f).length) cur.tr[id] = o; else delete cur.tr[id]; saveChars(); delete trOrig[id]; }
     if (act === 'del') { if (cur.tr) delete cur.tr[id]; saveChars(); }
-    card.classList.add('trform'); redrawCard(card, e);
-    /* 시트 밖(상세 창)에서 번역을 쓰거나 지웠으면 시트의 장비 줄 · 재주 타일 이름도 바로 바뀌게 */
-    if ((act === 'save' || act === 'del') && db && cur && !card.closest('#sheet') && !bar.closest('#teamSheet')) { var keep = trCtx; rebuild(); trCtx = keep; }
+    var inModal = !!card.closest('#mDetail'); card.classList.add('trform'); redrawCard(card, e);
+    /* 상세 창에서 번역을 쓰거나 지웠으면 시트의 장비 줄 · 재주 타일 이름도 바로 바뀌게 */
+    if ((act === 'save' || act === 'del') && db && cur && inModal && trCtx.edit) { var keep = trCtx; rebuild(); trCtx = keep; }
   });
 
   /* ---------- 공격 · 피해 계산 ----------
