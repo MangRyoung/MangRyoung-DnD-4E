@@ -1189,6 +1189,11 @@
       grow('머리', ['head']) + grow('팔', ['arms']) + grow('손', ['hands']) + grow('허리', ['waist']) + grow('발', ['feet']) + grow('반지', ['ring1']) + grow('반지', ['ring2']);
     var gear = (r.worn || []).filter(function (e) { return !used[e.id]; }).map(function (e) { return esc(nmOf(e)); }).join(', '), feats = ownedOf(r, 'Feat').map(function (e) { var t = T[e.id], d = (t && t.f && t.f['Short Description']) || (function (x) { return glossAuto ? gsub(x) : x; })(String((e.sp || {})['Short Description'] || ''));
       return '<div class="op-f"><b>' + esc(nmOf(e)) + '</b>' + (d ? ' ' + esc(d) : '') + '</div>'; }).join('');
+    /* 클래스 · 종족 특성: 고르기만 하는 껍데기(Choose …, Fighter Talents 같은 것)와 파워만 주는 것은 빼고 이름 + 한 줄 */
+    var featLine = function (ty) { return ownedOf(r, ty).filter(function (e) { var sp = e.sp || {}; return !/^Choose /.test(e.n) && !/^(You gain a |Choose )/.test(sp['Short Description'] || '') && (sp['Short Description'] || e.body); }).map(function (e) {
+      var t = T[e.id], sp = e.sp || {}, d = (t && (t.body || (t.f && t.f['Short Description']))) || (function (x) { return glossAuto ? gsub(x) : x; })(String(sp['Short Description'] || short(e.body || '')));
+      return '<div class="op-f"><b>' + esc(nmOf(e)) + '</b>' + (d ? ' ' + esc(d) : '') + '</div>'; }).join(''); };
+    var cfs = featLine('Class Feature'), rts = featLine('Racial Trait');
     var hbl = (ch.hbx || []).map(function (x) { return '<div class="op-h"><b>' + esc(x.n) + '</b> ' + esc(x.text || '') + '</div>'; }).join('') + (ch.hb || []).map(function (id) { var e = db.byId[id]; return e ? '<div class="op-h"><b>' + esc(nmOf(e)) + '</b> ' + esc((e.sp && e.sp['Short Description']) || '') + '</div>' : ''; }).join('');
     return '<div class="op-page"><div class="op-top">' + (ch.port ? '<img src="' + esc(ch.port) + '" alt="">' : '') + '<div class="op-id"><h2>' + esc(ch.name || '이름 없음') + '</h2><p>' + esc([one('Race'), one('Class'), one('Paragon Path'), one('Epic Destiny')].filter(Boolean).join(' · ')) + ' · ' + ch.level + '레벨' + (owner ? ' · ' + esc(owner) : '') + '</p>' + (b.tag ? '<p class="op-tag">' + esc(b.tag) + '</p>' : '') + (lang ? '<p class="op-lang"><b>언어</b> ' + lang + '</p>' : '') +
         '<div class="op-ab">' + E.ABILITIES.map(function (a) { var v = s[lc(a)] || 10; return cell(a.slice(0, 3).toUpperCase(), v + ' <i>' + sg(Math.floor((v - 10) / 2)) + '</i>'); }).join('') + '</div>' +
@@ -1196,7 +1201,7 @@
         '<div class="op-df">' + cell('AC', s['ac'] || 0) + cell('Fort', s['fortitude defense'] || 0) + cell('Ref', s['reflex defense'] || 0) + cell('Will', s['will defense'] || 0) + '</div></div></div>' +
       '<div class="op-sk">' + skills + '</div>' +
       '<div class="op-pw">' + pcol('at', '무제한') + pcol('enc', '조우') + pcol('day', '일일') + pcol('util', '활용') + '</div>' +
-      (gearMain ? '<div class="op-gear">' + gearMain + '</div>' : '') + '<div class="op-ft">' + (gear ? '<p><b>그 밖의 장비</b> ' + gear + '</p>' : '') + '</div>' + (feats ? '<div class="op-feats"><h4>재주</h4><div class="op-fl">' + feats + '</div></div>' : '') +
+      (gearMain ? '<div class="op-gear">' + gearMain + '</div>' : '') + '<div class="op-ft">' + (gear ? '<p><b>그 밖의 장비</b> ' + gear + '</p>' : '') + '</div>' + (cfs ? '<div class="op-feats"><h4>클래스 특성</h4><div class="op-fl">' + cfs + '</div></div>' : '') + (rts ? '<div class="op-feats"><h4>종족 특성</h4><div class="op-fl">' + rts + '</div></div>' : '') + (feats ? '<div class="op-feats"><h4>재주</h4><div class="op-fl">' + feats + '</div></div>' : '') +
       (hbl ? '<div class="op-hb"><h4>홈브류 특성</h4>' + hbl + '</div>' : '') +
       (b.look || b.pers || b.story || b.goal ? '<div class="op-bio">' + BIO.filter(function (f) { return f[0] !== 'tag' && f[0] !== 'note' && b[f[0]]; }).map(function (f) { return '<p><b>' + f[1] + '</b> ' + esc(b[f[0]]).replace(/\n/g, '<br>') + '</p>'; }).join('') + '</div>' : '') + '</div>';
   }
