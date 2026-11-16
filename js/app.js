@@ -1102,12 +1102,14 @@
   }
   /* ---------- 한 장 요약 ---------- */
   function onePage(ch, r, owner) {
-    var s = r.stats, T = ch.tr || {}, b = ch.bio || {}, one = function (t) { var e = ownedOf(r, t)[0]; return e ? (koName(t, e.n) || e.n) : ''; }, nmOf = function (e) { return (T[e.id] && T[e.id].n) || e.n; }, sg = function (v) { return (v >= 0 ? '+' : '') + v; };
+    var s = r.stats, T = ch.tr || {}, b = ch.bio || {}, one = function (t) { var e = ownedOf(r, t)[0]; return e ? (koName(t, e.n) || e.n) : ''; }, nmOf = function (e) { return (T[e.id] && T[e.id].n) || gloss(e.n) || e.n; }, sg = function (v) { return (v >= 0 ? '+' : '') + v; };
+    var short = function (x) { x = String(x || '').split('\n')[0].trim(); return x.length > 120 ? x.slice(0, 118) + '…' : x; };
     var hp = s['hit points'] || 0, hsv = Math.floor(hp / 4) + (s['healing surge value'] || 0), cell = function (l, v) { return '<div><small>' + l + '</small><b>' + v + '</b></div>'; };
     var ctx = { r: r, ch: ch }, pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }).map(function (p) { return eff(p, ch); });
     var grp = { at: [], enc: [], day: [], util: [] }; pws.forEach(function (p) { if (/^ID_INTERNAL/.test(p.id) && !/Basic Attack/.test(p.n)) return; grp[usageClass(p)].push(p); });
-    var pline = function (p) { var ai = attackInfo(p, ctx), m = ai && ai.main, sp = p.sp || {}, act = ACT_KO[lc(sp['Action Type'] || '')] || '', t = T[p.id] || {}, f = t.f || {}, eff0 = f['Hit'] || f['Effect'] || '';
-      return '<div class="op-p"><b>' + esc(nmOf(p)) + '</b><span>' + [act.replace(' 행동', ''), esc(f['Attack Type'] || gsub(String(sp['Attack Type'] || '')).replace(/\s+/g, ' '))].filter(Boolean).join(' · ') + '</span>' +
+    var pline = function (p) { var ai = attackInfo(p, ctx), m = ai && ai.main, sp = p.sp || {}, act = ACT_KO[lc(sp['Action Type'] || '')] || '', t = T[p.id] || {}, f = t.f || {}, eff0 = short(f['Hit'] || f['Effect'] || (function (x) { return x && glossAuto ? gsub(x) : x; })(sp['Hit'] || sp['Effect'] || ''));
+      var rng = f['Attack Type'] || gsub(String(sp['Attack Type'] || '').replace(/\s*\([^)]*\blevel\b[^)]*\)/ig, '')).replace(/\s+/g, ' ');
+      return '<div class="op-p"><b>' + esc(nmOf(p)) + '</b><span>' + [act.replace(' 행동', ''), esc(rng)].filter(Boolean).join(' · ') + '</span>' +
         (m ? '<i>' + sg(m.atk) + ' vs ' + esc(m.vs === 'Fortitude' ? 'Fort' : m.vs === 'Reflex' ? 'Ref' : m.vs) + (m.dmg ? ' · ' + esc(m.dmg) : '') + '</i>' : '') + (eff0 ? '<em>' + esc(eff0) + '</em>' : '') + '</div>'; };
     var pcol = function (k, lab) { return grp[k].length ? '<div class="op-g ' + k + '"><h4>' + lab + ' <small>' + grp[k].length + '</small></h4>' + grp[k].map(pline).join('') + '</div>' : ''; };
     var skills = (db.byType['Skill'] || []).slice().sort(function (a, c) { return a.n < c.n ? -1 : 1; }).map(function (sk) { var v = s[lc(sk.n)] || 0, tr = (s[lc(sk.n + ' trained')] || 0) > 0; return '<span class="' + (tr ? 'tr' : '') + '">' + esc(koName('Skill', sk.n) || sk.n) + ' <b>' + sg(v) + '</b></span>'; }).join('');
@@ -1116,18 +1118,26 @@
     var lang = ownedOf(r, 'Language').map(function (e) { return esc(nm(e)); }).join(', ');
     return '<div class="op-page"><div class="op-top">' + (ch.port ? '<img src="' + esc(ch.port) + '" alt="">' : '') + '<div class="op-id"><h2>' + esc(ch.name || '이름 없음') + '</h2><p>' + esc([one('Race'), one('Class'), one('Paragon Path'), one('Epic Destiny')].filter(Boolean).join(' · ')) + ' · ' + ch.level + '레벨' + (owner ? ' · ' + esc(owner) : '') + '</p>' + (b.tag ? '<p class="op-tag">' + esc(b.tag) + '</p>' : '') +
         '<div class="op-ab">' + E.ABILITIES.map(function (a) { var v = s[lc(a)] || 10; return cell(a.slice(0, 3).toUpperCase(), v + ' <i>' + sg(Math.floor((v - 10) / 2)) + '</i>'); }).join('') + '</div>' +
-        '<div class="op-st">' + cell('HP', hp) + cell('반죽음', Math.floor(hp / 2)) + cell('원기', hsv + ' ×' + (s['healing surges'] || 0)) + cell('AC', s['ac'] || 0) + cell('Fort', s['fortitude defense'] || 0) + cell('Ref', s['reflex defense'] || 0) + cell('Will', s['will defense'] || 0) + cell('이동', s['speed'] || 0) + cell('우선권', sg(s['initiative'] || 0)) + '</div></div></div>' +
+        '<div class="op-st"><div class="op-hp"><span><small>HP</small><b>' + hp + '</b></span><span class="mid"><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></span></div><div class="op-sg"><span class="t">원기</span>' + cell('회복량', hsv) + cell('횟수', (s['healing surges'] || 0)) + '</div>' + cell('이동', s['speed'] || 0) + cell('우선권', sg(s['initiative'] || 0)) + '</div>' +
+        '<div class="op-df">' + cell('AC', s['ac'] || 0) + cell('Fort', s['fortitude defense'] || 0) + cell('Ref', s['reflex defense'] || 0) + cell('Will', s['will defense'] || 0) + '</div></div></div>' +
       '<div class="op-sk">' + skills + '</div>' +
       '<div class="op-pw">' + pcol('at', '무제한') + pcol('enc', '조우') + pcol('day', '일일') + pcol('util', '활용') + '</div>' +
       '<div class="op-ft">' + (gear ? '<p><b>장비</b> ' + gear + '</p>' : '') + (feats ? '<p><b>재주</b> ' + feats + '</p>' : '') + (lang ? '<p><b>언어</b> ' + lang + '</p>' : '') + '</div>' +
       (hbl ? '<div class="op-hb"><h4>홈브류 특성</h4>' + hbl + '</div>' : '') +
       (b.look || b.pers || b.story || b.goal ? '<div class="op-bio">' + BIO.filter(function (f) { return f[0] !== 'tag' && f[0] !== 'note' && b[f[0]]; }).map(function (f) { return '<p><b>' + f[1] + '</b> ' + esc(b[f[0]]).replace(/\n/g, '<br>') + '</p>'; }).join('') + '</div>' : '') + '</div>';
   }
+  function savePng(el, name, btn) {
+    var go = function () { var t0 = btn.textContent; btn.disabled = true; btn.textContent = '만드는 중…';
+      window.html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true }).then(function (cv) { cv.toBlob(function (b) { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = name.replace(/[\\/:*?"<>|]/g, '_'); document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000); btn.disabled = false; btn.textContent = t0; toast('PNG 로 저장했어요'); }, 'image/png'); })
+        .catch(function (e) { btn.disabled = false; btn.textContent = t0; toast('PNG 를 만들지 못했어요: ' + e.message, true); }); };
+    if (window.html2canvas) return go();
+    var sc = document.createElement('script'); sc.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js'; sc.onload = go; sc.onerror = function () { toast('그림 도구를 불러오지 못했어요', true); }; document.head.appendChild(sc);
+  }
   function openOnePage(ch, r, owner) {
     var box = $('onePage'); if (!box) { box = document.createElement('div'); box.id = 'onePage'; document.body.appendChild(box); }
-    box.innerHTML = '<div class="op-bar"><b>한 장 요약</b><span class="hint">인쇄 창에서 「PDF 로 저장」을 고르면 파일로 남아요</span><span class="sp"></span><button data-op="print">인쇄 · PDF</button><button class="ghost" data-op="close">닫기 ×</button></div>' + onePage(ch, r, owner);
+    box.innerHTML = '<div class="op-bar"><b>한 장 요약</b><span class="hint">PNG 는 그림 파일로, 인쇄 창에서 「PDF 로 저장」을 고르면 PDF 로 남아요</span><span class="sp"></span><button data-op="png">PNG 저장</button><button class="ghost" data-op="print">인쇄 · PDF</button><button class="ghost" data-op="close">닫기 ×</button></div>' + onePage(ch, r, owner);
     box.style.display = 'block'; document.body.classList.add('op-open'); box.scrollTop = 0;
-    box.onclick = function (ev) { var k = ev.target.getAttribute && ev.target.getAttribute('data-op'); if (k === 'close') { box.style.display = 'none'; document.body.classList.remove('op-open'); } else if (k === 'print') window.print(); };
+    box.onclick = function (ev) { var k = ev.target.getAttribute && ev.target.getAttribute('data-op'); if (k === 'close') { box.style.display = 'none'; document.body.classList.remove('op-open'); } else if (k === 'print') window.print(); else if (k === 'png') savePng(box.querySelector('.op-page'), (ch.name || '시트') + '_한장요약.png', ev.target); };
   }
   /* ---------- 패시브 효과 ----------
    * 지금 적용 중인 글로 된 효과(재주 · 글로만 된 특성 · 장비 속성 · 홈브류 · 조건부 보정)를 모아 묶음으로 보여 준다.
