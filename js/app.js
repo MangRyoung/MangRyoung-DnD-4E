@@ -492,6 +492,23 @@
   var rich = function (t) { return esc(t).replace(/(\d+d\d+|\d+\[W\]|\b(?:AC|Fortitude|Reflex|Will)\b)/g, '<b>$1</b>').replace(/\n\s*/g, '<br>'); };
   function usageKo(p) { var u = lc(p.sp && p.sp['Power Usage']); for (var k in USE_KO) if (u.indexOf(k) >= 0) return USE_KO[k] + (u.replace(k, '').trim() ? ' ' + (p.sp['Power Usage'].replace(new RegExp(k, 'i'), '').trim()) : ''); return (p.sp && p.sp['Power Usage']) || ''; }
   /* 딸린 파워(_ChildPower: Fire Hawk → Fire Hawk Attack 같은 2차 공격 · 연계 파워)는 어미 카드 안에 같이 보여 준다 */
+  /* 아이템 파워: 마법 물품의 「Power」 칸 글("Power (Daily): Minor Action. …")을 파워 카드로 만든다. 장비 칸에 낀 것만. */
+  var ITEMPW = {};
+  function itemPowersOf(e) { if (ITEMPW[e.id]) return ITEMPW[e.id]; var P = String((e.sp || {})['Power'] || '').trim(), out = []; if (!P) return (ITEMPW[e.id] = out);
+    var parts = P.split(/\n(?=(?:(?:Attack|Utility) )?(?:Power\s*\(|Utility \())/).filter(function (x) { return /^(?:(?:Attack|Utility) )?(?:Power|Utility)\b/.test(x.trim()); });
+    parts.forEach(function (tx0, i) { tx0 = tx0.trim(); var nl = tx0.search(/[:\n]/), hm = /^[^\n]*?\)\s*(?:[:*]\s*)?(?:(?:Daily|Encounter|At-Will)\s*)?(?:\([^)]*\))?/.exec(tx0), head = tx0.split('\n')[0];
+      var u = /\b(Daily|Encounter|At-Will|Consumable)\b/i.exec(head), use = u ? u[1].replace(/^./, function (c) { return c.toUpperCase(); }) : 'Daily';
+      var am = /\b((?:Standard|Move|Minor|Free|No|Opportunity) Action|Immediate (?:Interrupt|Reaction))\b/i.exec(tx0), act = am ? am[1].replace(/\b\w/g, function (c) { return c.toUpperCase(); }).replace(/ Action$/, ' Action') : '';
+      var kw = []; var pm = /\(([^)]*)\)/.exec(head); if (pm) pm[1].split(/[•✦,*]/).forEach(function (k) { k = k.trim(); if (k && !/^(Daily|Encounter|At-Will|Consumable)$/i.test(k) && !/Action$/i.test(k)) kw.push(k); });
+      /* 본문: 머리(「Power (…): Minor Action.」)를 떼고, Trigger/Effect 같은 이름표가 있으면 칸으로 나눈다 */
+      var body = tx0; if (am) { var ai = tx0.indexOf(am[0]) + am[0].length; body = tx0.slice(ai).replace(/^\)?\s*[.:]?\s*/, ''); } else body = tx0.replace(/^[^:]*:\s*/, '');
+      var sp = { 'Power Usage': use, 'Display': 'Item Power', 'Power Type': 'Item', '_Item': e.id }; if (act) sp['Action Type'] = act; if (kw.length) sp['Keywords'] = kw.join(', ');
+      var lab = /(?:^|\n|\.\s+)(Trigger|Requirement|Target|Attack|Hit|Miss|Effect|Special|Sustain \w+):\s*/g, lm, marks = []; while ((lm = lab.exec(body))) marks.push({ k: lm[1], at: lm.index + (/^\./.test(lm[0]) ? 1 : 0), end: lab.lastIndex });
+      if (marks.length) { var pre = body.slice(0, marks[0].at).trim(); marks.forEach(function (m, j) { var v = body.slice(m.end, j + 1 < marks.length ? marks[j + 1].at : body.length).trim(); if (v) sp[m.k] = v; }); if (pre) sp['Effect'] = pre + (sp['Effect'] ? '\n' + sp['Effect'] : ''); }
+      else if (body.trim()) sp['Effect'] = body.trim();
+      out.push({ id: e.id + '~p' + (i + 1), n: e.n + (parts.length > 1 ? ' (' + (i + 1) + ')' : ''), t: 'Power', src: e.src, sp: sp, cat: [], _item: e.id }); });
+    return (ITEMPW[e.id] = out); }
+  function itemPowers(ch) { var q = (ch && ch.eq) || {}, seen = {}, out = []; Object.keys(q).forEach(function (k) { [].concat(q[k] || []).forEach(function (id) { var e = db.byId[id]; if (!e || seen[id] || e.t === 'Power') return; seen[id] = 1; itemPowersOf(e).forEach(function (p) { out.push(p); }); }); }); return out; }
   function childPowers(p) { return String((p.sp || {})['_ChildPower'] || '').split(',').map(function (x) { return db.byId[x.trim()]; }).filter(function (c) { return c && c.t === 'Power' && c.id !== p.id; }); }
   function isChildOwned(r, p) { var par = (p.sp || {})['_ParentPower']; return !!(par && r.owned[par] && childPowers(r.owned[par]).some(function (c) { return c.id === p.id; })); }
   /* 사이오닉 증강 버전(_AugmentVersions: 「… (Augment N)」)도 어미 카드 안에 접어서 넣는다 */
@@ -503,7 +520,7 @@
     var sp = p.sp || {}, cls = usageClass(p), act = sp['Action Type'] || '', rows = [], seen = {};
     var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : rowLabel(k)) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
     add('하우스룰'); ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
-    if (calcCtx && calcCtx.r.mods) calcCtx.r.mods.forEach(function (m) { if (m.name !== p.n || (m.type && m.type !== 'Power') || !String(m.value).trim() || /^[\d.+-]+$/.test(String(m.value).trim())) return;
+    if (calcCtx && calcCtx.r.mods) calcCtx.r.mods.forEach(function (m) { if (m.name !== p.n || (m.type && m.type !== 'Power') || m.value == null || !String(m.value).trim() || /^[\d.+-]+$/.test(String(m.value).trim())) return;
       var se = db.byId[m.src]; rows.push('<div class="pr md"><b>' + esc(se ? se.n : m.field) + '</b><span>' + (tv && glossAuto ? rich(gsub(m.value)) : rich(m.value)) + '</span></div>'); });
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
     var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span>' + (function () { var a0 = attackInfo(p), m0 = a0 && a0.main; return m0 ? '<span class="ps">' + (m0.atk >= 0 ? '+' : '') + m0.atk + (m0.dmg ? ' · ' + esc(m0.dmg) : '') + '</span>' : ''; })() + (cls.indexOf('util') >= 0 ? '<span class="pu ' + USE_CL[usageOrder(p)] + '">' + USE_KO[usageOrder(p)] + '</span>' : '') + '<span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
@@ -582,9 +599,9 @@
     h += strip + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + bioHtml(ch);
     if (who) h += extraHtml(ch, r);
     var hidePw = ch.hidePw || [], basics = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && isBasicPw(p); }), slotLv = slotLevels(r);
-    var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !isChildOwned(r, p) && hidePw.indexOf(p.id) < 0; }).map(function (p) { return eff(p, ch); }), pb = '';
-    [['at', '무제한'], ['enc', '조우'], ['day', '일일'], ['util', '활용']].forEach(function (g) {
-      var list = pws.filter(function (p) { return usageClass(p) === g[0]; }).sort(function (a, b) { return (g[0] === 'util' ? usageOrder(a) - usageOrder(b) : 0) || (isBasicPw(a) ? 1 : 0) - (isBasicPw(b) ? 1 : 0) || pwLevel(a, slotLv) - pwLevel(b, slotLv) || (a.n < b.n ? -1 : 1); });
+    var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !isChildOwned(r, p) && hidePw.indexOf(p.id) < 0; }).map(function (p) { return eff(p, ch); }).concat(itemPowers(ch)), pb = '';
+    [['at', '무제한'], ['enc', '조우'], ['day', '일일'], ['util', '활용'], ['item', '아이템 파워']].forEach(function (g) {
+      var list = pws.filter(function (p) { return g[0] === 'item' ? !!p._item : !p._item && usageClass(p) === g[0]; }).sort(function (a, b) { return (g[0] === 'util' || g[0] === 'item' ? usageOrder(a) - usageOrder(b) : 0) || (isBasicPw(a) ? 1 : 0) - (isBasicPw(b) ? 1 : 0) || pwLevel(a, slotLv) - pwLevel(b, slotLv) || (a.n < b.n ? -1 : 1); });
       if (!list.length) return;
       pb += sec('pw_' + g[0], '<span class="pgh ' + g[0] + '"><i></i>' + g[1] + '</span> <span class="hint">' + list.length + '</span>', '<div class="pcards">' + list.map(function (p) { return powerCard(p, false); }).join('') + '</div>');
     });
@@ -1242,15 +1259,15 @@
     var short = function (x) { x = String(x || '').split('\n')[0].trim(); return x.length > 120 ? x.slice(0, 118) + '…' : x; };
     var lang = ownedOf(r, 'Language').map(function (e) { return esc(nm(e)); }).join(', ');
     var hp = s['hit points'] || 0, hsv = Math.floor(hp / 4) + (s['healing surge value'] || 0), cell = function (l, v) { return '<div><small>' + l + '</small><b>' + v + '</b></div>'; };
-    var slotLv = slotLevels(r), hidePw = ch.hidePw || [], ctx = { r: r, ch: ch }, pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && hidePw.indexOf(p.id) < 0; }).map(function (p) { return eff(p, ch); })
-      .sort(function (a, b) { return (usageClass(a) === 'util' && usageClass(b) === 'util' ? usageOrder(a) - usageOrder(b) : 0) || (isBasicPw(a) ? 1 : 0) - (isBasicPw(b) ? 1 : 0) || pwLevel(a, slotLv) - pwLevel(b, slotLv) || (a.n < b.n ? -1 : 1); });
+    var slotLv = slotLevels(r), hidePw = ch.hidePw || [], ctx = { r: r, ch: ch }, pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && hidePw.indexOf(p.id) < 0; }).map(function (p) { return eff(p, ch); }).concat(itemPowers(ch))
+      .sort(function (a, b) { return ((usageClass(a) === 'util' && usageClass(b) === 'util') || (a._item && b._item) ? usageOrder(a) - usageOrder(b) : 0) || (isBasicPw(a) ? 1 : 0) - (isBasicPw(b) ? 1 : 0) || pwLevel(a, slotLv) - pwLevel(b, slotLv) || (a.n < b.n ? -1 : 1); });
     /* 딸린 파워 · 증강 버전은 어미 바로 아래에 「↳」로 */
-    var subOf = {}, grp = { at: [], enc: [], day: [], util: [] }; pws.forEach(function (p) { if ((/^ID_INTERNAL/.test(p.id) && !/Basic Attack/.test(p.n)) || isChildOwned(r, p)) return; var g = grp[usageClass(p)]; g.push(p);
+    var subOf = {}, grp = { at: [], enc: [], day: [], util: [], item: [] }; pws.forEach(function (p) { if ((/^ID_INTERNAL/.test(p.id) && !/Basic Attack/.test(p.n)) || isChildOwned(r, p)) return; var g = grp[p._item ? 'item' : usageClass(p)]; g.push(p);
       childPowers(p).forEach(function (c) { if (r.owned[c.id]) { subOf[c.id] = '↳ '; g.push(eff(c, ch)); } });
       augVersions(p).forEach(function (c) { var m = /\(Augment (\d+)\)/.exec(c.n); if (m && m[1] === '0') return; subOf[c.id] = '↳ 증강 ' + (m ? m[1] : '') + ' '; g.push(eff(c, ch)); }); });
     var pline = function (p) { var ai = attackInfo(p, ctx), m = ai && ai.main, sp = p.sp || {}, act = ACT_KO[lc(sp['Action Type'] || '')] || '', t = T[p.id] || {}, f = t.f || {}, eff0 = short(f['Hit'] || f['Effect'] || (function (x) { return x && glossAuto ? gsub(x) : x; })(sp['Hit'] || sp['Effect'] || ''));
       var rng = f['Attack Type'] || gsub(String(sp['Attack Type'] || '').replace(/\s*\([^)]*\blevel\b[^)]*\)/ig, '')).replace(/\s+/g, ' ');
-      var lvN = pwLevel(p, slotLv), lvTag = subOf[p.id] || isBasicPw(p) || !lvN ? '' : '<i class="op-lv" title="' + lvN + '레벨 칸">' + lvN + '</i>', useTag = usageClass(p) === 'util' && !subOf[p.id] ? '<i class="op-use ' + USE_CL[usageOrder(p)] + '">' + USE_KO[usageOrder(p)] + '</i>' : '';
+      var lvN = pwLevel(p, slotLv), lvTag = subOf[p.id] || isBasicPw(p) || !lvN ? '' : '<i class="op-lv" title="' + lvN + '레벨 칸">' + lvN + '</i>', useTag = (usageClass(p) === 'util' || p._item) && !subOf[p.id] ? '<i class="op-use ' + USE_CL[usageOrder(p)] + '">' + USE_KO[usageOrder(p)] + '</i>' : '';
       return '<div class="op-p' + (subOf[p.id] ? ' sub' : '') + '"><b>' + lvTag + useTag + (subOf[p.id] ? esc(subOf[p.id]) + (/증강/.test(subOf[p.id]) ? '' : esc(nmOf(p))) : esc(nmOf(p))) + '</b><span>' + [act.replace(' 행동', ''), esc(rng)].filter(Boolean).join(' · ') + '</span>' +
         (m ? '<i>' + sg(m.atk) + ' vs ' + esc(m.vs === 'Fortitude' ? 'Fort' : m.vs === 'Reflex' ? 'Ref' : m.vs) + (m.dmg ? ' · ' + esc(m.dmg) : '') + '</i>' : '') + (eff0 ? '<em>' + esc(eff0) + '</em>' : '') + '</div>'; };
     var pcol = function (k, lab) { return grp[k].length ? '<div class="op-g ' + k + '"><h4>' + lab + ' <small>' + grp[k].length + '</small></h4>' + grp[k].map(pline).join('') + '</div>' : ''; };
@@ -1282,7 +1299,7 @@
         '<div class="op-st"><div class="op-hp"><span><small>HP</small><b>' + hp + '</b></span><span class="mid"><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></span></div><div class="op-sg"><span class="t">원기</span>' + cell('회복량', hsv) + cell('횟수', (s['healing surges'] || 0)) + '</div>' + cell('이동', s['speed'] || 0) + cell('우선권', sg(s['initiative'] || 0)) + '</div>' +
         '<div class="op-df">' + cell('AC', s['ac'] || 0) + cell('Fort', s['fortitude defense'] || 0) + cell('Ref', s['reflex defense'] || 0) + cell('Will', s['will defense'] || 0) + '</div></div></div>' +
       '<div class="op-sk">' + skills + '</div>' +
-      '<div class="op-pw">' + pcol('at', '무제한') + pcol('enc', '조우') + pcol('day', '일일') + pcol('util', '활용') + '</div>' +
+      '<div class="op-pw">' + pcol('at', '무제한') + pcol('enc', '조우') + pcol('day', '일일') + pcol('util', '활용') + pcol('item', '아이템') + '</div>' +
       (gearMain ? '<div class="op-gear">' + gearMain + '</div>' : '') + '<div class="op-ft">' + (gear ? '<p><b>그 밖의 장비</b> ' + gear + '</p>' : '') + '</div>' + (cfs ? '<div class="op-feats"><h4>클래스 특성</h4><div class="op-fl">' + cfs + '</div></div>' : '') + (rts ? '<div class="op-feats"><h4>종족 특성</h4><div class="op-fl">' + rts + '</div></div>' : '') + (feats ? '<div class="op-feats"><h4>재주</h4><div class="op-fl">' + feats + '</div></div>' : '') +
       (hbl ? '<div class="op-hb"><h4>홈브류 특성</h4>' + hbl + '</div>' : '') +
       (b.look || b.pers || b.story || b.goal ? '<div class="op-bio">' + BIO.filter(function (f) { return f[0] !== 'tag' && f[0] !== 'note' && b[f[0]]; }).map(function (f) { return '<p><b>' + f[1] + '</b> ' + esc(b[f[0]]).replace(/\n/g, '<br>') + '</p>'; }).join('') + '</div>' : '') + '</div>';

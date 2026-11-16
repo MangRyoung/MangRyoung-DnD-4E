@@ -426,3 +426,4 @@ body.op-open{overflow:hidden}
 .op-p b .op-use{font-style:normal;font-size:9.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:1px;background:none;border:1px solid currentColor}.op-p b .op-use.at{color:#3d7a4f}.op-p b .op-use.enc{color:#8a2c3a}.op-p b .op-use.day{color:#333}
 .tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px}.tchip.t-heroic{background:#8a5a2b}.tchip.t-paragon{background:#3d6a8a}.tchip.t-epic{background:#7a2b6b}
 .mlist div.fl{border-left-width:6px}.mlist div.fl.t-heroic{background:rgba(138,90,43,.07)}.mlist div.fl.t-paragon{background:rgba(61,106,138,.09)}.mlist div.fl.t-epic{background:rgba(122,43,107,.09)}
+.pgh.item{color:#a8661c}.pgh.item i{background:#a8661c}.op-g.item h4{color:#a8661c}
