@@ -205,7 +205,7 @@
   var PED_KO = { 'Power Usage': '사용 (At-Will / Encounter / Daily)', 'Keywords': '키워드', 'Action Type': '행동', 'Attack Type': '공격 형태 · 사거리', '하우스룰': '하우스룰 메모' };
   /* 파워에 얹히는 것 두 가지: ① 재주 등이 요소 id 로 칸을 바꿔 쓰는 modify (Melee Training → 근접 기본 공격의 Attack · Hit) ② 시트에서 손으로 고친 성능(ed). 손으로 고친 것이 맨 나중. */
   function eff(p, ch) { if (!p || p._ed) return p;
-    var r0 = calcCtx && calcCtx.ch === ch ? calcCtx.r : (ch && ch === cur ? res : null), ms = r0 && r0.mods ? r0.mods.filter(function (m) { return m.name === p.id && m.field && String(m.value).trim() && (p.sp || {})[m.field] != null; }) : [];
+    var r0 = calcCtx && calcCtx.ch === ch ? calcCtx.r : (ch && ch === cur ? res : null), ms = r0 && r0.mods ? r0.mods.filter(function (m) { return m.name === p.id && m.field && m.value != null && String(m.value).trim() && (p.sp || {})[m.field] != null; }) : [];
     var ed = ch && ch.ed && ch.ed[p.id]; if (!ms.length && (!ed || !ed.f)) return p;
     var sp = Object.assign({}, p.sp || {}); ms.forEach(function (m) { sp[m.field] = m.value; });
     if (ed && ed.f) Object.keys(ed.f).forEach(function (k) { if (ed.f[k] === '') delete sp[k]; else sp[k] = ed.f[k]; });
@@ -310,8 +310,18 @@
   function plusN(e) { var m = e && /\+(\d+)\s*$/.exec(e.n); return m ? +m[1] : 0; }
   var srcName = function (id) { var e = db.byId[id]; return !e ? String(id || '') : e.t === 'Level' ? e.n + '레벨 기본 규칙' : e.n; };
   /* 한 번의 공격 계산. W = 무기(없으면 null), I = 도구, enhItem = 강화를 주는 마법 물품 */
+  /* 재주 등이 무기 자체를 바꾸는 modify (예: Spiked Chain Training — 피해 2d4, 그룹에 Light Blade 추가) 를 든 무기에 입힌다 */
+  function effW(W, r) { if (!W || W.t !== 'Weapon' || !r || !r.mods) return W;
+    var ms = r.mods.filter(function (m) { return m.type === 'Weapon' && m.field && (m.name === W.id || lc(m.name) === lc(W.n)); }); if (!ms.length) return W;
+    var sp = Object.assign({}, W.sp || {}); ms.forEach(function (m) { if (m.add) { var cur0 = String(sp[m.field] || '').split(',').map(function (x) { return x.trim(); }).filter(Boolean); String(m.add).split(',').forEach(function (x) { x = x.trim(); if (x && cur0.map(lc).indexOf(lc(x)) < 0) cur0.push(x); }); sp[m.field] = cur0.join(', '); } else if (m.value != null) sp[m.field] = m.value; });
+    var c = Object.assign({}, W); c.sp = sp; return c; }
   function calcAttack(p, ctx, W, I, enhItem, atkText, hitText) {
+    W = effW(W, ctx.r);
     var r = ctx.r, ch = ctx.ch, sp = p.sp || {}, st = r.stats, wsp = (W && W.sp) || {};
+    /* "Strength + 2 vs. AC" 처럼 파워 자체에 붙은 명중 보정 */
+    var flat = 0; atkText = String(atkText || '').replace(/\s*([+\-–])\s*(\d+)(?=\s+vs\.?\s)/, function (_, sg, n) { flat = (sg === '+' ? 1 : -1) * +n; return ''; });
+    /* 근접 무기로는 원거리 기본 공격을 못 한다(사거리 없는 무기는 빼고 계산) */
+    if (W && /^ranged basic attack$/i.test(p.n) && !wsp['Range'] && !/thrown/i.test(wsp['Properties'] || '')) { W = null; wsp = {}; }
     var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(atkText || ''); if (!am) return null;
     var kws = String(sp['Keywords'] || '').split(',').map(lc).filter(Boolean), isW = kws.indexOf('weapon') >= 0, isI = kws.indexOf('implement') >= 0;
     var tags = {}; kws.forEach(function (k) { tags[k] = 1; }); var at = lc(sp['Attack Type']).split(' ')[0]; if (at) tags[at] = 1; tags[lc(p.id)] = 1; (p.cat || []).forEach(function (c) { tags[lc(c)] = 1; });
@@ -334,18 +344,23 @@
     };
     var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0;
     var has = function (n) { for (var k in r.owned) if (lc(r.owned[k].n) === n) return true; return false; };
-    var profOk = W && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(W.n) + ')')), prof = isW && profOk ? +(wsp['Proficiency Bonus'] || 0) : 0;
+    var pend = W && db.byId[wsp['_Primary End']], profOk = W && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(W.n) + ')') || !!(pend && has('weapon proficiency (' + lc(pend.n) + ')'))), prof = isW && profOk ? +(wsp['Proficiency Bonus'] || 0) : 0;
     var inh = st['inherent attack'] || 0, itemEnh = (isW || isI) ? plusN(enhItem) : 0, enh = Math.max(inh, itemEnh);
     var ga = gather('attack', ['attack rolls']), gd = gather('damage', ['damage rolls', 'damage']);
     var A = [{ v: half, label: '레벨 절반' }, { v: mod(am[1]), label: am[1].slice(0, 3).toUpperCase() + ' 수정치' }];
     if (isW && W && !profOk) A.push({ v: 0, label: '숙련 없음 (' + W.n + ')', off: true }); else if (prof) A.push({ v: prof, label: '숙련 (' + W.n + ')' });
     if (enh) A.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
     A = A.concat(ga.rows);
-    var atk = half + mod(am[1]) + prof + enh + ga.sum;
+    var atk = half + mod(am[1]) + prof + enh + ga.sum + flat; if (flat) A.push({ v: flat, label: '파워 자체 보정 · ' + p.n });
     var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mmh = /\+\s*(half |one-half )?(?:your )?(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), mm = mmh && [mmh[0], mmh[2]], mmHalf = !!(mmh && mmh[1]), Dp = [];
     var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4];
     var cut = hit.search(/damage/i), head = cut >= 0 ? hit.slice(0, cut) : hit, terms = [], maxDice = 0, tk, tre = /(\d+)\[W\]|(\d+)d(\d+)/g;
     var rawTerms = [];
+    /* 레벨에 따라 커지는 피해: "Level 5: 4d10 + …", "Increase damage to 2[W] + … at 21st level" 가운데 지금 레벨에 맞는 가장 높은 줄 */
+    var lvNow = st['level'] || ch.level || 1, lvBest = 0, lvTxt = '', lm, lre1 = /Level (\d+):\s*([^\n]*)/g, lre2 = /Increase (?:the )?damage to ([^\n]*?) at (\d+)(?:st|nd|rd|th) level/gi;
+    while ((lm = lre1.exec(hit))) if (+lm[1] <= lvNow && +lm[1] > lvBest && /\d+\[W\]|\d+d\d+/.test(lm[2])) { lvBest = +lm[1]; lvTxt = lm[2]; }
+    while ((lm = lre2.exec(hit))) if (+lm[2] <= lvNow && +lm[2] > lvBest && /\d+\[W\]|\d+d\d+/.test(lm[1])) { lvBest = +lm[2]; lvTxt = lm[1]; }
+    if (lvBest) { var lc2 = lvTxt.search(/damage/i); head = lc2 >= 0 ? lvTxt.slice(0, lc2) : lvTxt; }
     while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; rawTerms.push(tk[1] ? { w: +tk[1] } : { n: +tk[2], d: +tk[3] }); }
     /* 파워의 「Weapon」 칸: "If you're wielding an axe, a heavy blade …, you gain a bonus to the attack roll equal to one-half your Strength modifier" 같은 든 무기에 따른 보정 */
     var wtx = isW && W ? String(sp['Weapon'] || '') : '', wm = /^If you(?:'re| are) wielding (.+?), (?:you gain a bonus to the (attack|damage) rolls? equal to (one-half |half )?your (Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier|the (?:primary )?attacks? deals? (?:extra )?damage equal to (one-half |half )?your (Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier|you gain a \+(\d+) bonus to the (attack|damage) rolls?|the (?:primary )?attacks? deals? (\d+)d(\d+) extra damage)/i.exec(wtx);

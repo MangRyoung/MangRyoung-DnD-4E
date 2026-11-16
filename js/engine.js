@@ -146,7 +146,7 @@
           if (rp.length) { var np = db.get(rp[0], 'Power'); if (np) apply(np, rkey); if (ro.length) st.swapOut.push(ro[0]); }
           continue;
         }
-        if (tag === 'modify') { if (a.name && a.value != null) st.mods.push({ name: a.name, type: a.type || '', field: a.field || '', value: a.value, src: el.id }); continue; }
+        if (tag === 'modify') { if (a.name && a.value != null) st.mods.push({ name: a.name, type: a.type || '', field: a.field || '', value: a.value, src: el.id }); else if (a.name && a.field && a['list-addition']) st.mods.push({ name: a.name, type: a.type || '', field: a.field, add: a['list-addition'], src: el.id }); continue; }
         if (tag === 'grant') {
           var ge = db.get(a.name, a.type);
           if (!ge) { st.warnings.push('grant 대상 없음: ' + a.name + ' (' + el.id + ')'); continue; }
