@@ -203,8 +203,12 @@
   /* 시트별 파워 성능 고침: ch.ed[id] = { f: { 칸: 글 } }. 빈 글은 그 칸을 뺀다는 뜻. 번역(tr)과 달리 계산에도 쓰인다 */
   var PED_FIELDS = ['Power Usage', 'Keywords', 'Action Type', 'Attack Type', 'Trigger', 'Requirement', 'Target', 'Attack', 'Hit', 'Miss', 'Effect', 'Sustain Minor', 'Special', '하우스룰'];
   var PED_KO = { 'Power Usage': '사용 (At-Will / Encounter / Daily)', 'Keywords': '키워드', 'Action Type': '행동', 'Attack Type': '공격 형태 · 사거리', '하우스룰': '하우스룰 메모' };
-  function eff(p, ch) { var ed = p && !p._ed && ch && ch.ed && ch.ed[p.id]; if (!ed || !ed.f) return p;
-    var sp = Object.assign({}, p.sp || {}); Object.keys(ed.f).forEach(function (k) { if (ed.f[k] === '') delete sp[k]; else sp[k] = ed.f[k]; });
+  /* 파워에 얹히는 것 두 가지: ① 재주 등이 요소 id 로 칸을 바꿔 쓰는 modify (Melee Training → 근접 기본 공격의 Attack · Hit) ② 시트에서 손으로 고친 성능(ed). 손으로 고친 것이 맨 나중. */
+  function eff(p, ch) { if (!p || p._ed) return p;
+    var r0 = calcCtx && calcCtx.ch === ch ? calcCtx.r : (ch && ch === cur ? res : null), ms = r0 && r0.mods ? r0.mods.filter(function (m) { return m.name === p.id && m.field && String(m.value).trim() && (p.sp || {})[m.field] != null; }) : [];
+    var ed = ch && ch.ed && ch.ed[p.id]; if (!ms.length && (!ed || !ed.f)) return p;
+    var sp = Object.assign({}, p.sp || {}); ms.forEach(function (m) { sp[m.field] = m.value; });
+    if (ed && ed.f) Object.keys(ed.f).forEach(function (k) { if (ed.f[k] === '') delete sp[k]; else sp[k] = ed.f[k]; });
     var c = Object.assign({}, p); c.sp = sp; c._ed = 1; return c; }
   function pedKeys(e) { var sp = e.sp || {}, keys = [], seen = {}, add = function (k) { if (!seen[k]) { seen[k] = 1; keys.push(k); } };
     PED_FIELDS.forEach(function (k) { if (k === 'Target' && sp['Targets'] != null && sp['Target'] == null) k = 'Targets'; add(k); });
@@ -338,13 +342,13 @@
     if (enh) A.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
     A = A.concat(ga.rows);
     var atk = half + mod(am[1]) + prof + enh + ga.sum;
-    var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mm = /\+\s*(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), Dp = [];
+    var hit = hitText || '', dm = /(\d+)\[W\]/.exec(hit), dice = '', mmh = /\+\s*(half |one-half )?(?:your )?(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/i.exec(hit), mm = mmh && [mmh[0], mmh[2]], mmHalf = !!(mmh && mmh[1]), Dp = [];
     var die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4];
     var cut = hit.search(/damage/i), head = cut >= 0 ? hit.slice(0, cut) : hit, terms = [], maxDice = 0, tk, tre = /(\d+)\[W\]|(\d+)d(\d+)/g;
     var rawTerms = [];
     while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; rawTerms.push(tk[1] ? { w: +tk[1] } : { n: +tk[2], d: +tk[3] }); }
     dice = terms.join('+');
-    if (mm) Dp.push({ v: mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' });
+    if (mm) Dp.push({ v: mmHalf ? Math.floor(mod(mm[1]) / 2) : mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' + (mmHalf ? '의 절반' : '') });
     if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
     var two = isW && W && /versatile/i.test(wsp['Properties'] || '') && !(ch.eq || {}).off; if (two) Dp.push({ v: 1, label: '양손으로 쥠 (Versatile, 보조 손이 비어 있음)' });
     Dp = Dp.concat(gd.rows);
