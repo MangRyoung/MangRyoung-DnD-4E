@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="d4e-version" content="202611170639">
+<meta name="d4e-version" content="202611170646">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611170639">
+<link rel="stylesheet" href="css/app.css?v=202611170646">
 </head>
 <body>
 <header class="top">
@@ -26,6 +26,15 @@
 </header>
 
 <main id="tab-data" class="tab" hidden>
+  <section class="card" id="dexCard">
+    <h2>도감 <span class="hint">룰 요소를 종류별로 찾아보고 걸러 봐요</span></h2>
+    <p id="dexNone" class="hint" hidden>룰 데이터를 불러오면 여기에서 찾아볼 수 있어요.</p>
+    <div id="dexBody">
+      <div id="dexCats" class="tbar dexcats"></div>
+      <div id="dexFilter" class="monbar dexbar"></div>
+      <div class="mongrid"><div><p id="dexCount" class="hint"></p><div id="dexList" class="monlist dexlist"></div></div><div id="dexView" class="monview dexview"></div></div>
+    </div>
+  </section>
   <section class="card">
     <h2>룰 데이터</h2>
     <p id="dataState">확인하는 중이에요.</p>
@@ -165,20 +174,21 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611170639"></script>
-<script src="js/ko.js?v=202611170639"></script>
-<script src="js/presets.js?v=202611170639"></script>
-<script src="js/engine.js?v=202611170639"></script>
-<script src="js/data.js?v=202611170639"></script>
-<script src="js/share.js?v=202611170639"></script>
-<script src="js/house.js?v=202611170639"></script>
-<script src="js/app.js?v=202611170639"></script>
-<script src="js/mon_tpl.js?v=202611170639"></script>
-<script src="js/mon_ko.js?v=202611170639"></script>
-<script src="js/mon.js?v=202611170639"></script>
-<script src="js/mt_tpl.js?v=202611170639"></script>
-<script src="js/mt.js?v=202611170639"></script>
-<script src="js/presence.js?v=202611170639"></script>
-<script src="js/verbar.js?v=202611170639"></script>
+<script src="js/config.js?v=202611170646"></script>
+<script src="js/ko.js?v=202611170646"></script>
+<script src="js/presets.js?v=202611170646"></script>
+<script src="js/engine.js?v=202611170646"></script>
+<script src="js/data.js?v=202611170646"></script>
+<script src="js/share.js?v=202611170646"></script>
+<script src="js/house.js?v=202611170646"></script>
+<script src="js/app.js?v=202611170646"></script>
+<script src="js/mon_tpl.js?v=202611170646"></script>
+<script src="js/mon_ko.js?v=202611170646"></script>
+<script src="js/mon.js?v=202611170646"></script>
+<script src="js/dex.js?v=202611170646"></script>
+<script src="js/mt_tpl.js?v=202611170646"></script>
+<script src="js/mt.js?v=202611170646"></script>
+<script src="js/presence.js?v=202611170646"></script>
+<script src="js/verbar.js?v=202611170646"></script>
 </body>
 </html>

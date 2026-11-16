@@ -288,8 +288,9 @@
     return h + '</div><div class="trb" data-id="' + esc(e.id) + '"><button class="mini" data-tr="save">저장</button><button class="mini ghost" data-tr="sub" title="내가 적은 글 속의 영어 용어를 용어집의 한국어로 바꿔요">적은 글의 용어 치환</button>' +
       (Object.keys(t).length ? '<button class="mini ghost" data-tr="del">내 번역 지우기</button>' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button></div></div>';
   }
-  function ctxFor(node) { if (node.closest('#teamSheet') && teamCtx) trCtx = teamCtx; else if (!node.closest('#mDetail')) trCtx = { map: cur.tr || {}, edit: true }; }
-  function redrawCard(card, e) { ctxFor(card); var open = card.tagName !== 'DETAILS' || card.open || card.classList.contains('trform'), tmp = document.createElement('div');
+  function ctxFor(node) { if (node.closest('#dexView')) trCtx = { map: {}, edit: false }; else if (node.closest('#teamSheet') && teamCtx) trCtx = teamCtx; else if (!node.closest('#mDetail')) trCtx = { map: cur.tr || {}, edit: true }; }
+  function redrawCard(card, e) { if (card.closest('#dexView')) { var bx = card.closest('#dexView'); bx.innerHTML = window.D4EApp.cardIn(e); var d0 = bx.querySelector('details'); if (d0) d0.open = true; return; }
+    ctxFor(card); var open = card.tagName !== 'DETAILS' || card.open || card.classList.contains('trform'), tmp = document.createElement('div');
     tmp.innerHTML = (e.t === 'Power' && e.sp && e.sp['Power Usage']) ? powerCard(e, open) : cardHtml(e); card.replaceWith(tmp.firstChild); }
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-tr]'); if (!b) return; ev.preventDefault(); ev.stopPropagation();
@@ -1581,6 +1582,7 @@
     if ((name === 'edit' || name === 'house') && !db) name = 'data';
     ['edit', 'team', 'house', 'data', 'req', 'mon'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
     if (name === 'mon' && window.D4EMon) D4EMon.render();
+    if (name === 'data' && window.D4EDex) D4EDex.render();
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (name === 'edit') renderEdit();
     if (name === 'team') renderTeam();
@@ -1669,7 +1671,7 @@
     window.D4EApp = { onePage: function () { if (db && cur && res) openOnePage(cur, res, ME.name); }, mtData: mtData, hasChar: function () { return !!(db && cur && res); }, charNames: function () { return Object.keys(chars).map(function (k) { return chars[k].name; }).filter(Boolean); }, gsub: gsub, vocab: function (key, n) {
         var V = vocabCache[key]; if (!V) { var c = {}; (db.byType['Power'] || []).forEach(function (p) { var v = (p.sp || {})[key]; if (!v) return; (key === 'Keywords' ? String(v).split(',') : [String(v)]).forEach(function (x) { x = x.trim(); if (x && x.length < 60) c[x] = (c[x] || 0) + 1; }); });
           V = vocabCache[key] = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }); }
-        return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
+        return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, cardIn: function (e) { trCtx = { map: {}, edit: false }; var kc = calcCtx; calcCtx = null; try { return fields(e); } finally { calcCtx = kc; } }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
       houseChanged: function () { if (!$('tab-edit').hidden) renderEdit(); status('룰 요소 ' + Object.keys(db.byId).length.toLocaleString() + '개 · 하우스룰 ' + D4EHouse.count() + '개'); } };
     D4EHouse.start();
     await loadSign();

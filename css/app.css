@@ -424,7 +424,7 @@ body.op-open{overflow:hidden}
 .ptok[data-tok]{cursor:pointer}.ptok[data-tok]:hover{border-color:var(--acc)}.ptok .tx{position:absolute;inset:0;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:18px;opacity:0;cursor:pointer;padding:0;border-radius:50%}.ptok:hover .tx{opacity:1}
 .op-lv{display:inline-block;min-width:15px;text-align:center;font-style:normal;font-size:9.5px;font-weight:700;background:#e9e2d4;color:#6b6257;border-radius:4px;padding:0 3px;margin-right:4px;vertical-align:1px}
 .op-p b .op-use{font-style:normal;font-size:9.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:1px;background:none;border:1px solid currentColor}.op-p b .op-use.at{color:#3d7a4f}.op-p b .op-use.enc{color:#8a2c3a}.op-p b .op-use.day{color:#333}
-.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px}.tchip.t-heroic{background:#8a5a2b}.tchip.t-paragon{background:#3d6a8a}.tchip.t-epic{background:#7a2b6b}
+i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px}i.tchip.t-heroic{background:#8a5a2b}i.tchip.t-paragon{background:#3d6a8a}i.tchip.t-epic{background:#7a2b6b}
 .mlist div.fl{border-left-width:6px}.mlist div.fl.t-heroic{background:rgba(138,90,43,.07)}.mlist div.fl.t-paragon{background:rgba(61,106,138,.09)}.mlist div.fl.t-epic{background:rgba(122,43,107,.09)}
 .pgh.item{color:#a8661c}.pgh.item i{background:#a8661c}.op-g.item h4{color:#a8661c}
 /* 재주 등급 색: 고른 칩 · 시트 타일 (영웅 갈색 · 패러곤 파랑 · 에픽 보라) */
@@ -455,3 +455,9 @@ body.op-open{overflow:hidden}
 .mf-pr{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}.mf-pr input{flex:1;min-width:90px}.mf-pr select{flex:none}.mf-pw textarea,.mform textarea{width:100%;box-sizing:border-box}
 .mf-prev{margin-top:12px}.mf-prev>small{display:block;color:var(--sub);margin-bottom:4px}
 .mb-h small{font-weight:400;font-size:11px;opacity:.85;margin-left:4px}.mbar .trtab{margin-right:6px}
+/* ---------- 도감 ---------- */
+.dexcats{margin:6px 0 10px;gap:5px}.dexcats .tchip small{opacity:.7;font-size:10.5px}.dexbar select{max-width:210px}
+.drow{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;border-left:4px solid var(--line)}.drow:hover,.drow.on{background:var(--acc2)}
+.drow i{font-style:normal;font-weight:700;min-width:20px;text-align:right;color:var(--sub)}.drow b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drow b small{font-weight:400;color:var(--sub);font-size:11px}.drow span{color:var(--sub);font-size:11.5px;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
+.drow.u-at{border-left-color:var(--at)}.drow.u-enc{border-left-color:var(--enc)}.drow.u-day{border-left-color:var(--day)}.drow.t-heroic{border-left-color:#8a5a2b}.drow.t-paragon{border-left-color:#3d6a8a}.drow.t-epic{border-left-color:#7a2b6b}
+.dexview .pc,.dexview .gc{max-width:640px}.dexid{font-size:11px;margin-top:6px;word-break:break-all}
