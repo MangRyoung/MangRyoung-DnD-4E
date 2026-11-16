@@ -375,6 +375,8 @@
         else if (wm[9]) { terms.push(wm[9] + 'd' + wm[10]); maxDice += +wm[9] * +wm[10]; } } }
     dice = terms.join('+');
     if (mm) Dp.push({ v: mmHalf ? Math.floor(mod(mm[1]) / 2) : mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' + (mmHalf ? '의 절반' : '') });
+    /* "1[W] + Strength modifier + Wisdom modifier damage" 처럼 수정치가 둘 이상 붙는 피해: 첫 「damage」 앞까지에서 둘째부터 더 넣는다 */
+    if (mm && cut >= 0) { var mre = /\+\s*(half |one-half )?(?:your )?(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier/gi, m2, mi = 0, hd0 = hit.slice(0, cut); while ((m2 = mre.exec(hd0))) { if (mi++ === 0) continue; Dp.push({ v: m2[1] ? Math.floor(mod(m2[2]) / 2) : mod(m2[2]), label: m2[2].slice(0, 3).toUpperCase() + ' 수정치' + (m2[1] ? '의 절반' : '') }); } }
     if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
     var two = isW && W && /versatile/i.test(wsp['Properties'] || '') && !(ch.eq || {}).off; if (two) Dp.push({ v: 1, label: '양손으로 쥠 (Versatile, 보조 손이 비어 있음)' });
     Dp = Dp.concat(gd.rows);
