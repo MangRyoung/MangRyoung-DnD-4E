@@ -168,8 +168,8 @@
     return { race: one('Race'), cls: one('Class'), level: ch.level, hp: s['hit points'] || 0, surges: s['healing surges'] || 0,
       ac: s['ac'] || 0, fort: s['fortitude defense'] || 0, ref: s['reflex defense'] || 0, will: s['will defense'] || 0,
       speed: s['speed'] || 0, init: s['initiative'] || 0,
-      powers: ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id); }).map(function (p) { return p.n; }),
-      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }), pw: pwCount(ownedOf(r, 'Power')), hsv: Math.floor((s['hit points'] || 0) / 4) + (s['healing surge value'] || 0),
+      powers: ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && !isChildOwned(r, p); }).map(function (p) { return p.n; }),
+      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }), pw: pwCount(ownedOf(r, 'Power').filter(function (p) { return !isChildOwned(r, p); })), hsv: Math.floor((s['hit points'] || 0) / 4) + (s['healing surge value'] || 0),
       role: ((ownedOf(r, 'Class')[0] || {}).sp || {})['Role'] || '', path: one('Paragon Path'), epic: one('Epic Destiny') };
   }
 
@@ -446,7 +446,11 @@
   /* 주사위 · [W] · 방어 이름을 굵게 */
   var rich = function (t) { return esc(t).replace(/(\d+d\d+|\d+\[W\]|\b(?:AC|Fortitude|Reflex|Will)\b)/g, '<b>$1</b>').replace(/\n\s*/g, '<br>'); };
   function usageKo(p) { var u = lc(p.sp && p.sp['Power Usage']); for (var k in USE_KO) if (u.indexOf(k) >= 0) return USE_KO[k] + (u.replace(k, '').trim() ? ' ' + (p.sp['Power Usage'].replace(new RegExp(k, 'i'), '').trim()) : ''); return (p.sp && p.sp['Power Usage']) || ''; }
-  function powerCard(p, open) {
+  /* 딸린 파워(_ChildPower: Fire Hawk → Fire Hawk Attack 같은 2차 공격 · 연계 파워)는 어미 카드 안에 같이 보여 준다 */
+  function childPowers(p) { return String((p.sp || {})['_ChildPower'] || '').split(',').map(function (x) { return db.byId[x.trim()]; }).filter(function (c) { return c && c.t === 'Power' && c.id !== p.id; }); }
+  function isChildOwned(r, p) { var par = (p.sp || {})['_ParentPower']; return !!(par && r.owned[par] && childPowers(r.owned[par]).some(function (c) { return c.id === p.id; })); }
+  function powerCard(p, open, nested) {
+    var kids = nested ? [] : childPowers(p);
     p = eff(p, calcCtx && calcCtx.ch);
     var sp = p.sp || {}, cls = usageClass(p), act = sp['Action Type'] || '', rows = [], seen = {};
     var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : gloss(k.trim()) || ROW_KO[k.trim()] || k) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
@@ -458,7 +462,8 @@
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
     var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (ai.tool ? '<small' + (ai.noTool ? ' class="notool"' : '') + '>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + (tv && TR(p) && TR(p).fl ? esc(TR(p).fl) : esc(p.fl)) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + tx(p, '_body', p.body) + '</span></div>' : '') +
-      (p.src ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + trBar(p) + '</details>';
+      (kids.length ? '<div class="pkids"><small>이 파워에 딸린 파워</small>' + kids.map(function (c) { return powerCard(c, true, true); }).join('') + '</div>' : '') +
+      (p.src && !nested ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + trBar(p) + '</details>';
     return h;
   }
 
@@ -516,7 +521,7 @@
       return '<div data-why="' + lc(a) + '" title="' + AB_KO[a] + ' · 레벨 절반 더하면 ' + (m + half >= 0 ? '+' : '') + (m + half) + '"><small>' + a.slice(0, 3).toUpperCase() + '</small><b>' + v + '</b><i>' + (m >= 0 ? '+' : '') + m + '</i></div>'; }).join('') + '</div>';
     h += strip + sec('skill', '기술 <span class="hint">● 숙련</span>', skl) + bioHtml(ch);
     if (who) h += extraHtml(ch, r);
-    var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage']; }).map(function (p) { return eff(p, ch); }), pb = '';
+    var pws = ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !isChildOwned(r, p); }).map(function (p) { return eff(p, ch); }), pb = '';
     [['at', '무제한'], ['enc', '조우'], ['day', '일일'], ['util', '활용']].forEach(function (g) {
       var list = pws.filter(function (p) { return usageClass(p) === g[0]; }).sort(function (a, b) { return a.n < b.n ? -1 : 1; });
       if (!list.length) return;
