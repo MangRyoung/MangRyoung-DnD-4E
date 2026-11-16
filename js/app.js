@@ -319,7 +319,19 @@
     W = effW(W, ctx.r);
     var r = ctx.r, ch = ctx.ch, sp = p.sp || {}, st = r.stats, wsp = (W && W.sp) || {};
     /* "Strength + 2 vs. AC" 처럼 파워 자체에 붙은 명중 보정 */
-    var flat = 0; atkText = String(atkText || '').replace(/\s*([+\-–])\s*(\d+)(?=\s+vs\.?\s)/, function (_, sg, n) { flat = (sg === '+' ? 1 : -1) * +n; return ''; });
+    /* 명중 쪽이 레벨로 커지는 줄: "Level 11: Constitution + 4 vs. AC", "Level 21: +9.", "Increase to +4 bonus at 11th level …" 가운데 지금 레벨에 맞는 것 */
+    var lvA = st['level'] || ch.level || 1, aLines = String(atkText || '').split('\n'), aBase = aLines[0], flatOv = null, ABR = /Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma/g;
+    aLines.slice(1).forEach(function (l) { var m = /Level (\d+):\s*(.*)/.exec(l), n;
+      if (m) { if (+m[1] <= lvA) { if (/\bvs\b/.test(m[2])) { aBase = m[2]; flatOv = null; } else if ((n = /\+\s*(\d+)/.exec(m[2]))) flatOv = +n[1]; } return; }
+      if ((n = /gain a \+(\d+) bonus to the attack roll/i.exec(l))) flatOv = +n[1];
+      var re = /\+(\d+)(?: bonus)?(?: (?:on|to) (?:the )?attack rolls?)? at (\d+)(?:st|nd|rd|th) level/g, x, best = 0; while ((x = re.exec(l))) if (+x[2] <= lvA && +x[2] > best) { best = +x[2]; flatOv = +x[1]; } });
+    /* 명중 칸에 같이 적힌 꼴: "Increase to +4 bonus and 2d6 + Constitution modifier damage at 11th level, and to +6 bonus and 3d6 … at 21st level" (용의 숨결 등) */
+    var hbRe = /to \+(\d+) bonus and ([^,.]*?) at (\d+)(?:st|nd|rd|th) level/gi, hb, hbBest = 0, hbDice = ''; while ((hb = hbRe.exec(String(hitText || '')))) if (+hb[3] <= lvA && +hb[3] > hbBest) { hbBest = +hb[3]; flatOv = +hb[1]; hbDice = hb[2]; }
+    var flat = 0, flat1 = false; atkText = aBase.replace(/\s*([+\-–])\s*(\d+)(?=\s+vs\.?\s)/g, function (_, sg, n) { if (!flat1) { flat = (sg === '+' ? 1 : -1) * +n; flat1 = true; } return ''; });
+    if (flatOv != null) flat = flatOv;
+    /* 능력치를 골라 쓰는 파워("Intelligence, Wisdom, or Charisma + 4 vs. Will", "highest ability modifier"): 가장 높은 것으로. 무기 파워는 손에 따라 갈리는 것(근접 근력 · 원거리 민첩)이라 건드리지 않는다 */
+    if (!/(^|,)\s*weapon/i.test(String(sp['Keywords'] || ''))) { var abs = /highest ability/i.test(atkText) ? ['Strength', 'Constitution', 'Dexterity', 'Intelligence', 'Wisdom', 'Charisma'] : (atkText.match(ABR) || []), dfm = /vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(atkText);
+      if (abs.length > 1 && dfm) { var bestA = abs[0]; abs.forEach(function (x) { if ((st[lc(x)] || 10) > (st[lc(bestA)] || 10)) bestA = x; }); atkText = bestA + ' vs. ' + dfm[1]; } }
     /* 근접 무기로는 원거리 기본 공격을 못 한다(사거리 없는 무기는 빼고 계산) */
     if (W && /^ranged basic attack$/i.test(p.n) && !wsp['Range'] && !/thrown/i.test(wsp['Properties'] || '')) { W = null; wsp = {}; }
     var am = /(Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma)\s+vs\.?\s+(AC|Fortitude|Reflex|Will)/i.exec(atkText || ''); if (!am) return null;
@@ -360,6 +372,7 @@
     var lvNow = st['level'] || ch.level || 1, lvBest = 0, lvTxt = '', lm, lre1 = /Level (\d+):\s*([^\n]*)/g, lre2 = /Increase (?:the )?damage to ([^\n]*?) at (\d+)(?:st|nd|rd|th) level/gi;
     while ((lm = lre1.exec(hit))) if (+lm[1] <= lvNow && +lm[1] > lvBest && /\d+\[W\]|\d+d\d+/.test(lm[2])) { lvBest = +lm[1]; lvTxt = lm[2]; }
     while ((lm = lre2.exec(hit))) if (+lm[2] <= lvNow && +lm[2] > lvBest && /\d+\[W\]|\d+d\d+/.test(lm[1])) { lvBest = +lm[2]; lvTxt = lm[1]; }
+    if (hbBest > lvBest && /\d+\[W\]|\d+d\d+/.test(hbDice)) { lvBest = hbBest; lvTxt = hbDice; }
     if (lvBest) { var lc2 = lvTxt.search(/damage/i); head = lc2 >= 0 ? lvTxt.slice(0, lc2) : lvTxt; }
     while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; rawTerms.push(tk[1] ? { w: +tk[1] } : { n: +tk[2], d: +tk[3] }); }
     /* 파워의 「Weapon」 칸: "If you're wielding an axe, a heavy blade …, you gain a bonus to the attack roll equal to one-half your Strength modifier" 같은 든 무기에 따른 보정 */
