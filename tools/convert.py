@@ -18,6 +18,15 @@ GROUPS = {
 T2G = {t: g for g, ts in GROUPS.items() if ts for t in ts}
 ws = lambda s: re.sub(r"[ \t]+\n", "\n", (s or "").strip())
 
+def spkey(sp, k):
+    """같은 이름의 칸이 두 번 나오면(1차 Hit 과 2차 Hit 등) 뒤엣것이 앞엣것을 덮지 않게 이름을 바꾼다."""
+    if k not in sp: return k
+    pre = "Tertiary " if ("Tertiary Attack" in sp or "Tertiary Target" in sp) else "Secondary " if ("Secondary Attack" in sp or "Secondary Target" in sp or "Secondary Targets" in sp) else ""
+    if pre and not k.startswith(pre) and (pre + k) not in sp: return pre + k
+    n = 2
+    while "%s (%d)" % (k, n) in sp: n += 1
+    return "%s (%d)" % (k, n)
+
 def conv(el):
     o = {"id": el.get("internal-id"), "n": el.get("name"), "t": el.get("type")}
     if el.get("source"): o["src"] = [s.strip() for s in el.get("source").split(",") if s.strip()]
@@ -27,7 +36,7 @@ def conv(el):
         tag = c.tag.lower()
         if tag == "specific":
             v = ws(c.text)
-            if v: sp[(c.get("name") or "").strip()] = v
+            if v: sp[spkey(sp, (c.get("name") or "").strip())] = v
         elif tag == "rules":
             for r in c:
                 rules.append([r.tag.lower(), {k.lower(): v for k, v in r.attrib.items()}])

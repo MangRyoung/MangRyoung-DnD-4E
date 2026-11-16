@@ -257,7 +257,7 @@
     var sp = e.sp || {}, out = [{ k: '_n', label: '이름', orig: e.n, one: true }], seen = {};
     if (e.fl) out.push({ k: '_fl', label: '플레이버', orig: e.fl });
     var add = function (k) { if (sp[k] == null || seen[k] || k.charAt(0) === '_' || k === '하우스룰' || /^(type|Type|Full Text|Tier|Rarity|Level|Class|Power Type|Display|Power Usage|Action Type|Magic Item Type|Gold|Weight)$/.test(k)) return; seen[k] = 1;
-      out.push({ k: k, label: { 'Keywords': '키워드', 'Attack Type': '공격 유형' }[k] || gloss(k.trim()) || ROW_KO[k.trim()] || F_KO[k] || k, orig: String(sp[k]) }); };
+      out.push({ k: k, label: { 'Keywords': '키워드', 'Attack Type': '공격 유형' }[k] || rowLabel(k), orig: String(sp[k]) }); };
     if (e.t === 'Power') ROW_ORDER.forEach(add);
     Object.keys(sp).forEach(function (k) { if (e.t === 'Power' || String(sp[k]).length > 30 || k === 'Short Description' || k === 'Keywords') add(k); });
     if (e.body) out.push({ k: '_body', label: '설명', orig: e.body });
@@ -358,7 +358,7 @@
     var main = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Attack'] || sp['Primary Attack'], sp['Hit']); if (!main) return null;
     var out = { main: main }, off = db.byId[q.off];
     if (isW && off && off.t === 'Weapon') out.off = calcAttack(p, ctx, off, null, db.byId[q.offM] || null, sp['Attack'] || sp['Primary Attack'], sp['Hit']);
-    if (sp['Secondary Attack']) out.sec = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Secondary Attack'], '');
+    if (sp['Secondary Attack']) out.sec = calcAttack(p, ctx, W, I, isW ? db.byId[q.mainM] : I, sp['Secondary Attack'], sp['Secondary Hit'] || '');
     return out;
   }
   function attackDetail(p, ctx) {
@@ -440,10 +440,13 @@
   var USE_KO = { 'at-will': '무제한', 'encounter': '조우', 'daily': '일일' };
   var ACT_KO = { 'standard action': '표준 행동', 'move action': '이동 행동', 'minor action': '보조 행동', 'free action': '자유 행동', 'immediate interrupt': '즉시 방해',
     'immediate reaction': '즉시 반응', 'opportunity action': '기회 행동', 'no action': '행동 없음' };
+  /* 겹친 칸 이름표: "Hit (2)" → 명중, "Secondary Hit" → 2차 명중, "Tertiary Hit" → 3차 명중 */
+  function rowLabel(k) { k = String(k).trim().replace(/ \(\d+\)$/, ''); var m = /^(Secondary|Tertiary) (.+)$/.exec(k), whole = gloss(k) || ROW_KO[k] || F_KO[k]; if (whole) return whole;
+    if (m) { var b = gloss(m[2]) || ROW_KO[m[2]] || F_KO[m[2]] || m[2]; return (m[1] === 'Secondary' ? '2차 ' : '3차 ') + b; } return k; }
   var ROW_KO = { 'Trigger': '발동 조건', 'Requirement': '요구 조건', 'Prerequisite': '선행 조건', 'Target': '대상', 'Primary Target': '1차 대상', 'Secondary Target': '2차 대상',
     'Attack': '공격', 'Primary Attack': '1차 공격', 'Secondary Attack': '2차 공격', 'Hit': '명중', 'Miss': '빗나감', 'Effect': '효과', 'Special': '특수', 'Sustain': '유지',
     'Sustain Minor': '유지 (보조)', 'Sustain Standard': '유지 (표준)', 'Sustain Move': '유지 (이동)', 'Augment': '증강', 'Aftereffect': '후속 효과', 'Level': '레벨' };
-  var ROW_ORDER = ['Trigger', 'Requirement', 'Prerequisite', 'Target', 'Primary Target', 'Attack', 'Primary Attack', 'Hit', 'Miss', 'Effect', 'Secondary Target', 'Secondary Attack', 'Aftereffect', 'Sustain', 'Sustain Minor', 'Sustain Move', 'Sustain Standard', 'Special'];
+  var ROW_ORDER = ['Trigger', 'Requirement', 'Prerequisite', 'Target', 'Primary Target', 'Attack', 'Primary Attack', 'Hit', 'Miss', 'Effect', 'Secondary Target', 'Secondary Targets', 'Secondary Attack', 'Secondary Hit', 'Secondary Miss', 'Secondary Effect', 'Tertiary Target', 'Tertiary Attack', 'Tertiary Hit', 'Tertiary Miss', 'Tertiary Effect', 'Aftereffect', 'Sustain', 'Sustain Minor', 'Sustain Move', 'Sustain Standard', 'Special'];
   var PC_SKIP = { 'Power Usage': 1, 'Display': 1, 'Keywords': 1, 'Action Type': 1, 'Attack Type': 1, 'Power Type': 1, 'Class': 1, 'Level': 1, 'type': 1, 'Full Text': 1 };
   /* 주사위 · [W] · 방어 이름을 굵게 */
   var rich = function (t) { return esc(t).replace(/(\d+d\d+|\d+\[W\]|\b(?:AC|Fortitude|Reflex|Will)\b)/g, '<b>$1</b>').replace(/\n\s*/g, '<br>'); };
@@ -458,14 +461,14 @@
     var kids = nested ? [] : childPowers(p), augs = nested ? [] : augVersions(p);
     p = eff(p, calcCtx && calcCtx.ch);
     var sp = p.sp || {}, cls = usageClass(p), act = sp['Action Type'] || '', rows = [], seen = {};
-    var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : gloss(k.trim()) || ROW_KO[k.trim()] || k) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
+    var add = function (k) { if (sp[k] == null || seen[k] || PC_SKIP[k] || k.charAt(0) === '_') return; seen[k] = 1; rows.push('<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(k === '하우스룰' ? k : rowLabel(k)) + '</b><span>' + (k === '하우스룰' ? rich(sp[k]) : tx(p, k, sp[k])) + '</span></div>'); };
     add('하우스룰'); ROW_ORDER.forEach(add); Object.keys(sp).forEach(add);
     if (calcCtx && calcCtx.r.mods) calcCtx.r.mods.forEach(function (m) { if (m.name !== p.n || (m.type && m.type !== 'Power') || !String(m.value).trim() || /^[\d.+-]+$/.test(String(m.value).trim())) return;
       var se = db.byId[m.src]; rows.push('<div class="pr md"><b>' + esc(se ? se.n : m.field) + '</b><span>' + (tv && glossAuto ? rich(gsub(m.value)) : rich(m.value)) + '</span></div>'); });
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
     var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span>' + (function () { var a0 = attackInfo(p), m0 = a0 && a0.main; return m0 ? '<span class="ps">' + (m0.atk >= 0 ? '+' : '') + m0.atk + (m0.dmg ? ' · ' + esc(m0.dmg) : '') + '</span>' : ''; })() + '<span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
-    var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (ai.tool ? '<small' + (ai.noTool ? ' class="notool"' : '') + '>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
+    var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (aiA.sec ? '<span class="cr">2차 ' + (aiA.sec.atk >= 0 ? '+' : '') + aiA.sec.atk + ' vs ' + esc(aiA.sec.vs === 'Fortitude' ? 'Fort' : aiA.sec.vs === 'Reflex' ? 'Ref' : aiA.sec.vs) + (aiA.sec.dmg ? ' · ' + esc(aiA.sec.dmg) : '') + '</span>' : '') + (ai.tool ? '<small' + (ai.noTool ? ' class="notool"' : '') + '>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + (tv && TR(p) && TR(p).fl ? esc(TR(p).fl) : esc(p.fl)) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + tx(p, '_body', p.body) + '</span></div>' : '') +
       (kids.length ? '<div class="pkids"><small>이 파워에 딸린 파워</small>' + kids.map(function (c) { return powerCard(c, true, true); }).join('') + '</div>' : '') +
       (augs.length ? '<div class="pkids paug"><small>증강 버전 — 누르면 펼쳐져요</small>' + augs.map(function (c) { return '<div class="paugl">' + esc(augLabel(c)) + '</div>' + powerCard(c, false, true); }).join('') + '</div>' : '') +
@@ -990,7 +993,7 @@
     Object.keys(sp).forEach(function (k) {
       var v = String(sp[k]).trim(); if (!v || v === '-' || skip[k] || k.charAt(0) === '_') return;
       v = idNames(v); if (k === 'Gold') v = Number(v).toLocaleString() + ' gp'; if (k === 'Weight') v = v + ' lb'; if (k === 'Proficiency Bonus' || k === 'Armor Bonus') v = '+' + v.replace(/^\+/, '');
-      if (v.length <= 30 && v.indexOf('\n') < 0) chips += '<div><small>' + esc(F_KO[k] || k) + '</small><span>' + esc(v) + '</span></div>';
+      if (v.length <= 30 && v.indexOf('\n') < 0) chips += '<div><small>' + esc(rowLabel(k)) + '</small><span>' + esc(v) + '</span></div>';
       else rows += '<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(F_KO[k] || gloss(k) || k) + '</b><span>' + (k === '하우스룰' ? rich(v) : tx(e, k, v)) + '</span></div>';
     });
     var pre = readablePre(e);
@@ -1192,7 +1195,7 @@
     var gfx = function (e) { if (!e) return []; var sp = e.sp || {}, a = [];
       if (e.t === 'Weapon') { if (sp['Damage']) a.push('피해 ' + sp['Damage']); if (sp['Proficiency Bonus']) a.push('숙련 +' + sp['Proficiency Bonus']); if (sp['Range']) a.push('사거리 ' + sp['Range']); }
       else if (e.t === 'Armor') { if (sp['Armor Bonus']) a.push('방어 +' + sp['Armor Bonus']); else if (sp['Shield Bonus']) a.push('방어 +' + sp['Shield Bonus']); if (sp['Check'] && !/^(0|-)$/.test(sp['Check'])) a.push('판정 ' + sp['Check']); if (sp['Speed'] && !/^(0|-)$/.test(sp['Speed'])) a.push('이동 ' + sp['Speed']); }
-      else { ['Enhancement', 'Critical', 'Property'].forEach(function (k) { if (sp[k]) a.push((k === 'Critical' ? '치명타 ' : '') + short(tx(e, k))); });
+      else { ['Enhancement', 'Critical'].concat(Object.keys(sp).filter(function (k) { return /^Property( \(\d+\))?$/.test(k); })).forEach(function (k) { if (sp[k]) a.push((k === 'Critical' ? '치명타 ' : '') + short(tx(e, k))); });
         Object.keys(sp).forEach(function (k) { if (/^(Power|Utility Power|Attack Power)/.test(k) && sp[k]) { var pv = short(tx(e, k)); a.push(/^(파워|Power|활용|Utility|공격|Attack)/.test(pv) ? pv : '파워: ' + pv); } }); }
       return a; };
     var used = {}, grow = function (lab, keys) { var es = keys.map(function (k) { return db.byId[q[k]]; }).filter(Boolean); if (!es.length) return ''; es.forEach(function (e) { used[e.id] = 1; });

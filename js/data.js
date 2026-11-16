@@ -52,6 +52,13 @@
   }
 
   /* tools/convert.py 와 같은 꼴로 바꾼다 */
+  /* 같은 이름의 칸이 두 번 나오면(1차 Hit 과 2차 Hit 등) 뒤엣것이 앞엣것을 덮지 않게 이름을 바꾼다 (tools/convert.py 의 spkey 와 같은 규칙) */
+  function spKey(sp, k) {
+    if (!(k in sp)) return k;
+    var pre = ('Tertiary Attack' in sp || 'Tertiary Target' in sp) ? 'Tertiary ' : ('Secondary Attack' in sp || 'Secondary Target' in sp || 'Secondary Targets' in sp) ? 'Secondary ' : '';
+    if (pre && k.indexOf(pre) !== 0 && !((pre + k) in sp)) return pre + k;
+    var n = 2; while ((k + ' (' + n + ')') in sp) n++; return k + ' (' + n + ')';
+  }
   function conv(el) {
     var o = { id: el.getAttribute('internal-id'), n: el.getAttribute('name'), t: el.getAttribute('type') };
     var src = el.getAttribute('source');
@@ -61,7 +68,7 @@
       if (c.nodeType === 3 || c.nodeType === 4) { body.push(c.nodeValue); continue; }
       if (c.nodeType !== 1) continue;
       var tag = c.tagName.toLowerCase(), txt = ws(c.textContent);
-      if (tag === 'specific') { if (txt) { sp[(c.getAttribute('name') || '').trim()] = txt; hasSp = true; } }
+      if (tag === 'specific') { if (txt) { sp[spKey(sp, (c.getAttribute('name') || '').trim())] = txt; hasSp = true; } }
       else if (tag === 'rules') {
         for (var r = c.firstElementChild; r; r = r.nextElementSibling) {
           var a = {};
