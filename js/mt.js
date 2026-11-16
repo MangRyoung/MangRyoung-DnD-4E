@@ -148,5 +148,5 @@
       else if (k === 'loader') copy(LOADER, '매크로를 복사했어요. 캠페인 매크로 창에서 새 매크로를 만들고 붙여 넣으세요(이름은 「시트 불러오기」).'); };
   }
   window.D4EMt = { open: open, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
-  document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; });
+  document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; var o = document.getElementById('chOne'); if (o) o.onclick = function () { window.D4EApp && window.D4EApp.onePage(); }; });
 })();
