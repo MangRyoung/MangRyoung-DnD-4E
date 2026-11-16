@@ -347,6 +347,17 @@
     var cut = hit.search(/damage/i), head = cut >= 0 ? hit.slice(0, cut) : hit, terms = [], maxDice = 0, tk, tre = /(\d+)\[W\]|(\d+)d(\d+)/g;
     var rawTerms = [];
     while ((tk = tre.exec(head))) { var cnt = tk[1] ? +tk[1] * +die[1] : +tk[2], size = tk[1] ? +die[2] : +tk[3]; terms.push(cnt + 'd' + size); maxDice += cnt * size; rawTerms.push(tk[1] ? { w: +tk[1] } : { n: +tk[2], d: +tk[3] }); }
+    /* 파워의 「Weapon」 칸: "If you're wielding an axe, a heavy blade …, you gain a bonus to the attack roll equal to one-half your Strength modifier" 같은 든 무기에 따른 보정 */
+    var wtx = isW && W ? String(sp['Weapon'] || '') : '', wm = /^If you(?:'re| are) wielding (.+?), (?:you gain a bonus to the (attack|damage) rolls? equal to (one-half |half )?your (Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier|the (?:primary )?attacks? deals? (?:extra )?damage equal to (one-half |half )?your (Strength|Constitution|Dexterity|Intelligence|Wisdom|Charisma) modifier|you gain a \+(\d+) bonus to the (attack|damage) rolls?|the (?:primary )?attacks? deals? (\d+)d(\d+) extra damage)/i.exec(wtx);
+    if (wm) { var wgrp = lc(wsp['Group'] || ''), wcat = lc(wsp['Weapon Category'] || ''), twoH = /two/i.test(wsp['Hands Required'] || '') || (/versatile/i.test(wsp['Properties'] || '') && !(ch.eq || {}).off);
+      var wok = lc(wm[1]).split(/,\s*(?:or\s+)?|\s+or\s+/).some(function (t) { t = t.replace(/^(an?|your)\s+/, '').trim(); if (!t) return false;
+        if (/with both hands|two-handed weapon/.test(t)) return twoH; if (/^simple /.test(t)) return /^simple/.test(wcat); if (/^military /.test(t)) return /^military/.test(wcat);
+        var t1 = t.replace(/s$/, ''); return wgrp.split(',').some(function (g) { g = g.trim(); return g === t || g === t1; }) || lc(W.n) === t || lc(W.n) === t1; });
+      if (wok) { var wlab = '든 무기 (' + W.n + ') · ' + p.n;
+        if (wm[2]) { var wv = wm[3] ? Math.floor(mod(wm[4]) / 2) : mod(wm[4]); if (wm[2].toLowerCase() === 'attack') { A.push({ v: wv, label: wlab }); atk += wv; } else Dp.push({ v: wv, label: wlab }); }
+        else if (wm[6]) Dp.push({ v: wm[5] ? Math.floor(mod(wm[6]) / 2) : mod(wm[6]), label: wlab });
+        else if (wm[7]) { if (wm[8].toLowerCase() === 'attack') { A.push({ v: +wm[7], label: wlab }); atk += +wm[7]; } else Dp.push({ v: +wm[7], label: wlab }); }
+        else if (wm[9]) { terms.push(wm[9] + 'd' + wm[10]); maxDice += +wm[9] * +wm[10]; } } }
     dice = terms.join('+');
     if (mm) Dp.push({ v: mmHalf ? Math.floor(mod(mm[1]) / 2) : mod(mm[1]), label: mm[1].slice(0, 3).toUpperCase() + ' 수정치' + (mmHalf ? '의 절반' : '') });
     if (enh) Dp.push({ v: enh, label: '강화 · ' + (itemEnh >= inh && itemEnh ? enhItem.n : '내재 보너스'), type: 'Enhancement' });
