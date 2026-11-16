@@ -1608,7 +1608,8 @@
     D4EHouse.start();
     await loadSign();
     status('데이터를 찾는 중…');
-    var d = (await D4EData.loadStored()) || (await D4EData.loadSite());
+    /* 사이트의 기본 데이터가 먼저(고쳐 올린 판이 모두에게 바로 가게). 사이트에서 못 읽을 때만 이 브라우저에 예전에 보관한 것을 쓴다. */
+    var d = (await D4EData.loadSite()) || (await D4EData.loadStored());
     if (d) { useData(d); await loadHouse(); tab('edit'); if (!ME.hash) queueUp(); syncDown(true); window.addEventListener('focus', function () { syncDown(); }); }
     else { $('dataState').textContent = '아직 룰 데이터가 없어요. 아래에서 파일을 한 번 불러와 주세요.'; status('룰 데이터 없음'); tab('data'); }
   }
