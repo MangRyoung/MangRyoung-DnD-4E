@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="d4e-version" content="202611170556">
+<meta name="d4e-version" content="202611170625">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611170556">
+<link rel="stylesheet" href="css/app.css?v=202611170625">
 </head>
 <body>
 <header class="top">
@@ -16,6 +16,7 @@
     <button data-tab="team">팀 시트</button>
     <button data-tab="house">하우스룰</button>
     <button data-tab="data">데이터</button>
+    <button data-tab="mon">몬스터</button>
     <button data-tab="req">버그 · 요청<span id="reqN" class="tabn"></span></button>
   </nav>
   <span id="online" class="online"></span>
@@ -80,6 +81,19 @@
   <section class="card" id="teamSheet" hidden></section>
 </main>
 
+<main id="tab-mon" class="tab" hidden>
+  <section class="card">
+    <h2>몬스터 <span class="hint">GM용 · 레벨과 역할로 표준 수치를 채워 만들거나, 불러온 자료집을 바탕으로 고쳐요</span></h2>
+    <p id="monNote" class="hint" hidden></p>
+    <div id="monBody">
+      <div class="monbar"><input type="text" id="monQ" placeholder="이름 · 종류 검색"><label>레벨 <input type="number" id="monLo" min="1" max="35" placeholder="부터"> ~ <input type="number" id="monHi" min="1" max="35" placeholder="까지"></label>
+        <select id="monRole"><option value="">역할 전체</option><option value="Skirmisher">척후</option><option value="Brute">맹수</option><option value="Soldier">병사</option><option value="Lurker">잠복</option><option value="Controller">제어</option><option value="Artillery">포격</option><option value="Minion">졸개</option></select>
+        <select id="monSrc"><option value="">전체</option><option value="mine">만든 것</option><option value="pack">자료집</option></select>
+        <span class="sp"></span><button id="monNew">+ 새 몬스터</button><button id="monPick" class="ghost" title="몬스터 목록 파일(JSON)을 이 브라우저에만 불러와요. 사이트나 공유 DB에는 올라가지 않아요">자료집 불러오기</button><button id="monPackDel" class="ghost" title="이 브라우저에 불러온 자료집 지우기">자료집 지우기</button><input type="file" id="monFile" accept=".json,application/json" hidden></div>
+      <div class="mongrid"><div><p id="monCount" class="hint"></p><div id="monList" class="monlist"></div></div><div id="monView" class="monview"></div></div>
+    </div>
+  </section>
+</main>
 <main id="tab-req" class="tab" hidden>
   <section class="card">
     <h2>버그 · 개선 요청</h2>
@@ -151,17 +165,18 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611170556"></script>
-<script src="js/ko.js?v=202611170556"></script>
-<script src="js/presets.js?v=202611170556"></script>
-<script src="js/engine.js?v=202611170556"></script>
-<script src="js/data.js?v=202611170556"></script>
-<script src="js/share.js?v=202611170556"></script>
-<script src="js/house.js?v=202611170556"></script>
-<script src="js/app.js?v=202611170556"></script>
-<script src="js/mt_tpl.js?v=202611170556"></script>
-<script src="js/mt.js?v=202611170556"></script>
-<script src="js/presence.js?v=202611170556"></script>
-<script src="js/verbar.js?v=202611170556"></script>
+<script src="js/config.js?v=202611170625"></script>
+<script src="js/ko.js?v=202611170625"></script>
+<script src="js/presets.js?v=202611170625"></script>
+<script src="js/engine.js?v=202611170625"></script>
+<script src="js/data.js?v=202611170625"></script>
+<script src="js/share.js?v=202611170625"></script>
+<script src="js/house.js?v=202611170625"></script>
+<script src="js/app.js?v=202611170625"></script>
+<script src="js/mon.js?v=202611170625"></script>
+<script src="js/mt_tpl.js?v=202611170625"></script>
+<script src="js/mt.js?v=202611170625"></script>
+<script src="js/presence.js?v=202611170625"></script>
+<script src="js/verbar.js?v=202611170625"></script>
 </body>
 </html>

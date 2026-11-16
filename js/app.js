@@ -1579,7 +1579,8 @@
   }
   function tab(name) {
     if ((name === 'edit' || name === 'house') && !db) name = 'data';
-    ['edit', 'team', 'house', 'data', 'req'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
+    ['edit', 'team', 'house', 'data', 'req', 'mon'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
+    if (name === 'mon' && window.D4EMon) D4EMon.render();
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (name === 'edit') renderEdit();
     if (name === 'team') renderTeam();
