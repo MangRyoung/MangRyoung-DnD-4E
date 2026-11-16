@@ -38,7 +38,7 @@
     if (!r._names) { r._names = {}; for (var k in r.owned) { var o = r.owned[k]; r._names[lc(o.n)] = 1; r._names[lc(o.n + ' ' + o.t)] = 1; r._names[lc(k)] = 1; } }
     var has = function (n) { return !!r._names[lc(n)]; };
     function one(c) {
-      c = lc(c).replace(/^\(|\)$/g, '').trim(); if (!c || c.charAt(0) === '~') return 'ok';
+      c = lc(c).replace(/^\(|\)$/g, '').trim().replace(/\.$/, '').replace(/^you must (?:be trained in|have training in) /, 'trained in '); if (!c || c.charAt(0) === '~') return 'ok'; /* 활용 파워의 "You must be trained in Endurance." */
       if (/unselectable|not selectable/.test(c)) return 'no';
       var neg = false; while (c.charAt(0) === '!') { neg = !neg; c = c.slice(1).trim(); }
       var res, m;
