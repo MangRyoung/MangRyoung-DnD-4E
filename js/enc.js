@@ -123,6 +123,11 @@
       if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
     /* 맵 그림을 판 위로 끌어다 놓기 */
     var overBoard = function (ev) { return enc && ev.target.closest && ev.target.closest('.encboardwrap'); }, hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
+    /* 그림을 토큰 위나 고른 몬스터 칸에 놓으면 그 몬스터 그림, 판의 빈 곳에 놓으면 맵 */
+    var monZone = function (ev) { if (!enc || monEdit || !ev.target.closest) return -1; var tk = ev.target.closest('.etok'); if (tk) { var t = enc.toks[+tk.getAttribute('data-ti')]; return t ? t.m : -1; } if (ev.target.closest('#encSel') && enc.toks[selTok]) return enc.toks[selTok].m; return -1; };
+    root.addEventListener('dragover', function (ev) { if (monZone(ev) < 0 || !M().dragOk(ev)) return; ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = 'copy'; }, true);
+    root.addEventListener('drop', function (ev) { var mi = monZone(ev); if (mi < 0 || !M().dragOk(ev)) return; ev.preventDefault(); ev.stopPropagation(); root.querySelectorAll('.encboardwrap.drop').forEach(function (x) { x.classList.remove('drop'); });
+      M().dropImg(ev).then(function (u) { if (!enc || !enc.mons[mi]) return; enc.mons[mi].img = u; touch(); drawBoard(); drawSel(); msg('「' + enc.mons[mi].n + '」에 그림을 넣었어요. 이 조우의 사본에만 들어가요.'); }, function (e) { alert(e.message); }); }, true);
     root.addEventListener('dragover', function (ev) { var w = overBoard(ev); if (!w || !hasFile(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; w.classList.add('drop'); });
     root.addEventListener('dragleave', function (ev) { var w = ev.target.closest && ev.target.closest('.encboardwrap'); if (w && !w.contains(ev.relatedTarget)) w.classList.remove('drop'); });
     root.addEventListener('drop', function (ev) { var w = overBoard(ev); if (!w || !hasFile(ev)) return; ev.preventDefault(); w.classList.remove('drop'); useMap(ev.dataTransfer.files && ev.dataTransfer.files[0]); });

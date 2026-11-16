@@ -488,3 +488,16 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .encboardwrap{cursor:grab}.encboardwrap.panning{cursor:grabbing;user-select:none}.encboardwrap .etok{cursor:pointer}
 #encSel .mform .mf-prev{display:none}
 .encr span[data-rsel]{cursor:pointer;border-radius:6px;padding:2px 4px}.encr span[data-rsel]:hover{background:var(--acc2)}.encr.on span[data-rsel]{background:var(--acc2);font-weight:700}
+.imgdrop{outline:2px dashed var(--acc);outline-offset:4px;border-radius:10px}
+/* 몬스터 파워 편집 카드 */
+.mf-pw{padding:0;overflow:hidden;border-left:5px solid #8a8f98}.mf-pw.u-at{border-left-color:#4f8a5b}.mf-pw.u-enc{border-left-color:#a8434d}.mf-pw.u-day{border-left-color:#4a4a52}
+.mf-pw>*{margin-left:8px;margin-right:8px}.mf-pw>.pw-h{margin:0;padding:6px 8px;display:flex;gap:6px;align-items:center;flex-wrap:wrap;background:rgba(0,0,0,.04);border-bottom:1px solid var(--line)}
+.mf-pw.u-at>.pw-h{background:rgba(79,138,91,.13)}.mf-pw.u-enc>.pw-h{background:rgba(168,67,77,.12)}.mf-pw.u-day>.pw-h{background:rgba(74,74,82,.14)}
+.pw-h select{flex:none;font-weight:700}.pw-h .pw-n{flex:1;min-width:120px;font-weight:700;font-size:14.5px}.pw-b{display:flex;gap:3px;flex:none;margin-left:auto}
+.pw-r,.pw-a{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;margin-top:7px}.pw-g{display:grid;grid-template-columns:1fr 1fr;gap:6px 8px;margin-top:7px}.pw-g .full{grid-column:1/-1}
+.mf-pw label{display:flex;flex-direction:column;gap:2px;font-size:11.5px;color:var(--sub);min-width:0}.mf-pw label.grow{flex:1;min-width:130px}.mf-pw label input,.mf-pw label select,.mf-pw label textarea{font-size:13.5px;color:var(--ink,inherit);width:100%;box-sizing:border-box;min-width:0}
+.mf-pw label select{width:auto}.pw-f{margin-top:7px}.pw-f textarea{resize:vertical;font-family:inherit;line-height:1.5}
+.pw-in{display:flex;gap:4px;align-items:center;font-size:13.5px;color:var(--ink,inherit)}.pw-in i{font-style:normal;color:var(--sub);flex:none}.pw-in input.num{width:52px;text-align:center}.mf-pw input.num{width:60px;text-align:center}.pw-in input.dice{flex:1;min-width:84px}.pw-in input.dt{flex:1;min-width:84px}.pw-in select{flex:none}
+.pw-a>button{flex:none;margin-bottom:1px}.pw-m{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;margin-bottom:8px}.pw-m .hint{margin:0}.mf-pw>label.pw-f:last-child{margin-bottom:8px}
+@media(max-width:520px){.pw-g{grid-template-columns:1fr}}
+#encSel .pw-g{grid-template-columns:1fr}

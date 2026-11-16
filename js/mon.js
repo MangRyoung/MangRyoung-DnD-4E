@@ -60,7 +60,7 @@
   function note(t) { var n = $('monNote'); if (n) { n.textContent = t || ''; n.hidden = !t; } }
   function all() { return mine.concat(pack); }
   function byId(id) { return all().filter(function (m) { return m.id === id; })[0] || null; }
-  function clean(m) { var o = {}; Object.keys(m).forEach(function (k) { if (k.charAt(0) !== '_') o[k] = m[k]; }); return o; }
+  function clean(m) { var o = {}; Object.keys(m).forEach(function (k) { if (k.charAt(0) !== '_') o[k] = m[k]; }); if (Array.isArray(o.pw)) o.pw = o.pw.map(function (p) { var q = {}; Object.keys(p).forEach(function (k) { if (k.charAt(0) !== '_') q[k] = p[k]; }); return q; }); return o; }
   async function save(m) { var me = (window.D4EApp && D4EApp.me()) || {}; if (!m.id || m._pack || /^pk\d+$/.test(m.id)) m.id = 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); delete m._pack;
     var d = clean(m); d.by = d.by || me.name || ''; d.at = Date.now(); await D4EShare.put(m.id, d, KIND);
     var i = mine.findIndex(function (x) { return x.id === m.id; }); if (i >= 0) mine[i] = d; else mine.unshift(d); return d; }
@@ -104,9 +104,51 @@
     if (editing) { box.innerHTML = form(editing); return; }
     var m = sel && byId(sel); if (!m) { box.innerHTML = '<p class="hint">왼쪽에서 몬스터를 고르면 스탯 블록이 여기에 나와요.</p>'; return; }
     var en = isEn(m), tabs = en ? '<span class="trtab"><button data-mact="vtr" class="' + (orig[m.id] ? '' : 'on') + '">번역</button><button data-mact="vor" class="' + (orig[m.id] ? 'on' : '') + '">원문</button></span>' : ''; var mv = shown(m);
-    box.innerHTML = '<div class="mbar">' + tabs + '<button data-mact="tok" title="맵툴 토큰 파일(.rptok)로 받아요. 맵 위로 끌어다 놓으면 돼요">맵툴 토큰</button>' + (m._pack ? '<button data-mact="base">이걸 바탕으로 새로 만들기</button>' : '<button data-mact="edit">고치기</button><button class="ghost" data-mact="base">복사해서 새로</button><button class="ghost" data-mact="del">지우기</button>') + '</div>' + block(mv) + (en && !orig[m.id] ? '<p class="hint">자동 번역이에요. 규칙으로 못 옮긴 문장은 영어가 섞여 있어요. 「원문」 탭에서 원래 글을 볼 수 있고, 「이걸 바탕으로 새로 만들기」로 손봐서 쓸 수 있어요.</p>' : ''); }
+    box.innerHTML = '<div class="mbar">' + tabs + '<button data-mact="tok" title="맵툴 토큰 파일(.rptok)로 받아요. 맵 위로 끌어다 놓으면 돼요">맵툴 토큰</button>' + (m._pack ? '<button data-mact="base">이걸 바탕으로 새로 만들기</button>' : '<button data-mact="edit">고치기</button><button class="ghost" data-mact="base">복사해서 새로</button><button class="ghost" data-mact="del">지우기</button>') + '</div>' + block(mv) + '<p class="hint">그림 파일을 이 칸으로 끌어다 놓으면 이 몬스터의 그림이 돼요.</p>' + (en && !orig[m.id] ? '<p class="hint">자동 번역이에요. 규칙으로 못 옮긴 문장은 영어가 섞여 있어요. 「원문」 탭에서 원래 글을 볼 수 있고, 「이걸 바탕으로 새로 만들기」로 손봐서 쓸 수 있어요.</p>' : ''); }
   function inp(k, v, w, ph) { return '<input type="text" data-mf="' + k + '" value="' + esc(v == null ? '' : v) + '"' + (w ? ' style="width:' + w + '"' : '') + (ph ? ' placeholder="' + esc(ph) + '"' : '') + '>'; }
   function selc(k, v, opts) { return '<select data-mf="' + k + '">' + opts.map(function (o) { var val = Array.isArray(o) ? o[0] : o, lab = Array.isArray(o) ? o[1] : o; return '<option value="' + esc(val) + '"' + (String(v) === String(val) ? ' selected' : '') + '>' + esc(lab) + '</option>'; }).join('') + '</select>'; }
+  /* ---------- 파워 편집 칸 ----------
+   * 저장되는 것은 여전히 p.t(글) 하나다. 편집하는 동안만 p._x 에 칸으로 나눠 두고, 읽을 때마다 글로 다시 합친다(pwJoin).
+   * 글을 나눴다 합쳐서 원래 글과 같을 때만 칸으로 연다. 다르면 글 그대로 두고 「칸으로 나누기」를 누를 수 있다. */
+  var DEF_KO = { ac: 'AC', fortitude: '인내', fort: '인내', '인내': '인내', reflex: '반사', ref: '반사', '반사': '반사', will: '의지', '의지': '의지' };
+  var ACTS = ['일반', '이동', '보조', '자유', '즉시 방해', '즉시 반응', '기회', ''], USES = ['무제한', '조우', '일일', '재충전 6', '재충전 5 6', '재충전 4 5 6', '재충전 3 4 5 6'];
+  var RANGES = { m: ['', '간격 2', '간격 3'], M: ['', '간격 2', '간격 3'], r: ['원거리 10', '원거리 5', '원거리 20', '원거리 10/20'], R: ['원거리 10', '원거리 5', '원거리 20', '원거리 10/20'], C: ['근거리 폭발 1', '근거리 폭발 2', '근거리 폭발 3', '근거리 폭발 5', '근거리 분사 3', '근거리 분사 5'], A: ['범위 폭발 1 (10칸 안)', '범위 폭발 2 (10칸 안)', '범위 폭발 1 (20칸 안)', '범위 폭발 2 (20칸 안)', '범위 벽 8 (10칸 안)'] };
+  function pwSplit(p) { var x = { trigger: '', range: '', target: '', bonus: '', vs: 'AC', dice: '', dtype: '', hit: '', miss: '', effect: '' }, main = [];
+    String(p.t || '').split(/\n/).forEach(function (l) { l = l.trim(); if (!l) return; var mm;
+      if ((mm = /^(?:빗나감|빗나가면|Miss)\s*:\s*/i.exec(l)) && !x.miss) x.miss = l.slice(mm[0].length); else if ((mm = /^(?:효과|Effect)\s*:\s*/i.exec(l)) && !x.effect) x.effect = l.slice(mm[0].length); else if ((mm = /^(?:발동|발동 조건|Trigger)\s*:\s*/i.exec(l)) && !x.trigger) x.trigger = l.slice(mm[0].length); else main.push(l); });
+    var t = main.join(' '), am = /([+\-]\d+)\s*vs\.?\s*(AC|Fortitude|Reflex|Will|Fort|Ref|인내|반사|의지)/i.exec(t);
+    if (!am) { var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { x.range = r0[1]; t = t.slice(r0[0].length); } x.hit = t; x.noatk = true; return x; }
+    x.bonus = String(+am[1]); x.vs = DEF_KO[am[2].toLowerCase()] || 'AC';
+    t.slice(0, am.index).split(';').map(function (y) { return y.trim(); }).filter(Boolean).forEach(function (y) { if (/^(targets?|대상)\s*:?\s+/i.test(y)) x.target = y.replace(/^(targets?|대상)\s*:?\s*/i, ''); else if (!x.range) x.range = y; else x.target = x.target ? x.target + '; ' + y : y; });
+    var rest = t.slice(am.index + am[0].length).replace(/^\s*[;,.]\s*/, ''), dm = /^(\d+d\d+(?:\s*[+\-]\s*\d+)?|\d+)\s+((?:[^,.;(]*?\s)?)(?:damage|피해)/i.exec(rest);
+    if (dm) { x.dice = dm[1]; x.dtype = dm[2].trim(); x.hit = rest.slice(dm[0].length).replace(/^\s*[,;]\s*/, '').replace(/^\.\s*/, '').trim(); } else x.hit = rest.trim();
+    return x; }
+  function pwJoin(x) { var head = [x.range, x.target ? '대상: ' + x.target : ''].filter(Boolean), b = String(x.bonus == null ? '' : x.bonus).trim();
+    if (b !== '' && !x.noatk) head.push((/^[+\-]/.test(b) ? b : '+' + b) + ' vs. ' + (x.vs || 'AC'));
+    var dmg = x.dice && !x.noatk ? String(x.dice).trim() + ' ' + (x.dtype ? String(x.dtype).trim() + ' ' : '') + '피해' : '', hit = String(x.hit || '').trim(), tail = dmg && hit ? dmg + (hit.charAt(0) === '(' ? ' ' : ', ') + hit : dmg || hit;
+    var line = head.join('; ') + (tail ? (head.length ? '; ' : '') + tail : ''); if (line && !/[.!?)…]$/.test(line)) line += '.';
+    return [x.trigger ? '발동: ' + x.trigger : '', line, x.miss ? '빗나감: ' + x.miss : '', x.effect ? '효과: ' + x.effect : ''].filter(Boolean).join('\n'); }
+  function pwSame(a, b) { var n = function (v) { return String(v || '').replace(/\s+/g, ' ').replace(/[.]\s*$/, '').trim(); }; return n(a) === n(b); }
+  function pwStd(m, p) { var r = math(m.lv, roleOf(m), m.tier), mn = m.tier === 'Minion' || m.role === 'Minion', x = p._x; if (!x) return; var lim = useOf(p) !== 'at', area = /^[CcAa]$/.test(p.k || '');
+    x.noatk = false; x.bonus = String(x.vs === 'AC' ? r.atkAC : r.atkNAD); x.dice = dice(mn ? r.dmg : (lim ? r.dmgLim : r.dmg) * (area ? 0.75 : 1), mn); }
+  function opt(list, cur, blank) { var has = list.indexOf(cur) >= 0; return list.map(function (v) { return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(v || blank || '없음') + '</option>'; }).join('') + (has ? '' : '<option value="' + esc(cur) + '" selected>' + esc(cur) + '</option>') + '<option value="__">직접 적기…</option>'; }
+  function pwCard(m, p, i) { var kind = p.k === 'c' ? 'C' : p.k === 'a' ? 'A' : (p.k || ''), atk = kind && kind !== 'aura', n = (m.pw || []).length;
+    if (atk && !p._x && !p._raw) { var sx = pwSplit(p); if (!String(p.t || '').trim() || pwSame(pwJoin(sx), p.t)) p._x = sx; }
+    var x = p._x, f = function (k, v, ph, cls, list) { return '<input type="text" data-mf="px.' + k + '" value="' + esc(v == null ? '' : v) + '" placeholder="' + esc(ph || '') + '"' + (cls ? ' class="' + cls + '"' : '') + (list ? ' list="' + list + '"' : '') + '>'; };
+    var h = '<div class="mf-pw u-' + (kind === 'aura' || !kind ? 'tr' : useOf(p)) + '" data-pi="' + i + '"><div class="pw-h">' + selc('pw.k', kind, KINDS) + '<input type="text" class="pw-n" data-mf="pw.n" value="' + esc(p.n) + '" placeholder="이름">' +
+      '<span class="pw-b"><button class="mini ghost" data-mpup="' + i + '" title="위로"' + (i ? '' : ' disabled') + '>↑</button><button class="mini ghost" data-mpdn="' + i + '" title="아래로"' + (i < n - 1 ? '' : ' disabled') + '>↓</button><button class="mini ghost" data-mpcp="' + i + '" title="복사해서 하나 더">복사</button><button class="mini ghost" data-mpdel="' + i + '" title="지우기">×</button></span></div>';
+    if (kind === 'aura') { var an = (/\d+/.exec(p.use || '') || ['1'])[0]; return h + '<div class="pw-r"><label>오라 범위<input type="number" min="1" max="20" class="num" data-mf="pw.aur" value="' + esc(an) + '"></label><label class="grow">키워드<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" list="mfKw" placeholder="없으면 비워 두기"></label></div><label class="pw-f">효과<textarea data-mf="pw.t" rows="2" placeholder="오라 안의 적은 …">' + esc(p.t) + '</textarea></label></div>'; }
+    h += '<div class="pw-r"><label>행동<select data-mf="pw.actsel">' + opt(ACTS, p.act || '', '없음') + '</select></label><label>사용<select data-mf="pw.usesel">' + opt(USES.concat(['']), p.use || '', '없음') + '</select></label><label class="grow">키워드<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" list="mfKw" placeholder="화염, 무기…"></label></div>';
+    if (!atk) return h + '<label class="pw-f">내용<textarea data-mf="pw.t" rows="2" placeholder="특성의 효과">' + esc(p.t) + '</textarea></label></div>';
+    if (!x) return h + '<label class="pw-f">내용<textarea data-mf="pw.t" rows="3" placeholder="사거리; +명중 vs. 방어; 피해와 효과">' + esc(p.t) + '</textarea></label><div class="pw-m"><span class="hint">글이 복잡해서 그대로 뒀어요.</span><button class="mini ghost" data-mpsplit="' + i + '" title="글을 칸으로 나눠요. 문장 모양이 조금 바뀔 수 있어요">칸으로 나누기</button></div></div>';
+    var rl = 'mfRg' + i;
+    h += '<div class="pw-g"><label>사거리' + f('range', x.range, kind === 'm' || kind === 'M' ? '근접 1칸이면 비워 두기' : '', '', rl) + '<datalist id="' + rl + '">' + (RANGES[kind] || []).filter(Boolean).map(function (v) { return '<option value="' + esc(v) + '">'; }).join('') + '</datalist></label><label>대상' + f('target', x.target, kind === 'C' || kind === 'A' ? '범위 내 모든 개체' : '한 개체', '', 'mfTg') + '</label></div>';
+    h += '<div class="pw-a"><label>명중<span class="pw-in">+' + f('bonus', x.bonus, '', 'num') + '<i>vs</i><select data-mf="px.vs">' + ['AC', '인내', '반사', '의지'].map(function (d) { return '<option' + (d === x.vs ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></span></label><label class="grow">피해<span class="pw-in">' + f('dice', x.dice, '2d8 + 5', 'dice') + f('dtype', x.dtype, '종류 (화염…)', 'dt', 'mfKw') + '<i>피해</i></span></label><button class="mini" data-mpstd="' + i + '" title="레벨 · 역할의 표준 명중과 피해로 채워요">표준</button></div>';
+    h += '<label class="pw-f">명중 시 추가 효과<textarea data-mf="px.hit" rows="1" placeholder="대상은 둔화 상태가 된다 (내성 굴림으로 끝남)">' + esc(x.hit) + '</textarea></label>';
+    var more = x.miss || x.effect || x.trigger || p._more;
+    h += more ? '<div class="pw-g"><label>빗나감' + f('miss', x.miss, '절반 피해') + '</label><label>효과 (명중과 상관없이)' + f('effect', x.effect, '') + '</label><label class="full">발동 조건' + f('trigger', x.trigger, '적이 인접한 칸을 떠날 때') + '</label></div>' : '';
+    h += '<div class="pw-m">' + (more ? '' : '<button class="mini ghost" data-mpmore="' + i + '">+ 빗나감 · 효과 · 발동 조건</button>') + '<span class="sp"></span><button class="mini ghost" data-mptext="' + i + '" title="칸 대신 글 한 덩어리로 적어요">글로 적기</button></div></div>';
+    return h; }
   function form(m) {
     var r = math(m.lv, roleOf(m), m.tier), lab = function (t, x) { return '<label><small>' + t + '</small>' + x + '</label>'; };
     var h = '<div class="mform"><div class="mbar"><b>' + (m.id && !m._pack ? '몬스터 고치기' : '새 몬스터') + '</b><span class="sp"></span><button data-mact="save">저장</button><button class="ghost" data-mact="cancel">취소</button></div>';
@@ -122,14 +164,14 @@
     h += '<div class="mf-g n">' + [['근력', 'str'], ['건강', 'con'], ['민첩', 'dex'], ['지능', 'int'], ['지혜', 'wis'], ['매력', 'cha']].map(function (a) { return lab(a[0], inp(a[1], m[a[1]])); }).join('') + '</div>';
     h += '<div class="mf-g">' + lab('성향', inp('align', m.align, '100%')) + lab('언어', inp('lang', m.lang, '100%')) + lab('기술', inp('skills', m.skills, '100%')) + lab('장비', inp('eq', m.eq, '100%')) + '</div>';
     h += '<div class="mf-ph"><b>파워 · 특성</b><span class="sp"></span><button class="mini" data-madd="m">+ 기본 공격</button><button class="mini" data-madd="r">+ 원거리</button><button class="mini" data-madd="lim">+ 조우 일격</button><button class="mini" data-madd="C">+ 근거리</button><button class="mini" data-madd="A">+ 범위</button><button class="mini ghost" data-madd="trait">+ 특성</button><button class="mini ghost" data-madd="aura">+ 오라</button></div>';
-    h += (m.pw || []).map(function (p, i) { return '<div class="mf-pw" data-pi="' + i + '"><div class="mf-pr">' + selc('pw.k', p.k === 'c' ? 'C' : p.k === 'a' ? 'A' : p.k, KINDS) + '<input type="text" data-mf="pw.n" value="' + esc(p.n) + '" placeholder="이름">' +
-      '<input type="text" data-mf="pw.act" value="' + esc(p.act) + '" placeholder="행동 (일반 · 보조 · 즉시 반응…)">' + '<input type="text" data-mf="pw.use" value="' + esc(p.use) + '" placeholder="무제한 · 조우 · 재충전 5 6">' + '<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" placeholder="키워드">' +
-      '<button class="mini ghost" data-mpup="' + i + '" title="위로">↑</button><button class="mini ghost" data-mpdel="' + i + '" title="지우기">×</button></div><textarea data-mf="pw.t" rows="2" placeholder="사거리; +명중 vs. 방어; 피해와 효과">' + esc(p.t) + '</textarea></div>'; }).join('') || '<p class="hint">위 단추로 공격이나 특성을 넣어 주세요. 명중과 피해는 표준 수치로 미리 채워져요.</p>';
+    h += (m.pw || []).map(function (p, i) { return pwCard(m, p, i); }).join('') || '<p class="hint">위 단추로 공격이나 특성을 넣어 주세요. 명중과 피해는 표준 수치로 미리 채워져요.</p>';
+    h += '<datalist id="mfKw">' + ['무기', '주문구', '화염', '냉기', '전격', '천둥', '산성', '독', '사령', '광휘', '정신', '역장', '공포', '매혹', '환영', '순간이동', '치유', '변신', '질병', '영역', '집중', '주시'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist><datalist id="mfTg">' + ['한 개체', '적 한 명', '한 개체 또는 두 개체', '범위 내 모든 개체', '범위 내 모든 적', '멍해진 개체 하나'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist>';
     h += lab('메모 (GM만 보는 전술 · 설명)', '<textarea data-mf="note" rows="2">' + esc(m.note || '') + '</textarea>') + '<div class="mf-prev"><small>미리 보기</small>' + block(m) + '</div></div>';
     return h; }
   function readForm() { var m = editing, box = $(ext ? ext.box : 'monView'); if (!m || !box) return;
-    box.querySelectorAll('[data-mf]').forEach(function (x) { var k = x.getAttribute('data-mf'); if (k.indexOf('pw.') === 0) { var row = x.closest('[data-pi]'), p = m.pw[+row.getAttribute('data-pi')]; if (p) p[k.slice(3)] = x.value; return; }
+    box.querySelectorAll('[data-mf]').forEach(function (x) { var k = x.getAttribute('data-mf'); if (k.indexOf('pw.') === 0 || k.indexOf('px.') === 0) { var row = x.closest('[data-pi]'), p = m.pw[+row.getAttribute('data-pi')], kk = k.slice(3); if (!p) return; if (k.charAt(1) === 'x') { if (p._x) p._x[kk] = x.value; } else if (kk === 'actsel') { if (x.value !== '__') p.act = x.value; } else if (kk === 'usesel') { if (x.value !== '__') p.use = x.value; } else if (kk === 'aur') p.use = '오라 ' + Math.max(1, +x.value || 1); else p[kk] = x.value; return; }
       if (k === 'leader') m.leader = x.checked; else if (k === 'lv') m.lv = Math.max(1, Math.min(35, +x.value || 1)); else m[k] = x.value; });
+    (m.pw || []).forEach(function (p) { if (p._x) { if (String(p._x.bonus || '').trim() !== '' || p._x.dice) p._x.noatk = false; p.t = pwJoin(p._x); } });
     if (m.tier === 'Minion') { m.role2 = m.role === 'Minion' ? m.role2 : m.role; } }
   /* 몬스터 그림: 가운데를 정사각형으로 잘라 256px, 되도록 작게(공유 DB에 들어가므로) */
   function readImg(file) { return new Promise(function (ok, no) { if (!file || (!/^image\//.test(file.type || '') && !/\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name || ''))) return no(new Error('그림 파일이 아니에요.')); var fr = new FileReader(); fr.onerror = function () { no(new Error('파일을 읽지 못했어요.')); };
@@ -149,6 +191,9 @@
       if (t.id === 'monRole') { F.role = t.value; renderList(); } else if (t.id === 'monSrc') { F.src = t.value; renderList(); }
       else if (t.id === 'monImgFile') { setImg(t.files && t.files[0]); t.value = ''; }
       else if (t.id === 'monFile') { var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { try { var a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('몬스터 목록 파일이 아니에요.'); localStorage.setItem(PACK_KEY, JSON.stringify(a)); loadPack(); note('자료집 ' + pack.length + '마리를 이 브라우저에 불러왔어요.'); renderList(); } catch (e) { alert('불러오지 못했어요: ' + e.message); } t.value = ''; }; rd.readAsText(f); }
+      else if (t.closest('.mform') && editing && /^pw\.(k|actsel|usesel)$/.test(t.getAttribute('data-mf') || '')) { var mfk = t.getAttribute('data-mf'), pr = t.closest('[data-pi]'), pq = editing.pw[+pr.getAttribute('data-pi')];
+        if (t.value === '__' && pq) { var cur = mfk === 'pw.actsel' ? pq.act : pq.use, v = prompt(mfk === 'pw.actsel' ? '행동을 적어 주세요 (예: 즉시 반응, 자유)' : '사용 조건을 적어 주세요 (예: 재충전 — 처음 반죽음이 될 때)', cur || ''); readForm(); if (v != null) { if (mfk === 'pw.actsel') pq.act = v.trim(); else pq.use = v.trim(); } } else { readForm(); if (mfk === 'pw.k' && pq) { delete pq._x; delete pq._raw; if (pq.k === 'aura' && !/오라/.test(pq.use || '')) pq.use = '오라 1'; else if (pq.k !== 'aura' && /^오라/.test(pq.use || '')) pq.use = ''; } }
+        setTimeout(renderView, 0); }
       else if (t.closest('.mform') && editing && /^(role|tier|lv)$/.test(t.getAttribute('data-mf') || '')) { readForm(); var r = math(editing.lv, roleOf(editing), editing.tier), hn = $('mfHint'); if (hn) hn.textContent = '기준: 명중 +' + r.atkAC + ' vs AC / +' + r.atkNAD + ' vs 그 밖 · 평균 피해 ' + r.dmg + ' (범위 ' + r.dmgArea + ', 조우 ' + r.dmgLim + ')'; var pv = root.querySelector('.mf-prev'); if (pv) pv.innerHTML = '<small>미리 보기</small>' + block(editing); } });
     root.addEventListener('click', async function (ev) { var t = ev.target, row = t.closest('[data-mid]'), act = t.closest('[data-mact]'), add = t.closest('[data-madd]');
       if (ext && t.closest('[data-mview]')) { var cbx = ext.cb; editEnd(); cbx(null); }
@@ -161,12 +206,17 @@
       if (add && editing) { readForm(); var k = add.getAttribute('data-madd'); editing.pw.push(k === 'trait' ? { n: '', k: '', act: '', use: '', kw: '', t: '' } : k === 'aura' ? { n: '', k: 'aura', act: '', use: '오라 1', kw: '', t: '' } : atkTpl(editing, k)); renderView(); return; }
       var pd = t.closest('[data-mpdel]'), pu = t.closest('[data-mpup]');
       if (pd && editing) { readForm(); editing.pw.splice(+pd.getAttribute('data-mpdel'), 1); renderView(); return; }
+      var px = t.closest('[data-mpdn],[data-mpcp],[data-mpstd],[data-mpsplit],[data-mptext],[data-mpmore]');
+      if (px && editing) { readForm(); var ds = px.dataset, pi = +(ds.mpdn || ds.mpcp || ds.mpstd || ds.mpsplit || ds.mptext || ds.mpmore), P = editing.pw, q = P[pi]; if (!q) return;
+        if ('mpdn' in ds) { if (pi < P.length - 1) { P[pi] = P[pi + 1]; P[pi + 1] = q; } } else if ('mpcp' in ds) { var cp = JSON.parse(JSON.stringify(q)); cp.n = (cp.n || '') + ' 2'; P.splice(pi + 1, 0, cp); }
+        else if ('mpstd' in ds) { pwStd(editing, q); q.t = pwJoin(q._x); } else if ('mpsplit' in ds) { delete q._raw; q._x = pwSplit(q); q.t = pwJoin(q._x); } else if ('mptext' in ds) { delete q._x; q._raw = 1; } else if ('mpmore' in ds) q._more = 1;
+        renderView(); return; }
       if (pu && editing) { readForm(); var i = +pu.getAttribute('data-mpup'); if (i > 0) { var x = editing.pw[i]; editing.pw[i] = editing.pw[i - 1]; editing.pw[i - 1] = x; } renderView(); return; }
       if (!act) return; var a = act.getAttribute('data-mact'), m = sel && byId(sel);
       if ((a === 'vtr' || a === 'vor') && m) { if (a === 'vor') orig[m.id] = 1; else delete orig[m.id]; renderView(); }
       else if (a === 'tok' && m) { act.disabled = true; try { var mx = shown(m); await saveMonToken(mx); var td = monTokenData(mx); note('「' + m.n + '」 토큰을 받았어요. 공격 버튼 ' + td.attacks + '개, 그 밖 버튼 ' + (td.macros.length - td.attacks * 2) + '개가 들어 있어요.'); } catch (e) { alert('토큰을 만들지 못했어요: ' + e.message); } act.disabled = false; }
       else if (a === 'edit' && m) { editing = JSON.parse(JSON.stringify(m)); renderView(); }
-      else if (a === 'base' && m) { editing = JSON.parse(JSON.stringify(clean(shown(m)))); editing.id = ''; delete editing.q; delete editing.src; delete editing.n_en; editing.ko = 1; editing.base = m.n; if (m.role === 'Minion') { editing.tier = 'Minion'; editing.role = 'Skirmisher'; } renderView(); }
+      else if (a === 'base' && m) { startBase(m); renderView(); }
       else if (a === 'del' && m) { if (!confirm('「' + m.n + '」을(를) 지울까요? 되돌릴 수 없어요.')) return; try { await D4EShare.del(m.id, KIND); mine = mine.filter(function (x) { return x.id !== m.id; }); sel = null; renderList(); renderView(); } catch (e) { alert('지우지 못했어요: ' + e.message); } }
       else if (a === 'fill' && editing) { readForm(); fill(editing, true); renderView(); }
       else if (a === 'img' && editing) { $('monImgFile').click(); }
@@ -185,18 +235,19 @@
       : /standard|일반|표준/.test(a) ? ['일반', '1. 기본 행동', 'Standard Action'] : /move|이동/.test(a) ? ['이동', '2. 이동 행동', 'Move Action'] : /minor|보조|간략/.test(a) ? ['간략', '3. 간략 행동', 'Minor Action'] : /free|자유/.test(a) ? ['자유 행동', '5. 자유 행동', 'Free Action'] : ['-', '6. 행동 없음', 'No Action']; }
   var NATK_ACT = { '일반': '기본 행동', '이동': '이동 행동', '간략': '간략 행동', '즉각 반응': '즉각 반응', '즉각 개입': '즉각 개입', '기회 행동': '기회 행동', '자유 행동': '자유 행동', '-': '행동 없음' };
   /* 파워 한 줄 → 맵툴 공격 틀의 칸들. 본문에서 사거리 · 대상 · 명중 · 피해 주사위 · 피해 종류 · 명중 효과를 읽어 낸다 */
-  function parsePw(p) { var t = String(p.t || '').trim(), u = String(p.use || ''), o = { name: p.n || KIND_KO[p.k] || '특성', usage: useOf(p), act: actOf(p), trait: p.kw || '', recharge: '', trigger: '', range: '', target: '', bonus: '', vs: '', dice: '', dtype: '', hit: '', effect: '' };
+  function parsePw(p) { var sx0 = pwSplit(p), t = String(p.t || '').split(/\n/).filter(function (l) { return !/^\s*(빗나감|빗나가면|효과|발동|발동 조건)\s*:/.test(l); }).join(' ').trim(), u = String(p.use || ''), o = { name: p.n || KIND_KO[p.k] || '특성', usage: useOf(p), act: actOf(p), trait: p.kw || '', recharge: '', trigger: '', range: '', target: '', bonus: '', vs: '', dice: '', dtype: '', hit: '', effect: '' };
+    var fin = function (r) { if (sx0.trigger) r.trigger = sx0.trigger; if (sx0.miss) r.hit = (r.hit ? r.hit + ' ' : '') + '빗나감: ' + sx0.miss; if (sx0.effect) r.effect = (r.effect ? r.effect + ' ' : '') + sx0.effect; return r; };
     var rc = /(recharge[sd]?[^;]*|재충전[^;]*)/i.exec(u); if (rc) o.recharge = rc[1].replace(/^recharges?\s*/i, '').replace(/^재충전\s*/, '') || '있음';
     var tg = /((?:when|if)\s[^;]*|[^;]*(?:때|하면))$/i.exec(u); if (tg && !rc) o.trigger = tg[1].trim(); else { var tg2 = u.split(';').map(function (x) { return x.trim(); }).filter(function (x) { return /^(when|if)\b|때$|하면$/i.test(x); })[0]; if (tg2) o.trigger = tg2; }
     var am = /([+\-]\d+)\s*vs\.?\s*(AC|Fortitude|Reflex|Will|Fort|Ref|인내|반사|의지)/i.exec(t);
-    if (!am) { o.effect = t; var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { o.range = r0[1]; o.effect = t.slice(r0[0].length); } return o; }
+    if (!am) { o.effect = t; var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { o.range = r0[1]; o.effect = t.slice(r0[0].length); } return fin(o); }
     o.bonus = String(+am[1]); o.vs = { ac: 'AC', fortitude: 'Fort', fort: 'Fort', '인내': 'Fort', reflex: 'Ref', ref: 'Ref', '반사': 'Ref', will: 'Will', '의지': 'Will' }[am[2].toLowerCase()] || 'AC';
     t.slice(0, am.index).split(';').map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (x) { if (/^targets?\b|대상/i.test(x)) o.target = x.replace(/^(targets?|대상)\s*:?\s*/i, ''); else if (!o.range) o.range = x; else o.trigger = o.trigger || x; });
     if (!o.range) o.range = (p.k === 'm' || p.k === 'M') ? '근접 1' : (p.k === 'r' || p.k === 'R') ? '원거리 10' : '';
     if (!o.target && /^[CcAa]$/.test(p.k || '')) o.target = '범위 내 모든 개체';
     var rest = t.slice(am.index + am[0].length).replace(/^\s*[;,.]\s*/, ''), dm = /^(\d+d\d+(?:\s*[+\-]\s*\d+)?|\d+)\s+([^,.;(]*?(?:damage|피해))/i.exec(rest);
     if (dm) { o.dice = dm[1].replace(/\s+/g, ''); o.dtype = dm[2].replace(/damage/i, '피해').trim() + '.'; o.hit = rest.slice(dm[0].length).replace(/^\s*[,;.]?\s*(and\s+)?/i, '').trim(); } else o.hit = rest;
-    return o; }
+    return fin(o); }
   function monTokenData(m) { var T = window.D4E_MONT, num = function (v, d) { var x = /-?\d+/.exec(String(v == null ? '' : v)); return x ? x[0] : (d == null ? '' : d); };
     var tier = m.tier && m.tier !== 'Standard' ? TIER_KO[m.tier] + ' ' : '', role = tier + (m.role === 'Minion' ? '' : (ROLE_KO[m.role] || m.role || '')) + (m.leader ? ' (지휘)' : '');
     var memo1 = [m.senses ? '감각 ' + m.senses : '', m.speed ? '이동 ' + m.speed : ''].filter(Boolean).join(' / '), memo2 = [m.immune ? '면역 ' + m.immune : '', m.resist ? '저항 ' + m.resist : '', m.vuln ? '취약 ' + m.vuln : ''].filter(Boolean).join(' / ');
@@ -235,9 +286,24 @@
   function fileName(n) { return String(n || 'monster').replace(/[\\/:*?"'<>|\s]+/g, '_'); }
   function download(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000); }
   async function saveMonToken(m) { download(await monTokenBlob(m), fileName(m.n) + '.rptok'); }
-  function wireDrop() { var root = $('tab-mon'); if (!root || root._wd) return; root._wd = 1; var hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
-    root.addEventListener('dragover', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; var bx = $('monImgBox'); if (bx) bx.classList.add('drop'); });
-    root.addEventListener('dragleave', function (ev) { var bx = $('monImgBox'); if (bx && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('.mform'))) bx.classList.remove('drop'); });
-    root.addEventListener('drop', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); setImg(ev.dataTransfer.files && ev.dataTransfer.files[0]); }); }
-  window.D4EMon = { editIn: editIn, editEnd: editEnd, tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
+  /* 끌어다 놓은 것에서 그림 얻기: 파일이 먼저, 없으면 다른 창에서 끌어온 그림 주소 */
+  function dragOk(ev) { var ts = Array.prototype.slice.call((ev.dataTransfer && ev.dataTransfer.types) || []); return ts.indexOf('Files') >= 0 || ts.indexOf('text/uri-list') >= 0 || ts.indexOf('text/html') >= 0; }
+  function dropImg(ev) { var dt = ev.dataTransfer, f = dt && dt.files && Array.prototype.filter.call(dt.files, function (x) { return /^image\//.test(x.type || '') || /\.(png|jpe?g|webp|gif|bmp)$/i.test(x.name || ''); })[0]; if (f) return readImg(f);
+    var url = '', html = dt ? dt.getData('text/html') : '', mm = /<img[^>]+src=["']([^"']+)["']/i.exec(html || ''); if (mm) url = mm[1].replace(/&amp;/g, '&'); if (!url && dt) url = (dt.getData('text/uri-list') || '').split(/\r?\n/).filter(function (x) { return x && x.charAt(0) !== '#'; })[0] || '';
+    if (!url) return Promise.reject(new Error('그림 파일이 아니에요.'));
+    return fetch(url).then(function (r) { if (!r.ok) throw new Error('x'); return r.blob(); }).then(function (b) { if (!/^image\//.test(b.type || '')) throw new Error('x'); return readImg(new File([b], 'drop', { type: b.type })); }).catch(function () { throw new Error('그 사이트가 그림을 바로 가져가지 못하게 막아 두었어요. 그림을 컴퓨터에 저장한 뒤 그 파일을 끌어다 놓아 주세요.'); }); }
+  function startBase(m) { editing = JSON.parse(JSON.stringify(clean(shown(m)))); editing.id = ''; delete editing.q; delete editing.src; delete editing.n_en; editing.ko = 1; editing.base = m.n; if (m.role === 'Minion') { editing.tier = 'Minion'; editing.role = 'Skirmisher'; } }
+  function wireDrop() { var root = $('tab-mon'); if (!root || root._wd) return; root._wd = 1;
+    /* 그림을 받을 수 있는 곳: 편집 화면(어디든), 스탯 블록을 보고 있는 칸 */
+    var zone = function (ev) { var t = ev.target; if (!t.closest) return null; var f = t.closest('.mform'); if (f && editing) return f; var v = t.closest('#monView'); if (v && !editing && sel && byId(sel)) return v; return null; };
+    root.addEventListener('dragover', function (ev) { var z = zone(ev); if (!z || !dragOk(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; z.classList.add('imgdrop'); });
+    root.addEventListener('dragleave', function (ev) { var z = ev.target.closest && (ev.target.closest('.mform') || ev.target.closest('#monView')); if (z && !z.contains(ev.relatedTarget)) z.classList.remove('imgdrop'); });
+    root.addEventListener('drop', function (ev) { var z = zone(ev); if (!z || !dragOk(ev)) return; ev.preventDefault(); root.querySelectorAll('.imgdrop').forEach(function (x) { x.classList.remove('imgdrop'); });
+      if (editing) readForm(); var m = !editing && byId(sel);
+      dropImg(ev).then(async function (u) {
+        if (editing) { editing.img = u; renderView(); return; }
+        if (!m) return;
+        if (m._pack) { startBase(m); editing.img = u; renderView(); note('자료집 몬스터는 고칠 수 없어서, 그림을 넣은 사본을 열었어요. 「저장」을 누르면 만든 몬스터로 남아요.'); return; }
+        m.img = u; try { await save(m); renderList(); renderView(); note('「' + m.n + '」에 그림을 넣었어요.'); } catch (e) { alert('저장하지 못했어요: ' + e.message); } }, function (e) { alert(e.message); }); }); }
+  window.D4EMon = { dragOk: dragOk, dropImg: dropImg, editIn: editIn, editEnd: editEnd, tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
 })();
