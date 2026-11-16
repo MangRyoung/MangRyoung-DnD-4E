@@ -431,3 +431,7 @@ body.op-open{overflow:hidden}
 .chip.ft{border-left:4px solid var(--tc);padding-left:8px;background:color-mix(in srgb,var(--tc) 15%,var(--card));color:var(--tc)}
 .chip.ft.t-heroic{--tc:#8a5a2b}.chip.ft.t-paragon{--tc:#3d6a8a}.chip.ft.t-epic{--tc:#7a2b6b}
 .ftile.t-heroic{border-left-color:#8a5a2b}.ftile.t-paragon{border-left-color:#3d6a8a;background:rgba(61,106,138,.06)}.ftile.t-epic{border-left-color:#7a2b6b;background:rgba(122,43,107,.06)}
+/* 활용 파워의 사용 횟수 딱지: 이름 길이와 상관없이 오른쪽(분류 글 앞)에 붙어 줄이 맞게 */
+.pc summary .pu{margin-left:auto;order:2}.pc summary .pd{order:3}.pc summary .pu~.pd{margin-left:0}.pc summary .ps{order:1}
+.pc summary .pu~.pd{min-width:11.5em;text-align:right}
+@media (max-width:520px){.pc summary .pu~.pd{min-width:0;width:8.8em;flex:none;overflow:hidden;text-overflow:ellipsis}}
