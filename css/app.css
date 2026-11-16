@@ -501,3 +501,4 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .pw-a>button{flex:none;margin-bottom:1px}.pw-m{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-top:6px;margin-bottom:8px}.pw-m .hint{margin:0}.mf-pw>label.pw-f:last-child{margin-bottom:8px}
 @media(max-width:520px){.pw-g{grid-template-columns:1fr}}
 #encSel .pw-g{grid-template-columns:1fr}
+.pw-in input.grow{flex:1;min-width:90px}.mf-pw label select.wide{width:100%}.pw-in select{max-width:100%}
