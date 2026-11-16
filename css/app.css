@@ -427,3 +427,7 @@ body.op-open{overflow:hidden}
 .tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radius:4px;padding:1px 6px;margin-right:6px;vertical-align:1px}.tchip.t-heroic{background:#8a5a2b}.tchip.t-paragon{background:#3d6a8a}.tchip.t-epic{background:#7a2b6b}
 .mlist div.fl{border-left-width:6px}.mlist div.fl.t-heroic{background:rgba(138,90,43,.07)}.mlist div.fl.t-paragon{background:rgba(61,106,138,.09)}.mlist div.fl.t-epic{background:rgba(122,43,107,.09)}
 .pgh.item{color:#a8661c}.pgh.item i{background:#a8661c}.op-g.item h4{color:#a8661c}
+/* 재주 등급 색: 고른 칩 · 시트 타일 (영웅 갈색 · 패러곤 파랑 · 에픽 보라) */
+.chip.ft{border-left:4px solid var(--tc);padding-left:8px;background:color-mix(in srgb,var(--tc) 15%,var(--card));color:var(--tc)}
+.chip.ft.t-heroic{--tc:#8a5a2b}.chip.ft.t-paragon{--tc:#3d6a8a}.chip.ft.t-epic{--tc:#7a2b6b}
+.ftile.t-heroic{border-left-color:#8a5a2b}.ftile.t-paragon{border-left-color:#3d6a8a;background:rgba(61,106,138,.06)}.ftile.t-epic{border-left-color:#7a2b6b;background:rgba(122,43,107,.06)}
