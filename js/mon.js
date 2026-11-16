@@ -95,7 +95,12 @@
     $('monCount').textContent = L.length + '마리' + (pack.length ? ' · 자료집 ' + pack.length + (packFrom === 'site' ? ' (사이트 기본)' : ' (이 브라우저)') : '') + (mine.length ? ' · 만든 것 ' + mine.length : '');
     box.innerHTML = L.length ? L.slice(0, 400).map(function (m) { return '<div class="mrow r-' + esc(String(m.role || '').toLowerCase()) + (sel === m.id ? ' on' : '') + '" data-mid="' + esc(m.id) + '"><i>' + (m.lv || 1) + '</i>' + (m.img ? '<img class="mrow-img" src="' + esc(m.img) + '" alt="">' : '') + '<b title="' + esc(m.n) + '">' + esc(isEn(m) ? ko(m).n : m.n) + '</b><span>' + (m.tier && m.tier !== 'Standard' ? TIER_KO[m.tier] + ' ' : '') + (m.role === 'Minion' ? '' : (ROLE_KO[m.role] || m.role || '')) + '</span>' + (m._pack ? '<em>자료집</em>' : '') + '</div>'; }).join('') + (L.length > 400 ? '<p class="hint">400마리까지만 보여요. 검색이나 레벨로 좁혀 주세요.</p>' : '')
       : '<p class="hint">' + (all().length ? '조건에 맞는 몬스터가 없어요.' : '아직 몬스터가 없어요. 「+ 새 몬스터」로 만들거나, 자료집 파일을 불러와 보세요.') + '</p>'; }
-  function renderView() { var box = $('monView'); if (!box) return;
+  /* 다른 화면(조우 판)에서 몬스터 사본을 고칠 때: ext = { box: 칸 id, cb: 끝났을 때 부를 함수 } — DB에는 쓰지 않는다 */
+  var ext = null;
+  function editIn(boxId, m, cb) { if (editing && !ext) { alert('「몬스터 목록」에서 고치던 것이 있어요. 먼저 저장하거나 취소해 주세요.'); return false; } editing = JSON.parse(JSON.stringify(m)); if (!Array.isArray(editing.pw)) editing.pw = []; ext = { box: boxId, cb: cb }; renderView(); return true; }
+  function editEnd() { if (ext) { ext = null; editing = null; } }
+  function renderView() { if (ext) { var xb = $(ext.box); if (xb && editing) xb.innerHTML = '<p class="hint">이 조우에 올린 사본만 바뀌어요. 같은 몬스터 토큰은 함께 바뀌고, 「몬스터 목록」의 원본은 그대로예요.</p>' + form(editing); return; }
+    var box = $('monView'); if (!box) return;
     if (editing) { box.innerHTML = form(editing); return; }
     var m = sel && byId(sel); if (!m) { box.innerHTML = '<p class="hint">왼쪽에서 몬스터를 고르면 스탯 블록이 여기에 나와요.</p>'; return; }
     var en = isEn(m), tabs = en ? '<span class="trtab"><button data-mact="vtr" class="' + (orig[m.id] ? '' : 'on') + '">번역</button><button data-mact="vor" class="' + (orig[m.id] ? 'on' : '') + '">원문</button></span>' : ''; var mv = shown(m);
@@ -122,7 +127,7 @@
       '<button class="mini ghost" data-mpup="' + i + '" title="위로">↑</button><button class="mini ghost" data-mpdel="' + i + '" title="지우기">×</button></div><textarea data-mf="pw.t" rows="2" placeholder="사거리; +명중 vs. 방어; 피해와 효과">' + esc(p.t) + '</textarea></div>'; }).join('') || '<p class="hint">위 단추로 공격이나 특성을 넣어 주세요. 명중과 피해는 표준 수치로 미리 채워져요.</p>';
     h += lab('메모 (GM만 보는 전술 · 설명)', '<textarea data-mf="note" rows="2">' + esc(m.note || '') + '</textarea>') + '<div class="mf-prev"><small>미리 보기</small>' + block(m) + '</div></div>';
     return h; }
-  function readForm() { var m = editing, box = $('monView'); if (!m || !box) return;
+  function readForm() { var m = editing, box = $(ext ? ext.box : 'monView'); if (!m || !box) return;
     box.querySelectorAll('[data-mf]').forEach(function (x) { var k = x.getAttribute('data-mf'); if (k.indexOf('pw.') === 0) { var row = x.closest('[data-pi]'), p = m.pw[+row.getAttribute('data-pi')]; if (p) p[k.slice(3)] = x.value; return; }
       if (k === 'leader') m.leader = x.checked; else if (k === 'lv') m.lv = Math.max(1, Math.min(35, +x.value || 1)); else m[k] = x.value; });
     if (m.tier === 'Minion') { m.role2 = m.role === 'Minion' ? m.role2 : m.role; } }
@@ -146,6 +151,8 @@
       else if (t.id === 'monFile') { var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { try { var a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('몬스터 목록 파일이 아니에요.'); localStorage.setItem(PACK_KEY, JSON.stringify(a)); loadPack(); note('자료집 ' + pack.length + '마리를 이 브라우저에 불러왔어요.'); renderList(); } catch (e) { alert('불러오지 못했어요: ' + e.message); } t.value = ''; }; rd.readAsText(f); }
       else if (t.closest('.mform') && editing && /^(role|tier|lv)$/.test(t.getAttribute('data-mf') || '')) { readForm(); var r = math(editing.lv, roleOf(editing), editing.tier), hn = $('mfHint'); if (hn) hn.textContent = '기준: 명중 +' + r.atkAC + ' vs AC / +' + r.atkNAD + ' vs 그 밖 · 평균 피해 ' + r.dmg + ' (범위 ' + r.dmgArea + ', 조우 ' + r.dmgLim + ')'; var pv = root.querySelector('.mf-prev'); if (pv) pv.innerHTML = '<small>미리 보기</small>' + block(editing); } });
     root.addEventListener('click', async function (ev) { var t = ev.target, row = t.closest('[data-mid]'), act = t.closest('[data-mact]'), add = t.closest('[data-madd]');
+      if (ext && t.closest('[data-mview]')) { var cbx = ext.cb; editEnd(); cbx(null); }
+      if (ext && (t.id === 'monNew' || (t.closest('[data-mid]') && !t.closest('.mform')))) return;
       if (t.id === 'monNew') { editing = blank(); sel = null; renderList(); renderView(); return; }
       if (t.id === 'monPick') { $('monFile').click(); return; }
       if (t.id === 'monPackDel') { if (pack.length && confirm('이 브라우저에 불러온 자료집 ' + pack.length + '마리를 지울까요? (만든 몬스터는 그대로예요)')) { localStorage.removeItem(PACK_KEY); loadPack(); renderList(); renderView(); } return; }
@@ -164,6 +171,8 @@
       else if (a === 'fill' && editing) { readForm(); fill(editing, true); renderView(); }
       else if (a === 'img' && editing) { $('monImgFile').click(); }
       else if (a === 'imgdel' && editing) { readForm(); delete editing.img; renderView(); }
+      else if (a === 'cancel' && ext) { var cb0 = ext.cb; editEnd(); cb0(null); }
+      else if (a === 'save' && editing && ext) { readForm(); if (!String(editing.n || '').trim()) { alert('이름을 적어 주세요.'); return; } var res = clean(editing), cb1 = ext.cb; delete res.id; editEnd(); cb1(res); }
       else if (a === 'cancel') { editing = null; renderView(); }
       else if (a === 'save' && editing) { readForm(); if (!String(editing.n || '').trim()) { alert('이름을 적어 주세요.'); return; } act.disabled = true; try { var d = await save(editing); editing = null; sel = d.id; renderList(); renderView(); note('「' + d.n + '」을(를) 저장했어요.'); } catch (e) { act.disabled = false; alert('저장하지 못했어요: ' + e.message); } } }); }
   /* ---------- 맵툴 토큰 내보내기 ----------
@@ -230,5 +239,5 @@
     root.addEventListener('dragover', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; var bx = $('monImgBox'); if (bx) bx.classList.add('drop'); });
     root.addEventListener('dragleave', function (ev) { var bx = $('monImgBox'); if (bx && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('.mform'))) bx.classList.remove('drop'); });
     root.addEventListener('drop', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); setImg(ev.dataTransfer.files && ev.dataTransfer.files[0]); }); }
-  window.D4EMon = { tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
+  window.D4EMon = { editIn: editIn, editEnd: editEnd, tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
 })();

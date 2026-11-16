@@ -485,3 +485,6 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .encgrid.wide{grid-template-columns:1fr}.encgrid.wide .encside{display:none}.encmain{min-width:0}
 .enczoom{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-bottom:5px;font-size:12.5px}.enczoom input[type=range]{width:150px}.enczoom b{min-width:42px;text-align:right}
 .etok span.cap{align-self:flex-end;width:100%;background:rgba(0,0,0,.55);font-size:.78em;padding:1px 2px;text-shadow:none}
+.encboardwrap{cursor:grab}.encboardwrap.panning{cursor:grabbing;user-select:none}.encboardwrap .etok{cursor:pointer}
+#encSel .mform .mf-prev{display:none}
+.encr span[data-rsel]{cursor:pointer;border-radius:6px;padding:2px 4px}.encr span[data-rsel]:hover{background:var(--acc2)}.encr.on span[data-rsel]{background:var(--acc2);font-weight:700}

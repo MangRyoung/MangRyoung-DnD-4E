@@ -7,7 +7,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var M = function () { return window.D4EMon; };
-  var list = [], enc = null, mapUrl = '', mapDirty = false, selTok = -1, zoom = 1, loaded = false, view = localStorage.getItem('d4e_monview') || 'list', pickQ = '', pickLo = '', pickHi = '', pickRole = '', pickSrc = '', pickAuto = true, wide = false, dirty = false;
+  var list = [], enc = null, mapUrl = '', mapDirty = false, selTok = -1, zoom = 1, loaded = false, view = localStorage.getItem('d4e_monview') || 'list', pickQ = '', pickLo = '', pickHi = '', pickRole = '', pickSrc = '', pickAuto = true, wide = false, monEdit = false, dirty = false;
   function blank() { return { id: '', name: '새 조우', plv: 10, pn: 4, cell: 50, ox: 0, oy: 0, w: 1000, h: 700, mons: [], toks: [], note: '', hasMap: false }; }
   function sizeOf(m) { var t = String((m && m.type) || ''); return /Gargantuan|거대형/i.test(t) ? 4 : /Huge|초대형/i.test(t) ? 3 : /Large|대형/i.test(t) ? 2 : 1; }
   function xpOf(m) { return +String(m.xp || '').replace(/[^\d]/g, '') || 0; }
@@ -35,7 +35,7 @@
   function sync() { var root = $('tab-mon'); if (!root) return; wire(); var gm = M().gm();
     root.querySelectorAll('[data-mview]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-mview') === view); });
     $('monListWrap').hidden = view !== 'list'; $('encWrap').hidden = view !== 'enc' || !gm; if (view === 'enc' && gm) { if (!loaded) { $('encBody').innerHTML = '<p class="hint">읽는 중이에요.</p>'; Promise.all([load(), M().load()]).then(render); } else render(); } }
-  function render() { var box = $('encBody'); if (!box) return;
+  function render() { var box = $('encBody'); if (!box) return; if (monEdit) { monEdit = false; M().editEnd(); }
     if (!enc) { box.innerHTML = '<div class="mbar"><button id="encNew">+ 새 조우</button><span class="hint" id="encMsg"></span></div>' + (list.length ? '<div class="enclist">' + list.map(function (e) { var n = (e.toks || []).length; return '<div class="encrow" data-eid="' + esc(e.id) + '"><b>' + esc(e.name || '이름 없음') + '</b><span>일행 ' + (e.pn || 4) + '명 · ' + (e.plv || 1) + '레벨 · 몬스터 ' + n + '마리' + (e.hasMap ? ' · 맵 있음' : '') + (e.by ? ' · ' + esc(e.by) : '') + '</span></div>'; }).join('') + '</div>' : '<p class="hint">아직 저장한 조우가 없어요. 「+ 새 조우」로 시작해 보세요.</p>'); return; }
     var h = '<div class="mbar"><button class="ghost" id="encBack">← 목록</button><input type="text" id="encName" value="' + esc(enc.name) + '" placeholder="조우 이름"><label>일행 <input type="number" id="encPn" min="1" max="10" value="' + esc(enc.pn) + '">명</label><label><input type="number" id="encPlv" min="1" max="30" value="' + esc(enc.plv) + '">레벨</label>' +
       '<span class="sp"></span><button id="encSave"' + (dirty ? ' class="need"' : '') + '>저장</button><button class="ghost" id="encTok" title="올린 몬스터를 맵툴 토큰(.rptok) 묶음으로 받아요">토큰 묶음 받기</button>' + (enc.id ? '<button class="ghost" id="encDel">지우기</button>' : '') + '</div>' +
@@ -48,7 +48,7 @@
       '<select id="encRole">' + [['', '역할 전체'], ['Skirmisher', '척후'], ['Brute', '맹수'], ['Soldier', '병사'], ['Lurker', '잠복'], ['Controller', '제어'], ['Artillery', '포격'], ['Minion', '졸개'], ['Elite', '정예'], ['Solo', '단독']].map(function (o) { return '<option value="' + o[0] + '"' + (pickRole === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select id="encSrc">' + [['', '전체'], ['mine', '만든 것'], ['pack', '자료집']].map(function (o) { return '<option value="' + o[0] + '"' + (pickSrc === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div><div id="encPick" class="encpick"></div></div><div id="encRoster" class="encroster"></div><div id="encSel"></div></div>' +
       '<div class="encmain"><div class="enczoom"><button class="mini ghost" id="encWide" title="옆 칸을 접고 판을 넓게">' + (wide ? '옆 칸 펴기' : '넓게 보기') + '</button><span class="sp"></span><button class="mini ghost" id="encZo" title="작게">−</button><input type="range" id="encZoom" min="0.1" max="3" step="0.05" value="' + zoom + '"><button class="mini ghost" id="encZi" title="크게">+</button><b id="encZv"></b><button class="mini ghost" id="encFit" title="판 너비에 맞추기">너비 맞춤</button><button class="mini ghost" id="encFitAll" title="맵 전체가 한눈에 보이게">전체 보기</button><button class="mini ghost" id="encZ1" title="원래 크기">100%</button></div>' +
-      '<div class="encboardwrap"><div id="encBoard" class="encboard"></div></div><p class="hint">Ctrl + 휠(터치패드는 두 손가락 벌리기)로도 크기를 바꿀 수 있어요. 휠만 굴리면 위아래로 움직여요.</p></div></div>';
+      '<div class="encboardwrap"><div id="encBoard" class="encboard"></div></div><p class="hint">빈 곳을 잡고 끌면 보는 곳이 움직여요. Ctrl + 휠(터치패드는 두 손가락 벌리기)로 크기를 바꿀 수 있어요.</p></div></div>';
     box.innerHTML = h; var gr = box.querySelector('.encgrid'); if (gr) gr.classList.toggle('wide', wide); drawXp(); drawPick(); drawRoster(); drawBoard(); drawSel(); }
   function drawXp() { var b = budget(), box = $('encXp'); if (!box) return; box.innerHTML = '<span><small>XP 합계</small><b>' + b.tot.toLocaleString() + '</b></span><span><small>기준 (일행 레벨 × 인원)</small><b>' + b.target.toLocaleString() + '</b></span><span><small>조우 레벨</small><b>' + (b.lv || '-') + '</b></span>' +
       (b.lab ? '<span class="d' + (b.diff <= -2 ? ' easy' : b.diff <= 1 ? ' std' : b.diff <= 3 ? ' hard' : ' dead') + '"><small>난이도</small><b>' + b.lab + ' (' + (b.diff >= 0 ? '+' : '') + b.diff + ')</b></span>' : '') + '<span><small>몬스터</small><b>' + enc.toks.length + '마리</b></span>'; }
@@ -61,9 +61,9 @@
     var nn = $('encPickN'); if (nn) nn.textContent = L.length + '마리' + (L.length > MAXP ? ' · 앞의 ' + MAXP + '마리만' : '') + (q && (pickLo || pickHi) ? ' · 이름 검색은 모든 레벨에서' : '');
     box.innerHTML = L.length ? L.slice(0, MAXP).map(function (x) { var s = x[1]; return '<div class="mrow r-' + esc(String(s.role || '').toLowerCase()) + '" data-addm="' + esc(x[0].id) + '" title="눌러서 판에 올리기"><i>' + (s.lv || 1) + '</i><b>' + esc(s.n) + '</b><span>' + (s.tier && s.tier !== 'Standard' ? M().TIER_KO[s.tier] + ' ' : '') + (s.role === 'Minion' ? '' : (M().ROLE_KO[s.role] || '')) + ' · ' + xpOf(s).toLocaleString() + '</span></div>'; }).join('') : '<p class="hint">' + (all.length ? '조건에 맞는 몬스터가 없어요. 레벨 범위를 넓혀 보세요.' : '아직 몬스터가 없어요. 「몬스터 목록」에서 만들거나 자료집을 불러와 주세요.') + '</p>'; }
   function drawRoster() { var box = $('encRoster'); if (!box) return; var cnt = {}; enc.toks.forEach(function (t) { cnt[t.m] = (cnt[t.m] || 0) + 1; });
-    var ks = Object.keys(cnt); box.innerHTML = ks.length ? '<b>올린 몬스터</b>' + ks.map(function (k) { var m = enc.mons[k]; return '<div class="encr"><span>' + esc(m.n) + ' <small>' + (m.lv || 1) + '레벨 · XP ' + xpOf(m).toLocaleString() + '</small></span><i>×' + cnt[k] + '</i><button class="mini ghost" data-more="' + k + '" title="한 마리 더">+</button></div>'; }).join('') : ''; }
-  function drawSel() { var box = $('encSel'); if (!box) return; var t = enc.toks[selTok]; if (!t) { box.innerHTML = ''; return; } var m = enc.mons[t.m];
-    box.innerHTML = '<div class="mbar"><b>' + esc(label(selTok)) + '</b><span class="sp"></span><button class="mini ghost" data-tdel="1">판에서 빼기</button></div>' + M().block(m); }
+    var ks = Object.keys(cnt); box.innerHTML = ks.length ? '<b>올린 몬스터</b>' + ks.map(function (k) { var m = enc.mons[k]; var on = enc.toks[selTok] && String(enc.toks[selTok].m) === String(k); return '<div class="encr' + (on ? ' on' : '') + '"><span data-rsel="' + k + '" title="눌러서 스탯 블록 보기">' + esc(m.n) + ' <small>' + (m.lv || 1) + '레벨 · XP ' + xpOf(m).toLocaleString() + '</small></span><button class="mini ghost" data-less="' + k + '" title="한 마리 빼기">−</button><i>×' + cnt[k] + '</i><button class="mini ghost" data-more="' + k + '" title="한 마리 더">+</button><button class="mini ghost" data-rdel="' + k + '" title="이 몬스터를 모두 빼기">×</button></div>'; }).join('') : ''; }
+  function drawSel() { var box = $('encSel'); if (!box || monEdit) return; var t = enc.toks[selTok]; if (!t) { box.innerHTML = ''; return; } var m = enc.mons[t.m];
+    box.innerHTML = '<div class="mbar"><b>' + esc(label(selTok)) + '</b><span class="sp"></span><button class="mini" data-tedit="1" title="이 조우에 올린 사본을 고쳐요">고치기</button><button class="mini ghost" data-tdel="1">판에서 빼기</button></div>' + M().block(m); }
   function drawBoard() { var bd = $('encBoard'); if (!bd) return; var c = Math.max(8, +enc.cell || 50), W = enc.w || 1000, H = enc.h || 700;
     bd.style.width = W + 'px'; bd.style.height = H + 'px'; bd.style.transform = 'scale(' + zoom + ')'; bd.style.marginRight = (W * zoom - W) + 'px'; bd.style.marginBottom = (H * zoom - H) + 'px'; bd.parentNode.style.height = Math.min(window.innerHeight * (wide ? 0.86 : 0.78), H * zoom + 4) + 'px';
     var zv = $('encZv'); if (zv) zv.textContent = Math.round(zoom * 100) + '%'; var zr = $('encZoom'); if (zr && +zr.value !== zoom) zr.value = zoom;
@@ -94,6 +94,15 @@
       else if (t.id === 'encBack') { if (dirty && !confirm('저장하지 않은 것이 있어요. 목록으로 갈까요?')) return; enc = null; render(); }
       else if (am) addMon(am.getAttribute('data-addm'));
       else if (more) addMon(null, more.getAttribute('data-more'));
+      else if (t.closest('[data-rsel]')) { var rk = t.closest('[data-rsel]').getAttribute('data-rsel'), cur = enc.toks[selTok], ix = []; enc.toks.forEach(function (x, i) { if (String(x.m) === rk) ix.push(i); }); if (!ix.length) return;
+        /* 같은 줄을 다시 누르면 그 몬스터의 다음 토큰으로 */
+        selTok = cur && String(cur.m) === rk ? ix[(ix.indexOf(selTok) + 1) % ix.length] : ix[0]; drawBoard(); drawRoster(); drawSel(); var se = $('encSel'); if (se && se.scrollIntoView) se.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+      else if (t.closest('[data-less]') || t.closest('[data-rdel]')) { if (monEdit) return; var all = !!t.closest('[data-rdel]'), lk = (t.closest('[data-rdel]') || t.closest('[data-less]')).getAttribute(all ? 'data-rdel' : 'data-less'), n = enc.toks.filter(function (x) { return String(x.m) === lk; }).length;
+        if (all && n > 1 && !confirm('「' + enc.mons[lk].n + '」 ' + n + '마리를 모두 뺄까요?')) return;
+        for (var i = enc.toks.length - 1; i >= 0; i--) if (String(enc.toks[i].m) === lk) { enc.toks.splice(i, 1); if (!all) break; }
+        selTok = -1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); }
+      else if (t.closest('[data-tedit]')) { var tk = enc.toks[selTok]; if (!tk) return; var mi = tk.m;
+        if (M().editIn('encSel', enc.mons[mi], function (res) { monEdit = false; if (res) { enc.mons[mi] = res; touch(); drawXp(); drawRoster(); drawBoard(); msg('「' + res.n + '」을(를) 고쳤어요. 「저장」을 눌러야 조우에 남아요.'); } drawSel(); })) { monEdit = true; var sb = $('encSel'); if (sb && sb.scrollIntoView) sb.scrollIntoView({ block: 'nearest' }); } }
       else if (t.closest('[data-tdel]')) { if (enc.toks[selTok]) { enc.toks.splice(selTok, 1); selTok = -1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); } }
       else if (t.id === 'encMapPick') $('encMapFile').click();
       else if (t.id === 'encZi') setZoom(zoom * 1.2); else if (t.id === 'encZo') setZoom(zoom / 1.2); else if (t.id === 'encZ1') setZoom(1); else if (t.id === 'encFit') fit(false); else if (t.id === 'encFitAll') fit(true)
@@ -117,12 +126,14 @@
     root.addEventListener('dragover', function (ev) { var w = overBoard(ev); if (!w || !hasFile(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; w.classList.add('drop'); });
     root.addEventListener('dragleave', function (ev) { var w = ev.target.closest && ev.target.closest('.encboardwrap'); if (w && !w.contains(ev.relatedTarget)) w.classList.remove('drop'); });
     root.addEventListener('drop', function (ev) { var w = overBoard(ev); if (!w || !hasFile(ev)) return; ev.preventDefault(); w.classList.remove('drop'); useMap(ev.dataTransfer.files && ev.dataTransfer.files[0]); });
-    root.addEventListener('pointerdown', function (ev) { var el = ev.target.closest('.etok'); if (!el || !enc) return; var i = +el.getAttribute('data-ti'), t = enc.toks[i]; if (!t) return; ev.preventDefault();
+    root.addEventListener('pointerdown', function (ev) { var el = ev.target.closest('.etok');
+      if (!el && enc && ev.pointerType !== 'touch' && ev.button === 0) { var w = ev.target.closest('.encboardwrap'); if (w && (w.scrollWidth > w.clientWidth || w.scrollHeight > w.clientHeight)) { pan = { w: w, sx: ev.clientX, sy: ev.clientY, l: w.scrollLeft, t: w.scrollTop }; w.classList.add('panning'); try { w.setPointerCapture(ev.pointerId); } catch (e) {} ev.preventDefault(); } return; }
+      if (!el || !enc || monEdit) return; var i = +el.getAttribute('data-ti'), t = enc.toks[i]; if (!t) return; ev.preventDefault();
       selTok = i; drag = { i: i, sx: ev.clientX, sy: ev.clientY, x0: t.x, y0: t.y, el: el, moved: false }; try { el.setPointerCapture(ev.pointerId); } catch (e) {} root.querySelectorAll('.etok.on').forEach(function (x) { x.classList.remove('on'); }); el.classList.add('on'); });
-    root.addEventListener('pointermove', function (ev) { if (!drag) return; var c = Math.max(8, +enc.cell || 50), dx = (ev.clientX - drag.sx) / zoom, dy = (ev.clientY - drag.sy) / zoom, t = enc.toks[drag.i]; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
+    root.addEventListener('pointermove', function (ev) { if (pan) { pan.w.scrollLeft = pan.l - (ev.clientX - pan.sx); pan.w.scrollTop = pan.t - (ev.clientY - pan.sy); return; } if (!drag) return; var c = Math.max(8, +enc.cell || 50), dx = (ev.clientX - drag.sx) / zoom, dy = (ev.clientY - drag.sy) / zoom, t = enc.toks[drag.i]; if (Math.abs(dx) + Math.abs(dy) > 3) drag.moved = true;
       var nx = drag.x0 + Math.round(dx / c), ny = drag.y0 + Math.round(dy / c); if (nx !== t.x || ny !== t.y) { t.x = nx; t.y = ny; drag.el.style.left = ((enc.ox || 0) + nx * c) + 'px'; drag.el.style.top = ((enc.oy || 0) + ny * c) + 'px'; } });
     root.addEventListener('wheel', function (ev) { var w = ev.target.closest && ev.target.closest('.encboardwrap'); if (!w || !enc || !(ev.ctrlKey || ev.metaKey)) return; ev.preventDefault(); var r = w.getBoundingClientRect(); setZoom(zoom * (ev.deltaY < 0 ? 1.12 : 1 / 1.12), { x: ev.clientX - r.left, y: ev.clientY - r.top }); }, { passive: false });
-    var up = function () { if (!drag) return; if (drag.moved) touch(); drag = null; drawSel(); };
+    var pan = null; var up = function () { if (pan) { pan.w.classList.remove('panning'); pan = null; return; } if (!drag) return; if (drag.moved) touch(); drag = null; drawSel(); drawRoster(); };
     root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up); }
   window.D4EEnc = { sync: sync };
 })();
