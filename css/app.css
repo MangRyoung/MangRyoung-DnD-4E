@@ -416,3 +416,11 @@ body.op-open{overflow:hidden}
 @media (max-width:640px){.op-fl{grid-template-columns:1fr}}
 .pkids{margin:8px 10px 4px;padding:6px 8px 2px;border-left:3px solid var(--line);background:rgba(0,0,0,.03);border-radius:0 8px 8px 0}.pkids>small{display:block;color:var(--sub);font-size:12px;margin-bottom:4px}.pkids .pc{margin-bottom:6px}
 .paugl{font-size:12px;font-weight:700;color:var(--sub);margin:4px 2px 2px}.op-p.sub{padding-left:10px}.op-p.sub>b{font-weight:600;color:#5a5348}
+
+.pu{font-size:11px;font-weight:700;padding:1px 7px;border-radius:999px;margin-left:6px;background:rgba(255,255,255,.22);color:#fff;white-space:nowrap}.pu.enc{background:var(--enc)}.pu.day{background:#333}.pu.at{background:var(--ok)}
+.pwcfg{margin:0 0 10px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px;display:flex;flex-direction:column;gap:4px}.pwcfg-l{display:flex;flex-wrap:wrap;gap:4px 14px}.pwcfg-l label{font-size:13px;display:flex;align-items:center;gap:4px;cursor:pointer}
+.ptok{position:absolute;right:6px;bottom:6px;width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid var(--card);box-shadow:0 1px 4px rgba(0,0,0,.35);background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:2}
+.ptok img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}.ptok.empty{border:2px dashed var(--line);box-shadow:none;background:var(--card);opacity:.9}.ptok.empty small{font-size:11px;color:var(--sub)}
+.ptok[data-tok]{cursor:pointer}.ptok[data-tok]:hover{border-color:var(--acc)}.ptok .tx{position:absolute;inset:0;border:0;background:rgba(0,0,0,.45);color:#fff;font-size:18px;opacity:0;cursor:pointer;padding:0;border-radius:50%}.ptok:hover .tx{opacity:1}
+.op-lv{display:inline-block;min-width:15px;text-align:center;font-style:normal;font-size:9.5px;font-weight:700;background:#e9e2d4;color:#6b6257;border-radius:4px;padding:0 3px;margin-right:4px;vertical-align:1px}
+.op-p b .op-use{font-style:normal;font-size:9.5px;font-weight:700;border-radius:4px;padding:0 4px;margin-right:4px;vertical-align:1px;background:none;border:1px solid currentColor}.op-p b .op-use.at{color:#3d7a4f}.op-p b .op-use.enc{color:#8a2c3a}.op-p b .op-use.day{color:#333}

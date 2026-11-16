@@ -64,9 +64,9 @@
     return new Promise(function (ok) {
       var cv = document.createElement('canvas'), done = function () { cv.toBlob(function (b) { b.arrayBuffer().then(function (ab) { ok({ bytes: new Uint8Array(ab), w: cv.width, h: cv.height }); }); }, 'image/png'); };
       var blank = function () { cv.width = cv.height = 256; var x = cv.getContext('2d'); x.fillStyle = '#5b7aa8'; x.beginPath(); x.arc(128, 128, 124, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 130px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((d.name || '?').charAt(0), 128, 138); done(); };
-      if (!d.port) return blank();
-      var im = new Image(); im.onload = function () { var k = Math.min(1, 512 / Math.max(im.width, im.height)); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); cv.getContext('2d').drawImage(im, 0, 0, cv.width, cv.height); done(); };
-      im.onerror = blank; im.src = d.port;
+      var src = d.tok || d.port; if (!src) return blank();
+      var im = new Image(); im.onload = function () { var k = Math.min(1, 512 / Math.max(im.width, im.height)); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); var x = cv.getContext('2d'); if (d.tok) { var sd = Math.min(im.width, im.height); cv.width = cv.height = Math.min(256, sd); x.beginPath(); x.arc(cv.width / 2, cv.width / 2, cv.width / 2, 0, 7); x.clip(); x.drawImage(im, (im.width - sd) / 2, (im.height - sd) / 2, sd, sd, 0, 0, cv.width, cv.width); } else x.drawImage(im, 0, 0, cv.width, cv.height); done(); };
+      im.onerror = blank; im.src = src;
     });
   }
   function loadZip() { return window.JSZip ? Promise.resolve() : new Promise(function (ok, no) { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; s.onload = ok; s.onerror = function () { no(new Error('압축 도구를 불러오지 못했어요')); }; document.head.appendChild(s); }); }
