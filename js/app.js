@@ -1171,20 +1171,22 @@
         (m ? '<i>' + sg(m.atk) + ' vs ' + esc(m.vs === 'Fortitude' ? 'Fort' : m.vs === 'Reflex' ? 'Ref' : m.vs) + (m.dmg ? ' · ' + esc(m.dmg) : '') + '</i>' : '') + (eff0 ? '<em>' + esc(eff0) + '</em>' : '') + '</div>'; };
     var pcol = function (k, lab) { return grp[k].length ? '<div class="op-g ' + k + '"><h4>' + lab + ' <small>' + grp[k].length + '</small></h4>' + grp[k].map(pline).join('') + '</div>' : ''; };
     var skills = (db.byType['Skill'] || []).slice().sort(function (a, c) { return a.n < c.n ? -1 : 1; }).map(function (sk) { var v = s[lc(sk.n)] || 0, tr = (s[lc(sk.n + ' trained')] || 0) > 0; return '<span class="' + (tr ? 'tr' : '') + '">' + esc(koName('Skill', sk.n) || sk.n) + ' <b>' + sg(v) + '</b></span>'; }).join('');
-    /* 장비: 무기 · 갑옷 · 목은 효과까지 한 줄씩, 나머지는 이름만 */
+    /* 장비: 찬 자리마다 효과까지 한 줄씩, 자리 없는 물품(그 밖)은 이름만 */
     var q = ch.eq || {}, tx = function (e, k) { var t = T[e.id], v = t && t.f && t.f[k]; return v || (glossAuto ? gsub(String((e.sp || {})[k] || '')) : String((e.sp || {})[k] || '')); };
     var gfx = function (e) { if (!e) return []; var sp = e.sp || {}, a = [];
       if (e.t === 'Weapon') { if (sp['Damage']) a.push('피해 ' + sp['Damage']); if (sp['Proficiency Bonus']) a.push('숙련 +' + sp['Proficiency Bonus']); if (sp['Range']) a.push('사거리 ' + sp['Range']); }
       else if (e.t === 'Armor') { if (sp['Armor Bonus']) a.push('방어 +' + sp['Armor Bonus']); else if (sp['Shield Bonus']) a.push('방어 +' + sp['Shield Bonus']); if (sp['Check'] && !/^(0|-)$/.test(sp['Check'])) a.push('판정 ' + sp['Check']); if (sp['Speed'] && !/^(0|-)$/.test(sp['Speed'])) a.push('이동 ' + sp['Speed']); }
       else { ['Enhancement', 'Critical', 'Property'].forEach(function (k) { if (sp[k]) a.push((k === 'Critical' ? '치명타 ' : '') + short(tx(e, k))); });
-        Object.keys(sp).forEach(function (k) { if (/^(Power|Utility Power|Attack Power)/.test(k) && sp[k]) a.push('파워: ' + short(tx(e, k))); }); }
+        Object.keys(sp).forEach(function (k) { if (/^(Power|Utility Power|Attack Power)/.test(k) && sp[k]) { var pv = short(tx(e, k)); a.push(/^(파워|Power|활용|Utility|공격|Attack)/.test(pv) ? pv : '파워: ' + pv); } }); }
       return a; };
     var used = {}, grow = function (lab, keys) { var es = keys.map(function (k) { return db.byId[q[k]]; }).filter(Boolean); if (!es.length) return ''; es.forEach(function (e) { used[e.id] = 1; });
       var magic = es.filter(function (e) { return e.t === 'Magic Item'; }), base = es.filter(function (e) { return e.t !== 'Magic Item'; }), title = magic.length ? magic.map(nmOf).join(' + ') + (base.length ? ' <small>(' + base.map(nmOf).join(', ') + ')</small>' : '') : base.map(nmOf).join(', ');
       var fx = []; base.concat(magic).forEach(function (e) { fx = fx.concat(gfx(e)); });
       return '<div class="op-gr"><b>' + lab + '</b><span><em>' + title + '</em>' + (fx.length ? ' — ' + esc(fx.join(' · ')) : '') + '</span></div>'; };
-    var gearMain = grow('무기', ['main', 'mainM']) + grow('도구', ['impl']) + grow('갑옷', ['body', 'bodyM']) + grow('방패', ['off', 'offM']) + grow('목', ['neck']);
-    var gear = (r.worn || []).filter(function (e) { return !used[e.id]; }).map(function (e) { return esc(nmOf(e)); }).join(', '), feats = ownedOf(r, 'Feat').map(function (e) { return esc(nmOf(e)); }).join(', ');
+    var gearMain = grow('무기', ['main', 'mainM']) + grow('도구', ['impl']) + grow('갑옷', ['body', 'bodyM']) + grow('방패', ['off', 'offM']) + grow('목', ['neck']) +
+      grow('머리', ['head']) + grow('팔', ['arms']) + grow('손', ['hands']) + grow('허리', ['waist']) + grow('발', ['feet']) + grow('반지', ['ring1']) + grow('반지', ['ring2']);
+    var gear = (r.worn || []).filter(function (e) { return !used[e.id]; }).map(function (e) { return esc(nmOf(e)); }).join(', '), feats = ownedOf(r, 'Feat').map(function (e) { var t = T[e.id], d = (t && t.f && t.f['Short Description']) || (function (x) { return glossAuto ? gsub(x) : x; })(String((e.sp || {})['Short Description'] || ''));
+      return '<div class="op-f"><b>' + esc(nmOf(e)) + '</b>' + (d ? ' ' + esc(d) : '') + '</div>'; }).join('');
     var hbl = (ch.hbx || []).map(function (x) { return '<div class="op-h"><b>' + esc(x.n) + '</b> ' + esc(x.text || '') + '</div>'; }).join('') + (ch.hb || []).map(function (id) { var e = db.byId[id]; return e ? '<div class="op-h"><b>' + esc(nmOf(e)) + '</b> ' + esc((e.sp && e.sp['Short Description']) || '') + '</div>' : ''; }).join('');
     return '<div class="op-page"><div class="op-top">' + (ch.port ? '<img src="' + esc(ch.port) + '" alt="">' : '') + '<div class="op-id"><h2>' + esc(ch.name || '이름 없음') + '</h2><p>' + esc([one('Race'), one('Class'), one('Paragon Path'), one('Epic Destiny')].filter(Boolean).join(' · ')) + ' · ' + ch.level + '레벨' + (owner ? ' · ' + esc(owner) : '') + '</p>' + (b.tag ? '<p class="op-tag">' + esc(b.tag) + '</p>' : '') + (lang ? '<p class="op-lang"><b>언어</b> ' + lang + '</p>' : '') +
         '<div class="op-ab">' + E.ABILITIES.map(function (a) { var v = s[lc(a)] || 10; return cell(a.slice(0, 3).toUpperCase(), v + ' <i>' + sg(Math.floor((v - 10) / 2)) + '</i>'); }).join('') + '</div>' +
@@ -1192,7 +1194,7 @@
         '<div class="op-df">' + cell('AC', s['ac'] || 0) + cell('Fort', s['fortitude defense'] || 0) + cell('Ref', s['reflex defense'] || 0) + cell('Will', s['will defense'] || 0) + '</div></div></div>' +
       '<div class="op-sk">' + skills + '</div>' +
       '<div class="op-pw">' + pcol('at', '무제한') + pcol('enc', '조우') + pcol('day', '일일') + pcol('util', '활용') + '</div>' +
-      (gearMain ? '<div class="op-gear">' + gearMain + '</div>' : '') + '<div class="op-ft">' + (gear ? '<p><b>그 밖의 장비</b> ' + gear + '</p>' : '') + (feats ? '<p><b>재주</b> ' + feats + '</p>' : '') + '</div>' +
+      (gearMain ? '<div class="op-gear">' + gearMain + '</div>' : '') + '<div class="op-ft">' + (gear ? '<p><b>그 밖의 장비</b> ' + gear + '</p>' : '') + '</div>' + (feats ? '<div class="op-feats"><h4>재주</h4><div class="op-fl">' + feats + '</div></div>' : '') +
       (hbl ? '<div class="op-hb"><h4>홈브류 특성</h4>' + hbl + '</div>' : '') +
       (b.look || b.pers || b.story || b.goal ? '<div class="op-bio">' + BIO.filter(function (f) { return f[0] !== 'tag' && f[0] !== 'note' && b[f[0]]; }).map(function (f) { return '<p><b>' + f[1] + '</b> ' + esc(b[f[0]]).replace(/\n/g, '<br>') + '</p>'; }).join('') + '</div>' : '') + '</div>';
   }
