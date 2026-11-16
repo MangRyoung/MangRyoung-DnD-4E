@@ -125,7 +125,7 @@
     box.querySelectorAll('[data-mf]').forEach(function (x) { var k = x.getAttribute('data-mf'); if (k.indexOf('pw.') === 0) { var row = x.closest('[data-pi]'), p = m.pw[+row.getAttribute('data-pi')]; if (p) p[k.slice(3)] = x.value; return; }
       if (k === 'leader') m.leader = x.checked; else if (k === 'lv') m.lv = Math.max(1, Math.min(35, +x.value || 1)); else m[k] = x.value; });
     if (m.tier === 'Minion') { m.role2 = m.role === 'Minion' ? m.role2 : m.role; } }
-  function render() { var root = $('tab-mon'); if (!root) return;
+  function render() { var root = $('tab-mon'); if (!root) return; if (window.D4EEnc) D4EEnc.sync();
     if (!gm()) { $('monBody').hidden = true; note('몬스터 탭은 GM 서명으로 들어왔을 때 쓸 수 있어요.'); return; }
     $('monBody').hidden = false; note('');
     if (!loaded) { $('monList').innerHTML = '<p class="hint">읽는 중이에요.</p>'; load().then(function () { renderList(); renderView(); }); return; }
@@ -208,10 +208,14 @@
       var done = function () { x.lineWidth = 10; x.strokeStyle = m.tier === 'Solo' ? '#d4af37' : m.tier === 'Elite' ? '#c0c0c0' : '#222'; x.beginPath(); x.arc(128, 128, 121, 0, 7); x.stroke(); cv.toBlob(function (b) { b.arrayBuffer().then(function (ab) { ok({ bytes: new Uint8Array(ab), w: 256, h: 256 }); }); }, 'image/png'); };
       var blank = function () { x.fillStyle = ROLE_COL[m.role] || '#555'; x.beginPath(); x.arc(128, 128, 124, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 120px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(String(m.n || '?').trim().charAt(0), 128, 136); done(); };
       if (!m.img) return blank(); var im = new Image(); im.onload = function () { var s = Math.min(im.width, im.height); x.save(); x.beginPath(); x.arc(128, 128, 124, 0, 7); x.clip(); x.drawImage(im, (im.width - s) / 2, 0, s, s, 0, 0, 256, 256); x.restore(); done(); }; im.onerror = blank; im.src = m.img; }); }
-  async function saveMonToken(m) { var U = window.D4EMt; if (!window.D4E_MONT || !U) throw new Error('토큰 본을 읽지 못했어요.'); await U.loadZip(); var img = await monImage(m), hash = U.md5(img.bytes), zip = new window.JSZip(), xe = U.xe;
-    zip.file('content.xml', monTokenXml(m, img, hash)); zip.file('properties.xml', '<map>\n  <entry>\n    <string>version</string>\n    <string>' + window.D4E_MONT.version + '</string>\n  </entry>\n</map>');
-    zip.file('assets/' + hash, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + hash + '</id>\n  </id>\n  <name>' + xe(m.n) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>');
+  /* 토큰 파일 하나의 내용(zip blob). nameAs 를 주면 토큰 이름을 그것으로(조우 판의 「고블린 2」 같은 번호 붙은 이름) */
+  async function monTokenBlob(m, nameAs) { var U = window.D4EMt; if (!window.D4E_MONT || !U) throw new Error('토큰 본을 읽지 못했어요.'); await U.loadZip(); var mm = nameAs ? Object.assign({}, m, { n: nameAs }) : m, img = await monImage(m), hash = U.md5(img.bytes), zip = new window.JSZip(), xe = U.xe;
+    zip.file('content.xml', monTokenXml(mm, img, hash)); zip.file('properties.xml', '<map>\n  <entry>\n    <string>version</string>\n    <string>' + window.D4E_MONT.version + '</string>\n  </entry>\n</map>');
+    zip.file('assets/' + hash, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + hash + '</id>\n  </id>\n  <name>' + xe(mm.n) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>');
     zip.file('assets/' + hash + '.png', img.bytes); zip.file('thumbnail', img.bytes); zip.file('thumbnail_large', img.bytes);
-    var blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }), a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = String(m.n || 'monster').replace(/[\\/:*?"'<>|\s]+/g, '_') + '.rptok'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000); }
-  window.D4EMon = { tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
+    return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' }); }
+  function fileName(n) { return String(n || 'monster').replace(/[\\/:*?"'<>|\s]+/g, '_'); }
+  function download(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000); }
+  async function saveMonToken(m) { download(await monTokenBlob(m), fileName(m.n) + '.rptok'); }
+  window.D4EMon = { tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
 })();
