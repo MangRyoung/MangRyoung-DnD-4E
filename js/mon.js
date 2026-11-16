@@ -71,7 +71,7 @@
   function block(m) {
     var tier = m.tier && m.tier !== 'Standard' && m.tier !== 'Minion' ? (TIER_KO[m.tier] + ' ') : '', role = m.role === 'Minion' || m.tier === 'Minion' ? '졸개' + (m.role !== 'Minion' ? ' ' + (ROLE_KO[m.role] || m.role) : '') : (ROLE_KO[m.role] || m.role);
     var ln = function (a, b) { return b ? '<div class="mb-l"><b>' + a + '</b> ' + esc(b) + '</div>' : ''; }, hpN = +m.hp || 0;
-    var h = '<div class="mblock r-' + esc(String(m.role || '').toLowerCase()) + ' t-' + esc(String(m.tier || '').toLowerCase()) + '"><div class="mb-h"><div><b>' + esc(m.n) + (m.n_en ? ' <small>' + esc(m.n_en) + '</small>' : '') + (m.q ? ' <i title="자료집에서 이름을 확실히 못 읽었어요. 확인해 주세요">?</i>' : '') + '</b><span>' + esc(m.type || '') + '</span></div><div class="mb-r"><b>' + (m.lv || 1) + '레벨 ' + tier + role + (m.leader ? ' (지휘)' : '') + '</b><span>XP ' + esc(Number(m.xp || 0).toLocaleString()) + '</span></div></div><div class="mb-b">';
+    var h = '<div class="mblock r-' + esc(String(m.role || '').toLowerCase()) + ' t-' + esc(String(m.tier || '').toLowerCase()) + '"><div class="mb-h">' + (m.img ? '<img class="mb-img" src="' + esc(m.img) + '" alt="">' : '') + '<div class="mb-t"><b>' + esc(m.n) + (m.n_en ? ' <small>' + esc(m.n_en) + '</small>' : '') + (m.q ? ' <i title="자료집에서 이름을 확실히 못 읽었어요. 확인해 주세요">?</i>' : '') + '</b><span>' + esc(m.type || '') + '</span></div><div class="mb-r"><b>' + (m.lv || 1) + '레벨 ' + tier + role + (m.leader ? ' (지휘)' : '') + '</b><span>XP ' + esc(Number(m.xp || 0).toLocaleString()) + '</span></div></div><div class="mb-b">';
     h += '<div class="mb-l"><b>우선권</b> ' + esc(sg(m.init)) + (m.senses ? ' &nbsp; <b>감각</b> ' + esc(m.senses) : '') + '</div>';
     (m.pw || []).filter(function (p) { return p.k === 'aura'; }).forEach(function (p) { h += '<div class="mb-l"><b>' + esc(p.n) + '</b>' + (p.kw ? ' (' + esc(p.kw) + ')' : '') + ' ' + esc(p.use || '오라') + '; ' + esc(p.t) + '</div>'; });
     h += '<div class="mb-l"><b>HP</b> ' + esc(m.hp) + (m.tier === 'Minion' || hpN <= 1 ? '; ' + esc(m.hpnote || '빗나간 공격은 졸개에게 피해를 주지 못한다.') : '; <b>반죽음</b> ' + Math.floor(hpN / 2)) + '</div>';
@@ -93,7 +93,7 @@
     }).sort(function (a, b) { return (a._pack ? 1 : 0) - (b._pack ? 1 : 0) || (+a.lv - +b.lv) || (a.n < b.n ? -1 : 1); }); }
   function renderList() { var box = $('monList'); if (!box) return; var L = filtered();
     $('monCount').textContent = L.length + '마리' + (pack.length ? ' · 자료집 ' + pack.length + (packFrom === 'site' ? ' (사이트 기본)' : ' (이 브라우저)') : '') + (mine.length ? ' · 만든 것 ' + mine.length : '');
-    box.innerHTML = L.length ? L.slice(0, 400).map(function (m) { return '<div class="mrow r-' + esc(String(m.role || '').toLowerCase()) + (sel === m.id ? ' on' : '') + '" data-mid="' + esc(m.id) + '"><i>' + (m.lv || 1) + '</i><b title="' + esc(m.n) + '">' + esc(isEn(m) ? ko(m).n : m.n) + '</b><span>' + (m.tier && m.tier !== 'Standard' ? TIER_KO[m.tier] + ' ' : '') + (m.role === 'Minion' ? '' : (ROLE_KO[m.role] || m.role || '')) + '</span>' + (m._pack ? '<em>자료집</em>' : '') + '</div>'; }).join('') + (L.length > 400 ? '<p class="hint">400마리까지만 보여요. 검색이나 레벨로 좁혀 주세요.</p>' : '')
+    box.innerHTML = L.length ? L.slice(0, 400).map(function (m) { return '<div class="mrow r-' + esc(String(m.role || '').toLowerCase()) + (sel === m.id ? ' on' : '') + '" data-mid="' + esc(m.id) + '"><i>' + (m.lv || 1) + '</i>' + (m.img ? '<img class="mrow-img" src="' + esc(m.img) + '" alt="">' : '') + '<b title="' + esc(m.n) + '">' + esc(isEn(m) ? ko(m).n : m.n) + '</b><span>' + (m.tier && m.tier !== 'Standard' ? TIER_KO[m.tier] + ' ' : '') + (m.role === 'Minion' ? '' : (ROLE_KO[m.role] || m.role || '')) + '</span>' + (m._pack ? '<em>자료집</em>' : '') + '</div>'; }).join('') + (L.length > 400 ? '<p class="hint">400마리까지만 보여요. 검색이나 레벨로 좁혀 주세요.</p>' : '')
       : '<p class="hint">' + (all().length ? '조건에 맞는 몬스터가 없어요.' : '아직 몬스터가 없어요. 「+ 새 몬스터」로 만들거나, 자료집 파일을 불러와 보세요.') + '</p>'; }
   function renderView() { var box = $('monView'); if (!box) return;
     if (editing) { box.innerHTML = form(editing); return; }
@@ -105,6 +105,7 @@
   function form(m) {
     var r = math(m.lv, roleOf(m), m.tier), lab = function (t, x) { return '<label><small>' + t + '</small>' + x + '</label>'; };
     var h = '<div class="mform"><div class="mbar"><b>' + (m.id && !m._pack ? '몬스터 고치기' : '새 몬스터') + '</b><span class="sp"></span><button data-mact="save">저장</button><button class="ghost" data-mact="cancel">취소</button></div>';
+    h += '<div class="mf-img"><div class="mf-imgbox' + (m.img ? '' : ' none') + '" id="monImgBox" title="그림 파일을 여기로 끌어다 놓아도 돼요">' + (m.img ? '<img src="' + esc(m.img) + '" alt="">' : '<span>그림</span>') + '</div><div><button class="mini" data-mact="img">그림 넣기</button> ' + (m.img ? '<button class="mini ghost" data-mact="imgdel">빼기</button>' : '') + '<p class="hint">토큰과 스탯 블록, 조우 판에 쓰여요. 가운데를 정사각형으로 잘라 256px 로 줄여요.</p><input type="file" id="monImgFile" accept="image/*" hidden></div></div>';
     h += '<div class="mf-g">' + lab('이름', inp('n', m.n, '100%')) + lab('레벨', '<input type="number" min="1" max="35" data-mf="lv" value="' + esc(m.lv) + '" style="width:64px">') +
       lab('역할', selc('role', m.role === 'Minion' ? (m.role2 || 'Skirmisher') : m.role, ROLES.map(function (x) { return [x, ROLE_KO[x] + ' ' + x]; }))) + lab('등급', selc('tier', m.tier, TIERS.map(function (x) { return [x, TIER_KO[x]]; }))) +
       '<label class="chk"><input type="checkbox" data-mf="leader"' + (m.leader ? ' checked' : '') + '> 지휘(Leader)</label></div>';
@@ -125,6 +126,11 @@
     box.querySelectorAll('[data-mf]').forEach(function (x) { var k = x.getAttribute('data-mf'); if (k.indexOf('pw.') === 0) { var row = x.closest('[data-pi]'), p = m.pw[+row.getAttribute('data-pi')]; if (p) p[k.slice(3)] = x.value; return; }
       if (k === 'leader') m.leader = x.checked; else if (k === 'lv') m.lv = Math.max(1, Math.min(35, +x.value || 1)); else m[k] = x.value; });
     if (m.tier === 'Minion') { m.role2 = m.role === 'Minion' ? m.role2 : m.role; } }
+  /* 몬스터 그림: 가운데를 정사각형으로 잘라 256px, 되도록 작게(공유 DB에 들어가므로) */
+  function readImg(file) { return new Promise(function (ok, no) { if (!file || (!/^image\//.test(file.type || '') && !/\.(png|jpe?g|webp|gif|bmp)$/i.test(file.name || ''))) return no(new Error('그림 파일이 아니에요.')); var fr = new FileReader(); fr.onerror = function () { no(new Error('파일을 읽지 못했어요.')); };
+      fr.onload = function () { var im = new Image(); im.onerror = function () { no(new Error('그림을 읽지 못했어요.')); }; im.onload = function () { var sz = Math.min(im.width, im.height), cv = document.createElement('canvas'); cv.width = cv.height = 256; var x = cv.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, 256, 256);
+          x.drawImage(im, (im.width - sz) / 2, im.height > im.width ? 0 : (im.height - sz) / 2, sz, sz, 0, 0, 256, 256); var u = cv.toDataURL('image/webp', 0.86); if (u.indexOf('data:image/webp') !== 0) u = cv.toDataURL('image/jpeg', 0.86); ok(u); }; im.src = fr.result; }; fr.readAsDataURL(file); }); }
+  function setImg(file) { if (!editing) return; readForm(); readImg(file).then(function (u) { editing.img = u; renderView(); }, function (e) { alert(e.message); }); }
   function render() { var root = $('tab-mon'); if (!root) return; if (window.D4EEnc) D4EEnc.sync();
     if (!gm()) { $('monBody').hidden = true; note('몬스터 탭은 GM 서명으로 들어왔을 때 쓸 수 있어요.'); return; }
     $('monBody').hidden = false; note('');
@@ -136,6 +142,7 @@
       else if (t.closest('.mform') && editing) { readForm(); var pv = root.querySelector('.mf-prev'); if (pv) pv.innerHTML = '<small>미리 보기</small>' + block(editing); } });
     root.addEventListener('change', function (ev) { var t = ev.target;
       if (t.id === 'monRole') { F.role = t.value; renderList(); } else if (t.id === 'monSrc') { F.src = t.value; renderList(); }
+      else if (t.id === 'monImgFile') { setImg(t.files && t.files[0]); t.value = ''; }
       else if (t.id === 'monFile') { var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { try { var a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('몬스터 목록 파일이 아니에요.'); localStorage.setItem(PACK_KEY, JSON.stringify(a)); loadPack(); note('자료집 ' + pack.length + '마리를 이 브라우저에 불러왔어요.'); renderList(); } catch (e) { alert('불러오지 못했어요: ' + e.message); } t.value = ''; }; rd.readAsText(f); }
       else if (t.closest('.mform') && editing && /^(role|tier|lv)$/.test(t.getAttribute('data-mf') || '')) { readForm(); var r = math(editing.lv, roleOf(editing), editing.tier), hn = $('mfHint'); if (hn) hn.textContent = '기준: 명중 +' + r.atkAC + ' vs AC / +' + r.atkNAD + ' vs 그 밖 · 평균 피해 ' + r.dmg + ' (범위 ' + r.dmgArea + ', 조우 ' + r.dmgLim + ')'; var pv = root.querySelector('.mf-prev'); if (pv) pv.innerHTML = '<small>미리 보기</small>' + block(editing); } });
     root.addEventListener('click', async function (ev) { var t = ev.target, row = t.closest('[data-mid]'), act = t.closest('[data-mact]'), add = t.closest('[data-madd]');
@@ -155,6 +162,8 @@
       else if (a === 'base' && m) { editing = JSON.parse(JSON.stringify(clean(shown(m)))); editing.id = ''; delete editing.q; delete editing.src; delete editing.n_en; editing.ko = 1; editing.base = m.n; if (m.role === 'Minion') { editing.tier = 'Minion'; editing.role = 'Skirmisher'; } renderView(); }
       else if (a === 'del' && m) { if (!confirm('「' + m.n + '」을(를) 지울까요? 되돌릴 수 없어요.')) return; try { await D4EShare.del(m.id, KIND); mine = mine.filter(function (x) { return x.id !== m.id; }); sel = null; renderList(); renderView(); } catch (e) { alert('지우지 못했어요: ' + e.message); } }
       else if (a === 'fill' && editing) { readForm(); fill(editing, true); renderView(); }
+      else if (a === 'img' && editing) { $('monImgFile').click(); }
+      else if (a === 'imgdel' && editing) { readForm(); delete editing.img; renderView(); }
       else if (a === 'cancel') { editing = null; renderView(); }
       else if (a === 'save' && editing) { readForm(); if (!String(editing.n || '').trim()) { alert('이름을 적어 주세요.'); return; } act.disabled = true; try { var d = await save(editing); editing = null; sel = d.id; renderList(); renderView(); note('「' + d.n + '」을(를) 저장했어요.'); } catch (e) { act.disabled = false; alert('저장하지 못했어요: ' + e.message); } } }); }
   /* ---------- 맵툴 토큰 내보내기 ----------
@@ -217,5 +226,9 @@
   function fileName(n) { return String(n || 'monster').replace(/[\\/:*?"'<>|\s]+/g, '_'); }
   function download(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 5000); }
   async function saveMonToken(m) { download(await monTokenBlob(m), fileName(m.n) + '.rptok'); }
-  window.D4EMon = { tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
+  function wireDrop() { var root = $('tab-mon'); if (!root || root._wd) return; root._wd = 1; var hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
+    root.addEventListener('dragover', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; var bx = $('monImgBox'); if (bx) bx.classList.add('drop'); });
+    root.addEventListener('dragleave', function (ev) { var bx = $('monImgBox'); if (bx && !(ev.relatedTarget && ev.relatedTarget.closest && ev.relatedTarget.closest('.mform'))) bx.classList.remove('drop'); });
+    root.addEventListener('drop', function (ev) { var b = ev.target.closest && ev.target.closest('.mform'); if (!b || !editing || !hasFile(ev)) return; ev.preventDefault(); setImg(ev.dataTransfer.files && ev.dataTransfer.files[0]); }); }
+  window.D4EMon = { tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
 })();
