@@ -157,7 +157,147 @@
     [new RegExp('\\b(' + CONDRE + ')\\b', 'gi'), function (x, a) { return COND[a.toLowerCase()]; }], [/\bresist (\d+) (\w+)/gi, function (x, n, t) { return '저항 ' + n + ' ' + (KW[t.toLowerCase()] || t); }], [/\bvulnerable (\d+) (\w+)/gi, function (x, n, t) { return '취약 ' + n + ' ' + (KW[t.toLowerCase()] || t); }],
     [/\bregeneration (\d+)/gi, '재생 $1'], [/\bstandard action\b/gi, '일반 행동'], [/\bminor action\b/gi, '보조 행동'], [/\bmove action\b/gi, '이동 행동'], [/\bfree action\b/gi, '자유 행동'], [/\bimmediate reaction\b/gi, '즉시 반응'], [/\bimmediate interrupt\b/gi, '즉시 방해']
   ];
-  function body(s) { s = String(s || ''); RULES.forEach(function (r) { s = s.replace(r[0], r[1]); }); return s; }
+  function body0(s) { s = String(s || ''); RULES.forEach(function (r) { s = s.replace(r[0], r[1]); });
+    return s.replace(/\(until escape\)/gi, '(탈출할 때까지)').replace(/\(no save\)/gi, '(내성 굴림 없음)').replace(/\(([+\-]\d+) while 반죽음\)/g, '(반죽음일 때 $1)').replace(/\(([+\-]\d+) against an? (\S+) (?:target|creature)\)/gi, '($2 상태인 대상에게는 $1)').replace(/\bFortitude\b/g, '인내').replace(/\bRefl ?ex\b/g, '반사').replace(/\bWill (?=\d)/g, '의지 ').replace(/^Initiative /, '우선권 ').replace(/^Range (\d+)$/, '사거리 $1').replace(/\bon a hit, /gi, '명중하면, ').replace(/\bon a critical hit, /gi, '치명타가 나면, ').replace(/\bon a miss, /gi, '빗나가면, ').replace(/\bwhen charging\b/gi, '돌격할 때').replace(/\bwhile 반죽음\b/g, '반죽음일 때').replace(/\bThe zone is 험한 지형/g, '영역은 험한 지형이다'); }
+  /* ---------- 문장 단위 번역 ----------
+   * 4판 몬스터 글은 틀이 정해져 있다. 절(;) · 문장(.)으로 나눠 「주어 + 서술 + 기간」 꼴을 읽어 한국어 어순으로 다시 쓴다.
+   * 틀에 안 맞는 절은 예전의 낱말 바꾸기(body0)로 넘긴다. */
+  var DICE = '\\d+d\\d+(?:\\s*[+\\-]\\s*\\d+)?|\\d+', TYPES = '(?:' + DMG + ')(?:(?:,| and|, and) (?:' + DMG + '))*';
+  function latin(s) { return /[A-Za-z]{2,}/.test(String(s).replace(/\b(AC|HP|XP|vs)\b/g, '').replace(/\d+d\d+/g, '')); }
+  function types(t) { return String(t || '').split(/,? and |, /).map(function (x) { return KW[x.trim().toLowerCase()] || x.trim(); }).filter(Boolean).join(' · '); }
+  function dmgKo(d, t) { return d.replace(/\s*([+\-])\s*/, ' $1 ') + (t ? ' ' + types(t) : '') + ' 피해'; }
+  var NUMW = { a: 1, an: 1, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 }, TIMES = { 1: '한 번', 2: '두 번', 3: '세 번', 4: '네 번', 5: '다섯 번', 6: '여섯 번' }, CNT = { 1: '하나', 2: '둘', 3: '셋', 4: '넷' };
+  var STAT = { 'attack rolls': '공격 굴림', 'attack roll': '공격 굴림', 'attacks': '공격', 'all defenses': '모든 방어', 'defenses': '방어', 'ac': 'AC', 'fortitude': '인내', 'reflex': '반사', 'will': '의지', 'saving throws': '내성 굴림', 'damage rolls': '피해 굴림', 'damage': '피해', 'speed': '이동 속도', 'melee attacks': '근접 공격', 'ranged attacks': '원거리 공격', 'melee attack rolls': '근접 공격 굴림', 'ranged attack rolls': '원거리 공격 굴림', 'all attacks': '모든 공격', 'initiative': '우선권', 'initiative checks': '우선권 판정', 'skill checks': '기술 판정', 'ability checks': '능력 판정', 'perception checks': '지각 판정', 'stealth checks': '은신 판정', 'fortitude defense': '인내', 'reflex defense': '반사', 'will defense': '의지', 'ac and reflex': 'AC와 반사', 'all damage': '모든 피해', 'opportunity attacks': '기회 공격', 'next attack roll': '다음 공격 굴림', 'its next attack roll': '다음 공격 굴림', 'melee damage rolls': '근접 피해 굴림' };
+  function statKo(x) { var parts = String(x).trim().replace(/^(?:its|their|the) /i, '').split(/,? and |, /).map(function (y) { var k = y.trim().toLowerCase().replace(/^(?:its|their|the) /, ''); return STAT[k] || (DEFKO[k.replace(/ defense$/, '')]) || null; }); return parts.indexOf(null) >= 0 ? null : parts.join(' · '); }
+  function who(x) { x = String(x || '').trim().toLowerCase(); if (!x || x === 'its' || x === 'his' || x === 'her' || x === 'their') return '자신의'; if (/^the target'?s?$/.test(x) || x === "the target's") return '대상의'; return '자신의'; }
+  /* 기간 · 조건 꼬리 떼기 → [앞글, 앞에 붙일 말, 뒤에 붙일 말] */
+  function tailOf(s) { var pre = '', post = '', m, go = true;
+    while (go) { go = false;
+      if ((m = /\s*\(save ends( both| all)?\)$/i.exec(s))) { post = ' (' + (m[1] ? (/both/i.test(m[1]) ? '둘 다 ' : '모두 ') : '') + '내성 굴림으로 끝남)' + post; s = s.slice(0, m.index); go = true; }
+      else if ((m = /\s*\(until escape\)$/i.exec(s))) { post = ' (탈출할 때까지)' + post; s = s.slice(0, m.index); go = true; }
+      else if ((m = /\s*,?\s*until the (end|start) of (its|his|her|the target's|the [a-z' \-]+?'s?) next turn$/i.exec(s))) { pre = who(m[2]) + ' 다음 턴 ' + (/end/i.test(m[1]) ? '끝' : '시작') + '까지 ' + pre; s = s.slice(0, m.index); go = true; }
+      else if ((m = /\s*,?\s*until the end of the encounter$/i.exec(s))) { pre = '조우가 끝날 때까지 ' + pre; s = s.slice(0, m.index); go = true; }
+      else if ((m = /\s*,?\s*until the (end|start) of (?:its|the [a-z' \-]+?'s) turn$/i.exec(s))) { pre = '자신의 턴 ' + (/end/i.test(m[1]) ? '끝' : '시작') + '까지 ' + pre; s = s.slice(0, m.index); go = true; } }
+    if ((m = /\s*\(save ends( both| all)?\)(?=,? and )/i.exec(s))) { post = ' (' + (m[1] ? (/both/i.test(m[1]) ? '둘 다 ' : '모두 ') : '') + '내성 굴림으로 끝남)' + post; s = s.slice(0, m.index) + s.slice(m.index + m[0].length); }
+    return [s.trim(), pre, post]; }
+  /* 서술 하나 → [맺는 꼴, 잇는 꼴] (못 읽으면 null) */
+  function vp(v) { var m; v = v.trim();
+    if ((m = new RegExp('^(?:is|are|becomes?|remains?) (' + CONDRE + ')$', 'i').exec(v))) { var c = COND[m[1].toLowerCase()]; return [c + ' 상태가 된다', c + ' 상태가 되고']; }
+    if ((m = new RegExp('^(?:is|are) (' + CONDRE + ') and (' + CONDRE + ')$', 'i').exec(v))) { var c2 = COND[m[1].toLowerCase()] + ' · ' + COND[m[2].toLowerCase()]; return [c2 + ' 상태가 된다', c2 + ' 상태가 되고']; }
+    if ((m = new RegExp('^(?:is|are) (' + CONDRE + ') instead of (' + CONDRE + ')$', 'i').exec(v))) return [COND[m[2].toLowerCase()] + ' 대신 ' + COND[m[1].toLowerCase()] + ' 상태가 된다', COND[m[2].toLowerCase()] + ' 대신 ' + COND[m[1].toLowerCase()] + ' 상태가 되고'];
+    if ((m = new RegExp('^(?:is|are) (?:not|no longer) (' + CONDRE + ')$', 'i').exec(v))) return [COND[m[1].toLowerCase()] + ' 상태가 ' + (/no longer/i.test(v) ? '풀린다' : '되지 않는다'), COND[m[1].toLowerCase()] + ' 상태가 ' + (/no longer/i.test(v) ? '풀리고' : '되지 않고')];
+    if (/^(?:is|are) not knocked prone$/i.test(v)) return ['넘어지지 않는다', '넘어지지 않고'];
+    if (/^(?:is|are) also knocked prone$/i.test(v)) return ['넘어지기도 한다', '넘어지고'];
+    if ((m = new RegExp('^gains? (vulnerable|resist) (\\d+) (?:to )?(all damage|all|' + TYPES + ')(?: damage)?$', 'i').exec(v))) { var vr = (/vuln/i.test(m[1]) ? '취약 ' : '저항 ') + m[2] + ' (' + (/^all/i.test(m[3]) ? '모든 피해' : types(m[3])) + ')'; return [vr + '을 얻는다', vr + '을 얻고']; }
+    if ((m = /^(?:is|are) (?:pushed|pulled|slid) (\d+) squares? and knocked prone$/i.exec(v))) { var w0 = /pushed/i.test(v) ? '밀려나' : /pulled/i.test(v) ? '끌려오' : '옮겨지'; return [m[1] + '칸 ' + w0 + '고 넘어진다', m[1] + '칸 ' + w0 + '고 넘어지고']; }
+    if (/^(?:is|are) knocked prone$|^falls? prone$|^knocked prone$/i.test(v)) return ['넘어진다', '넘어지고'];
+    if ((m = /^(?:is |are )?pushed (\d+) squares?$/i.exec(v))) return [m[1] + '칸 밀려난다', m[1] + '칸 밀려나고'];
+    if ((m = /^(?:is |are )?pulled (\d+) squares?$/i.exec(v))) return [m[1] + '칸 끌려온다', m[1] + '칸 끌려오고'];
+    if ((m = /^(?:is slid|are slid|slides|slid) (\d+) squares?$/i.exec(v))) return [m[1] + '칸 옮겨진다', m[1] + '칸 옮겨지고'];
+    if ((m = new RegExp('^takes? ongoing (\\d+) ?(' + TYPES + ')? ?damage$', 'i').exec(v))) return ['지속 ' + m[1] + (m[2] ? ' ' + types(m[2]) : '') + ' 피해를 받는다', '지속 ' + m[1] + (m[2] ? ' ' + types(m[2]) : '') + ' 피해를 받고'];
+    if ((m = new RegExp('^takes? (' + DICE + ') ?(' + TYPES + ')? ?damage$', 'i').exec(v))) return [dmgKo(m[1], m[2]) + '를 받는다', dmgKo(m[1], m[2]) + '를 받고'];
+    if ((m = new RegExp('^takes? (' + DICE + ') extra ?(' + TYPES + ')? ?damage$', 'i').exec(v))) return ['추가로 ' + dmgKo(m[1], m[2]) + '를 받는다', '추가로 ' + dmgKo(m[1], m[2]) + '를 받고'];
+    if ((m = /^(?:takes?|has|have|suffers?|gains?|receives?|gets?) an? (?:cumulative )?([\-–+]\d+) (?:[a-z]+ )?(penalty|bonus) to (.+?) (?:against|versus|on attacks against) (.+)$/i.exec(v))) { var s1 = statKo(m[3]), AG = { 'opportunity attacks': '기회 공격', traps: '함정', 'ranged attacks': '원거리 공격', 'melee attacks': '근접 공격', 'area attacks': '범위 공격', 'close attacks': '근거리 공격', 'ranged and area attacks': '원거리 · 범위 공격', 'fear effects': '공포 효과', 'charm effects': '매혹 효과', 'bloodied enemies': '반죽음 상태인 적', 'bloodied targets': '반죽음 상태인 대상', 'a bloodied target': '반죽음 상태인 대상', 'prone targets': '넘어진 대상', 'a prone target': '넘어진 대상', 'that target': '그 대상', 'that enemy': '그 적', 'that creature': '그 개체', 'the same target': '같은 대상', it: '그 개체', 'marked enemies': '표식을 남긴 적', 'poison': '독', 'fear': '공포' }, a1 = AG[m[4].toLowerCase()] || subj(m[4], true), wd = /bonus/i.test(m[2]) ? ' 보너스' : ' 페널티'; if (s1 && a1) return [a1 + '에 대한 ' + s1 + '에 ' + m[1].replace('–', '-') + wd + '를 받는다', a1 + '에 대한 ' + s1 + '에 ' + m[1].replace('–', '-') + wd + '를 받고']; }
+    if (/^shifts?$/i.test(v)) return ['시프트한다', '시프트하고'];
+    if (/^makes? a secondary attack against the same target$/i.test(v)) return ['같은 대상에게 2차 공격을 한다', '같은 대상에게 2차 공격을 하고'];
+    if (/^makes? a secondary attack(?: against (?:it|the target))?$/i.test(v)) return ['2차 공격을 한다', '2차 공격을 하고'];
+    if ((m = /^(?:takes?|has|have|suffers?) an? (?:cumulative )?([\-–]\d+) penalty to (.+)$/i.exec(v))) { var st = statKo(m[2]); if (st) return [st + '에 ' + m[1].replace('–', '-') + ' 페널티를 받는다', st + '에 ' + m[1].replace('–', '-') + ' 페널티를 받고']; }
+    if ((m = /^(?:gains?|receives?|has|have|gets?) an? (\+\d+) (?:[a-z]+ )?bonus to (.+)$/i.exec(v))) { var sb = statKo(m[2]); if (sb) return [sb + '에 ' + m[1] + ' 보너스를 받는다', sb + '에 ' + m[1] + ' 보너스를 받고']; }
+    if ((m = /^shifts? (?:up to )?(\d+) squares?$/i.exec(v))) return [m[1] + '칸 시프트한다', m[1] + '칸 시프트하고'];
+    if ((m = /^(moves?|flies|fly|teleports?|jumps?|swims?|climbs?|burrows?) (up to )?(\d+) squares?$/i.exec(v))) { var mv = { move: '이동', moves: '이동', flies: '비행', fly: '비행', teleport: '순간이동', teleports: '순간이동', jump: '도약', jumps: '도약', swim: '수영', swims: '수영', climb: '등반', climbs: '등반', burrow: '굴착', burrows: '굴착' }[m[1].toLowerCase()]; return [(m[2] ? '최대 ' : '') + m[3] + '칸 ' + mv + '한다', (m[2] ? '최대 ' : '') + m[3] + '칸 ' + mv + '하고']; }
+    if ((m = /^(?:moves?|shifts?) (?:up to )?(?:its|their) speed$/i.exec(v))) return [/shift/i.test(v) ? '이동 속도만큼 시프트한다' : '이동 속도만큼 이동한다', /shift/i.test(v) ? '이동 속도만큼 시프트하고' : '이동 속도만큼 이동하고'];
+    if ((m = /^regains? (\d+) hit points$/i.exec(v))) return ['HP ' + m[1] + '을 회복한다', 'HP ' + m[1] + '을 회복하고'];
+    if ((m = /^gains? (\d+) temporary hit points$/i.exec(v))) return ['임시 HP ' + m[1] + '을 얻는다', '임시 HP ' + m[1] + '을 얻고'];
+    if ((m = /^loses? (a|one|two|\d+) healing surges?$/i.exec(v))) { var hn = NUMW[m[1].toLowerCase()] || m[1]; return ['치유력 ' + hn + '회를 잃는다', '치유력 ' + hn + '회를 잃고']; }
+    if ((m = /^grants? combat advantage(?: to (.+))?$/i.exec(v))) { var to = m[1] ? subj(m[1], true) : ''; if (!m[1] || to) return [(to ? to + '에게 ' : '') + '전투 우위를 내준다', (to ? to + '에게 ' : '') + '전투 우위를 내주고']; }
+    if ((m = /^gains? combat advantage(?: against (.+))?$/i.exec(v))) { var ag = m[1] ? subj(m[1], true) : ''; if (!m[1] || ag) return [(ag ? ag + '에게 ' : '') + '전투 우위를 얻는다', (ag ? ag + '에게 ' : '') + '전투 우위를 얻고']; }
+    if ((m = /^makes? (a|an|one|two|three|four) (melee|ranged)? ?basic attacks?(?: as a free action)?( against (?:it|the target|the triggering (?:enemy|creature)))?$/i.exec(v))) { var bn = NUMW[m[1].toLowerCase()], bk = (m[2] ? (/melee/i.test(m[2]) ? '근접 ' : '원거리 ') : '') + '기본 공격을 ' + (m[3] ? (/target/.test(m[3]) ? '대상에게 ' : /it$/.test(m[3]) ? '그 개체에게 ' : '발동시킨 개체에게 ') : '') + (bn > 1 ? TIMES[bn] + ' ' : ''); return [bk + '한다', bk + '하고']; }
+    if ((m = /^makes? (a|an|one|two|three|four) ([a-z' \-]+?) attacks?$/i.exec(v))) { var an = NUMW[m[1].toLowerCase()], aw = nm(cap(m[2])); if (!latin(aw)) return [aw + ' 공격을 ' + (an > 1 ? TIMES[an] + ' ' : '') + '한다', aw + ' 공격을 ' + (an > 1 ? TIMES[an] + ' ' : '') + '하고']; }
+    if (/^(?:can ?not|can't|cannot) (?:take|make) opportunity attacks$/i.test(v)) return ['기회 공격을 할 수 없다', '기회 공격을 할 수 없고'];
+    if (/^(?:can ?not|can't|cannot) shift$/i.test(v)) return ['시프트할 수 없다', '시프트할 수 없고'];
+    if (/^(?:can ?not|can't|cannot) (?:use|spend) (?:a )?healing surges?$|^cannot regain hit points$|^can't regain hit points$/i.test(v)) return [/regain/i.test(v) ? 'HP를 회복할 수 없다' : '치유력을 쓸 수 없다', /regain/i.test(v) ? 'HP를 회복할 수 없고' : '치유력을 쓸 수 없고'];
+    if (/^(?:can ?not|can't|cannot) (?:take|make) immediate actions$/i.test(v)) return ['즉시 행동을 할 수 없다', '즉시 행동을 할 수 없고'];
+    if (/^(?:is|are) immune$/i.test(v)) return ['면역이다', '면역이고'];
+    if (/^(?:is|becomes) invisible$/i.test(v)) return ['투명해진다', '투명해지고'];
+    if (/^(?:is|becomes) insubstantial$/i.test(v)) return ['비실체가 된다', '비실체가 되고'];
+    if (/^(?:is|are) destroyed$|^dies$|^die$/i.test(v)) return [/destroy/i.test(v) ? '파괴된다' : '죽는다', /destroy/i.test(v) ? '파괴되고' : '죽고'];
+    if (/^(?:is|are) removed from play$/i.test(v)) return ['게임에서 제외된다', '게임에서 제외되고'];
+    if (/^stands? up$/i.test(v)) return ['일어선다', '일어서고'];
+    if ((m = /^can (.+)$/i.exec(v))) { var cv = vp(m[1]); if (cv) return [cv[0].replace(/한다$/, '할 수 있다').replace(/는다$/, '을 수 있다'), cv[1]]; }
+    return null; }
+  function cap(s) { return String(s).replace(/(^|[\s\-])([a-z])/g, function (x, a, b) { return a + b.toUpperCase(); }); }
+  /* 주어. bare 면 조사 없이 */
+  function subj(x, bare) { var m, ko = null, p = bare ? '' : '은'; x = String(x).trim();
+    var AREA = { aura: '오라', burst: '폭발', blast: '분사', zone: '영역', area: '범위', cloud: '구름', wall: '벽' }, KIND1 = { enemy: '적', enemies: '적', ally: '아군', allies: '아군', creature: '개체', creatures: '개체', target: '대상', targets: '대상' };
+    if (/^the target$/i.test(x)) ko = '대상';
+    else if (/^(it|he|she|they)$/i.test(x)) return bare ? '그 개체' : '';
+    else if (/^the triggering (enemy|creature|attacker)$/i.test(x)) ko = '발동시킨 ' + (/enemy/i.test(x) ? '적' : /attacker/i.test(x) ? '공격자' : '개체');
+    else if (/^the attacker$/i.test(x)) ko = '공격자';
+    else if ((m = /^(?:each|every|all|any|an|the)? ?(living |bloodied |adjacent |prone |marked )?(enem(?:y|ies)|all(?:y|ies)|creatures?|targets?)$/i.exec(x))) ko = (/^(each|every)/i.test(x) ? '각 ' : /^all/i.test(x) ? '모든 ' : '') + ({ 'living ': '살아 있는 ', 'bloodied ': '반죽음 상태인 ', 'adjacent ': '인접한 ', 'prone ': '넘어진 ', 'marked ': '표식이 찍힌 ' }[(m[1] || '').toLowerCase()] || '') + KIND1[m[2].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(living |bloodied )?(enem(?:y|ies)|all(?:y|ies)|creatures?) (?:in|within|inside) the (aura|burst|blast|zone|area|cloud)$/i.exec(x))) ko = AREA[m[3].toLowerCase()] + ' 안의 ' + (/^(each|every)/i.test(x) ? '각 ' : /^all/i.test(x) ? '모든 ' : '') + (m[1] ? (/living/i.test(m[1]) ? '살아 있는 ' : '반죽음 상태인 ') : '') + KIND1[m[2].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(enem(?:y|ies)|all(?:y|ies)|creatures?) (?:within|in) (\d+) squares?(?: of (?:it|the [a-z' \-]+))?$/i.exec(x))) ko = m[2] + '칸 안의 ' + (/^(each|every)/i.test(x) ? '각 ' : /^all/i.test(x) ? '모든 ' : '') + KIND1[m[1].toLowerCase()];
+    else if ((m = /^(one|an?|each|every|all|any)? ?(enem(?:y|ies)|all(?:y|ies)|creatures?) adjacent to the target$/i.exec(x))) ko = '대상에 인접한 ' + (/^(each|every)/i.test(x) ? '각 ' : /^all/i.test(x) ? '모든 ' : '') + KIND1[m[2].toLowerCase()] + (/^(one|an?)$/i.test(m[1] || '') ? ' 하나' : '');
+    else if ((m = /^(?:each|every|all|any|an)? ?(enem(?:y|ies)|all(?:y|ies)|creatures?) adjacent to (?:it|the [a-z' \-]+)$/i.exec(x))) ko = '인접한 ' + (/^(each|every)/i.test(x) ? '각 ' : /^all/i.test(x) ? '모든 ' : '') + KIND1[m[1].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(living )?(enem(?:y|ies)|all(?:y|ies)|creatures?) that (starts?|begins?|ends?) (?:its|their) turns? (?:in|within|inside) the (aura|zone|area|cloud)$/i.exec(x))) ko = AREA[m[4].toLowerCase()] + ' 안에서 턴을 ' + (/end/i.test(m[3]) ? '끝내는 ' : '시작하는 ') + KIND1[m[2].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(?:living )?(enem(?:y|ies)|all(?:y|ies)|creatures?) that (?:enters?|moves? into)(?: the (aura|zone|area|cloud))? or (?:starts?|begins?) (?:its|their) turns? (?:in|within|there|inside)(?: the (aura|zone|area|cloud)| it)?$/i.exec(x))) ko = AREA[(m[2] || m[3] || 'area').toLowerCase()] + '에 들어오거나 그 안에서 턴을 시작하는 ' + KIND1[m[1].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(enem(?:y|ies)|all(?:y|ies)|creatures?) that (?:starts?|begins?) (?:its|their) turns? (?:in|within)(?: the (aura|zone|area|cloud))? or (?:enters?|moves? into)(?: the (aura|zone|area|cloud)| it)?$/i.exec(x))) ko = AREA[(m[2] || m[3] || 'area').toLowerCase()] + '에 들어오거나 그 안에서 턴을 시작하는 ' + KIND1[m[1].toLowerCase()];
+    else if ((m = /^(?:each|every|all|any|an)? ?(enem(?:y|ies)|all(?:y|ies)|creatures?) that (?:starts?|begins?) (?:its|their) turns? adjacent to (?:it|the [a-z' \-]+)$/i.exec(x))) ko = '인접한 칸에서 턴을 시작하는 ' + KIND1[m[1].toLowerCase()];
+    else if ((m = /^(?:the|an?|this) ([a-z][a-z' \-]{1,40})$/i.exec(x)) && !/ (that|who|which|in|within|of|with|and|or|is|to) /i.test(' ' + m[1] + ' ')) { var n0 = nm(cap(m[1].replace(/'s$/, ''))); if (!latin(n0)) ko = n0; }
+    if (ko == null) return null; if (bare) return ko;
+    var last = ko.charCodeAt(ko.length - 1), jong = last >= 0xac00 && last <= 0xd7a3 ? (last - 0xac00) % 28 : 0; return ko + (jong ? '은' : '는'); }
+  /* 서술 여러 개를 「~하고 ~한다」로 */
+  function vps(v) { var parts = v.split(/,? and (?:it |then |also |it also )?(?=[a-z\-–+])|, (?=(?:is|takes|gains|shifts|pushed|pulled|knocked|slides|falls) )/i), list = [], ok = true;
+    var whole = vp(v); if (whole) return whole[0];
+    parts.forEach(function (x, i) { x = x.trim(); var r = vp(x) || (i ? vp('is ' + x) || vp('takes ' + x) || vp('gains ' + x) || vp('makes ' + x) : null); if (!r) ok = false; else list.push(r); });
+    if (!ok || !list.length) return null; return list.map(function (r, i) { return i < list.length - 1 ? r[1] : r[0]; }).join(' '); }
+  var PREFIX = [[/^miss$/i, '빗나감'], [/^hit$/i, '명중'], [/^effect$/i, '효과'], [/^aftereffect$/i, '후속 효과'], [/^secondary attack$/i, '2차 공격'], [/^tertiary attack$/i, '3차 공격'], [/^secondary target$/i, '2차 대상'], [/^primary target$/i, '1차 대상'], [/^first failed sav(?:e|ing throw)$/i, '첫 내성 실패'], [/^second failed sav(?:e|ing throw)$/i, '두 번째 내성 실패'], [/^third failed sav(?:e|ing throw)$/i, '세 번째 내성 실패'], [/^each failed sav(?:e|ing throw)$/i, '내성 실패마다'], [/^failed sav(?:e|ing throw)$/i, '내성 실패'], [/^special$/i, '특수'], [/^trigger$/i, '발동'], [/^requirements?$/i, '필요 조건'], [/^sustain minor$/i, '유지(보조)'], [/^sustain standard$/i, '유지(일반)'], [/^sustain move$/i, '유지(이동)'], [/^target$/i, '대상'], [/^attack$/i, '공격']];
+  var SENSE = { darkvision: '암시야', 'low-light vision': '저조도 시야', truesight: '진시야', blindsight: '맹시', tremorsense: '진동 감지' };
+  function clause(s) { var m, t = s.trim(), i; if (!t) return s; if (!latin(t)) return t;
+    /* 머리말: 「Miss: …」 */
+    if ((m = /^([A-Za-z][A-Za-z ]{2,26}):\s*(.+)$/.exec(t))) for (i = 0; i < PREFIX.length; i++) if (PREFIX[i][0].test(m[1].trim())) return PREFIX[i][1] + ': ' + clause(m[2]);
+    if ((m = /^if both (?:[a-z]+ )?(?:attacks )?hit(?: the same target)?, (.+)$/i.exec(t))) return '둘 다 같은 대상에게 명중하면, ' + clause(m[1]);
+    if ((m = /^(on a hit|on a critical hit|on a miss), (.+)$/i.exec(t))) return ({ 'on a hit': '명중하면', 'on a critical hit': '치명타가 나면', 'on a miss': '빗나가면' })[m[1].toLowerCase()] + ', ' + clause(m[2]);
+    if ((m = new RegExp('^against an? (' + CONDRE + '|bloodied) (?:target|creature|enemy), (?:this attack|it|the [a-z\' \\-]+?) deals (?:an extra )?(' + DICE + ') (?:extra )?(' + TYPES + ')? ?damage$', 'i').exec(t))) return (COND[m[1].toLowerCase()] || '반죽음') + ' 상태인 대상에게는 추가로 ' + dmgKo(m[2], m[3]) + '를 준다';
+    if ((m = /^requires? (?:an? )?([a-z][a-z' \-]+)$/i.exec(t))) { var rq = nm(cap(m[1])); return rq + ' 필요'; }
+    if (/^multiple such effects stack$/i.test(t)) return '이런 효과는 여러 번 겹친다';
+    if (/^the zone is difficult terrain$/i.test(t)) return '영역은 험한 지형이다';
+    if (/^half damage$/i.test(t)) return '절반 피해';
+    if ((m = /^half damage, and (.+)$/i.exec(t))) return '절반 피해, ' + clause(m[1]);
+    if (/^no attack roll( required)?$/i.test(t)) return '공격 굴림 없음'; if (/^automatic hit$/i.test(t)) return '자동 명중'; if (/^(?:requires|must have) combat advantage$/i.test(t)) return '전투 우위 필요';
+    if (/^grabbed targets? only$/i.test(t)) return '붙잡은 대상만'; if (/^(?:targets? )?(?:a |one )?bloodied (?:enemy|creature|target)s?(?: only)?$/i.test(t)) return '반죽음 상태인 대상만';
+    if ((m = /^targets? the triggering (enemy|creature|attacker)$/i.exec(t))) return '대상: 발동시킨 ' + (/enemy/i.test(m[1]) ? '적' : /attacker/i.test(m[1]) ? '공격자' : '개체');
+    if ((m = /^targets? (one|two|three|four|\d+|each|all)? ?(enem(?:y|ies)|creatures?|all(?:y|ies))(?: (?:in|within) (?:the )?(burst|blast|range|area))?$/i.exec(t))) { var tn = (m[1] || '').toLowerCase(), tk = /enem/i.test(m[2]) ? '적' : /all/i.test(m[2]) ? '아군' : '개체'; return '대상: ' + (m[3] ? '범위 내 ' : '') + (tn === 'each' || tn === 'all' ? '모든 ' + tk : tk + ' ' + (CNT[NUMW[tn] || +tn] || '하나')); }
+    if (/^this attack does not provoke opportunity attacks?$/i.test(t)) return '이 공격은 기회 공격을 유발하지 않는다';
+    if ((m = /^this (?:movement|power|attack) does(?: not|n't) provoke(?: opportunity attacks?)?$/i.exec(t))) return '기회 공격을 유발하지 않는다';
+    if ((m = /^(enemies|creatures) treat the area within the aura as difficult terrain$/i.exec(t))) return (/enem/i.test(m[1]) ? '적' : '다른 개체') + '은 오라 안을 험한 지형으로 취급한다';
+    if ((m = /^the (?:[a-z' \-]+?)'s breath weapon recharges,? and (?:the [a-z' \-]+?|it) uses it immediately$/i.exec(t))) return '브레스 웨폰이 재충전되고, 즉시 사용한다';
+    if ((m = /^see(?: also)? (?:the )?([a-z][a-z' \-]+?)(?: below| above)?$/i.exec(t))) { var sn = nm(cap(m[1])); return '「' + sn + '」 참조'; }
+    if ((m = new RegExp('^(' + CONDRE + '|blind) creatures are immune$', 'i').exec(t))) return (COND[m[1].toLowerCase()] || '실명') + ' 상태인 개체는 면역';
+    if ((m = /^(darkvision|low-light vision|truesight|blindsight|tremorsense)(?: (\d+))?$/i.exec(t))) return SENSE[m[1].toLowerCase()] + (m[2] ? ' ' + m[2] : '');
+    if ((m = /^(ac|fortitude|reflex|will) \((\d+) while bloodied\)$/i.exec(t))) return DEFKO[m[1].toLowerCase()] + ' (반죽음일 때 ' + m[2] + ')';
+    if ((m = /^a successful insight check \(opposed by (?:the [a-z' \-]+?'s|its) bluff check\) pierces the disguise$/i.exec(t))) return '통찰 판정(허세 판정과 대항)에 성공하면 변장을 간파할 수 있다';
+    /* 피해 줄 */
+    var D = '(' + DICE + ')', TY = '(' + TYPES + ')';
+    if ((m = new RegExp('^' + D + ' ?' + TY + '? ?damage(?: \\(crit (' + DICE + ')\\))?$', 'i').exec(t))) return dmgKo(m[1], m[2]) + (m[3] ? ' (치명타 ' + m[3] + ')' : '');
+    if ((m = new RegExp('^' + D + ' ?' + TY + '? ?damage plus ' + D + ' ' + TY + ' damage$', 'i').exec(t))) return dmgKo(m[1], m[2]) + ' + ' + dmgKo(m[3], m[4]);
+    if ((m = new RegExp('^' + D + ' plus ' + D + ' ' + TY + ' damage$', 'i').exec(t))) return dmgKo(m[1], '') + ' + ' + dmgKo(m[2], m[3]);
+    if ((m = new RegExp('^' + D + ' ?' + TY + '? ?damage, or ' + D + '(?: ?' + TY + '? ?damage)? (?:against|to) an? (' + CONDRE + '|bloodied|grabbed) (?:target|creature|enemy)$', 'i').exec(t))) return dmgKo(m[1], m[2]) + ' (' + (COND[m[5].toLowerCase()] || (/bloodied/i.test(m[5]) ? '반죽음' : '붙잡힘')) + ' 상태인 대상에게는 ' + dmgKo(m[3], m[4] || m[2]) + ')';
+    if ((m = new RegExp('^' + D + ' ?' + TY + '? ?damage, or ' + D + '(?: ?' + TY + '? ?damage)? while (?:the [a-z\' \\-]+? is |it is )?bloodied$', 'i').exec(t))) return dmgKo(m[1], m[2]) + ' (자신이 반죽음일 때는 ' + dmgKo(m[3], m[4] || m[2]) + ')';
+    if ((m = new RegExp('^(?:and )?ongoing (\\d+) ?' + TY + '? ?damage( \\(save ends\\))?$', 'i').exec(t))) return '지속 ' + m[1] + (m[2] ? ' ' + types(m[2]) : '') + ' 피해' + (m[3] ? ' (내성 굴림으로 끝남)' : '');
+    /* 「피해, and 나머지」 */
+    if ((m = new RegExp('^(' + D + ' ?' + TY + '? ?damage(?: \\(crit (?:' + DICE + ')\\))?(?: plus ' + D + ' ' + TY + ' damage)?),? (?:and|plus) (.+)$', 'i').exec(t))) { var a1 = clause(m[1]), b1 = clause(m[m.length - 1]); if (!latin(a1)) return a1 + ', ' + b1; }
+    /* 주어 + 서술 + 기간 */
+    var tl = tailOf(t), core = tl[0];
+    if ((m = /^(the target|it|the triggering (?:enemy|creature)|(?:each|every|all|any|an?|the|this)? ?[a-z][a-z' \-]*?(?: (?:in|within|inside|adjacent to) [a-z0-9' \-]+?| that [a-z' \-]+?)?) ((?:is|are|becomes?|takes?|gains?|shifts?|moves?|flies|teleports?|regains?|loses?|grants?|makes?|falls?|slides?|can(?:not|'t)?|has|have|suffers?|receives?|dies?|stands?|remains?|jumps?|swims?|climbs?|burrows?) .+|dies|falls prone)$/i.exec(core))) {
+      var sj = subj(m[1]), pr = vps(m[2]); if (sj != null && pr) return (sj ? sj + ' ' : '') + tl[1] + pr + tl[2]; }
+    /* 주어 없는 서술 (「and the target is …」에서 잘린 것 따위) */
+    var pr2 = vps(core); if (pr2) return tl[1] + pr2 + tl[2];
+    if (/^and /i.test(t)) return clause(t.slice(4));
+    /* 「A, and B」: 둘 다 읽히면 이어 붙인다 */
+    var cut = t.search(/, and (?=the |it |each |all |any |an? |ongoing )/i); if (cut > 0) { var x1 = clause(t.slice(0, cut)), x2 = clause(t.slice(cut + 6)); if (!latin(x1) && !latin(x2)) return x1 + ', ' + x2; }
+    return body0(t); }
+  function body(s) { s = String(s || ''); if (!s) return s;
+    return s.split(/\n/).map(function (line) { var out = '', re = /(;\s*|(?<!vs)\.\s+(?=[A-Z(])|\.$)/g, last = 0, m; while ((m = re.exec(line))) { out += clause(line.slice(last, m.index)) + m[0]; last = m.index + m[0].length; } out += clause(line.slice(last)); return out; }).join('\n'); }
   function resKo(s) { return String(s || '').replace(/\b(acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder|disease|fear|charm|sleep|illusion|petrification|gaze)\b/gi, function (x) { return KW[x.toLowerCase()] || ({ petrification: '석화' })[x.toLowerCase()] || x; }).replace(/\binsubstantial\b/gi, '비실체').replace(/\bvariable\b/gi, '가변').replace(/\bsee\b/gi, '참고:'); }
   /* 몬스터 한 마리를 번역한 사본으로 */
   function mon(m) { var o = {}; Object.keys(m).forEach(function (k) { o[k] = m[k]; });
