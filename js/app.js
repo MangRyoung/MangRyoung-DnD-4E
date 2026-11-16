@@ -884,10 +884,10 @@
         (magic && base && magic !== base ? '<div class="gt-base" data-el="' + esc(base.id) + '">' + esc(name(base)) + '</div>' : '') +
         '<div class="gt-c">' + cs.map(function (c) { return '<span>' + (c[0] ? '<small>' + c[0] + '</small> ' : '') + esc(c[1]) + '</span>'; }).join('') + '</div></div>'); };
     /* 무기 · 갑옷 · 목이 중심 자리: 한 줄씩 먼저, 그 아래에 나머지와 소지금 */
-    var st = D4EHouse.setOf(ch.set || '') || {}, min = +st.minEnh || 0, E_ = function (k) { return db.byId[q[k]]; }, take = function (kind, slot, bk, mk) { var b = E_(bk), m = mk && E_(mk); skey = bk + (mk ? ',' + mk : ''); if (!b && !m) return 0; if (b) used[b.id] = 1; if (m) used[m.id] = 1; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } tile(kind, slot, b, m); return m ? plusN(m) : 0; };
-    var row = function (label, kind, fill) { var n0 = tiles.length, plus = fill(), mine = tiles.splice(n0), has = mine.length > 0, ok = !min || plus >= min;
+    var st = D4EHouse.setOf(ch.set || '') || {}, min = +st.minEnh || 0, E_ = function (k) { return db.byId[q[k]]; }, take = function (kind, slot, bk, mk) { var b = E_(bk), m = mk && E_(mk); skey = bk + (mk ? ',' + mk : ''); if (!b && !m) return -1; if (b) used[b.id] = 1; if (m) used[m.id] = 1; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } tile(kind, slot, b, m); return m ? plusN(m) : -1; }; /* -1 = 마법 물품 없음(최소 강화 규칙은 마법 물품을 살 때만 해당) */
+    var row = function (label, kind, fill) { var n0 = tiles.length, plus = fill(), mine = tiles.splice(n0), has = mine.length > 0, magic = plus >= 0, ok = !min || plus >= min;
       return '<div class="gmain ' + kind + (has ? '' : ' empty') + '"' + (ch === cur ? ' data-gslot="' + label + '" title="눌러서 고르기 · 바꾸기"' : '') + '><div class="gm-l"><b>' + label + '</b>' + (has && plus ? '<i>+' + plus + '</i>' : '') + '</div><div class="gm-c">' + (has ? mine.join('') : '<span class="gm-none">비어 있음</span>') + '</div>' +
-        (min ? '<div class="gm-s ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ +' + min + ' 이상' : '+' + min + ' 이상 필요') + '</div>' : '') + '</div>'; };
+        (min && magic ? '<div class="gm-s ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ +' + min + ' 이상' : '+' + min + ' 이상 필요') + '</div>' : '') + '</div>'; };
     var mains = row('무기', 'weapon', function () { var a = take('weapon', '주 무기', 'main', 'mainM'), b = take('impl', '도구', 'impl', 'implM'); return Math.max(a, b); }) +
       row('갑옷', 'armor', function () { return take('armor', '갑옷', 'body', 'bodyM'); }) + row('목', 'slot', function () { return take('slot', '목', 'neck'); });
     [['off', 'offM'], ['head'], ['arms'], ['hands'], ['waist'], ['feet'], ['ring1'], ['ring2'], ['tattoo']].forEach(function (pr) { var k = GEAR_KIND[pr[0]], e = E_(pr[0]); if (pr[0] === 'off' && e && e.t === 'Weapon') k = ['weapon', '보조 손']; take(k[0], k[1], pr[0], pr[1]); });
@@ -1131,7 +1131,8 @@
         if (!ftest(e)) continue; total++; if (n >= 300) continue;
         var d = document.createElement('div'); n++;
         d.className = (active === e ? 'on ' : '') + ((res.owned[e.id] && chosen.indexOf(e.id) < 0) || pre[e.id] === 'no' ? 'dim' : '') + (e.t === 'Power' ? ' pl ' + usageClass(e) : e.t === 'Feat' ? ' fl t-' + (lc((e.sp || {})['Tier']) || 'heroic') : '');
-        d.innerHTML = (chosen.indexOf(e.id) >= 0 ? '✔ ' : '') + esc(nm(e)) + PRE_BADGE[pre[e.id]] + '<small>' + (e.t === 'Power' && (e.sp || {})['Level'] ? esc(e.sp['Level']) + '레벨 · ' : '') + esc(short(e)) + (e.pre ? ' · 조건: ' + esc(e.pp || e.pre) : '') + '</small>';
+        var tr0 = e.t === 'Feat' ? (lc((e.sp || {})['Tier']) || 'heroic') : '';
+        d.innerHTML = (chosen.indexOf(e.id) >= 0 ? '✔ ' : '') + (tr0 ? '<i class="tchip t-' + tr0 + '">' + ({ heroic: '영웅', paragon: '패러곤', epic: '에픽' }[tr0] || tr0) + '</i>' : '') + esc(nm(e)) + PRE_BADGE[pre[e.id]] + '<small>' + (e.t === 'Power' && (e.sp || {})['Level'] ? esc(e.sp['Level']) + '레벨 · ' : '') + esc(short(e)) + (e.pre ? ' · 조건: ' + esc(e.pp || e.pre) : '') + '</small>';
         d.onclick = (function (e) { return function () { show(e); }; })(e);
         box.appendChild(d);
       }
