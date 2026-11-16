@@ -794,6 +794,21 @@
     ['ring1', '반지 1', function (e) { return e.t === 'Magic Item' && slotOf(e) === 'ring'; }],
     ['ring2', '반지 2', function (e) { return e.t === 'Magic Item' && slotOf(e) === 'ring'; }]
   ];
+  /* 마법 무기 · 갑옷이 지금 찬 바탕 무기 · 갑옷에 맞는지 (데이터의 Weapon / Armor 칸: "Any melee", "Heavy Blade, Light Blade", "Chain, Scale, Plate" …) */
+  var MAGIC_BASE = { mainM: 'main', offM: 'off', bodyM: 'body' };
+  function fitsBase(e, key) {
+    var bk = MAGIC_BASE[key], base = bk && db.byId[(cur.eq || {})[bk]]; if (!base) return true;
+    var sp = e.sp || {}, bs = base.sp || {};
+    if (key === 'bodyM') { var a = lc(sp['Armor'] || 'any'), k = (/(cloth|leather|hide|chain|scale|plate)/.exec(lc(base.n)) || [])[1]; return /any/.test(a) || !k || a.indexOf(k) >= 0; }
+    if (base.t !== 'Weapon') return true;
+    var w = lc(sp['Weapon'] || 'any'), cat = lc(bs['Weapon Category'] || ''), ranged = /ranged/.test(cat), thrown = /thrown/.test(lc(bs['Properties']));
+    if (w === 'any' || /^any\b(?! (melee|ranged|thrown))/.test(w)) return true;
+    if (/any melee/.test(w) && !ranged) return true; if (/any ranged/.test(w) && ranged) return true; if (/any thrown/.test(w) && thrown) return true;
+    if (w.indexOf(lc(base.n)) >= 0) return true;
+    return lc(bs['Group']).split(',').some(function (g) { g = g.trim(); return g && w.indexOf(g) >= 0; });
+  }
+  function slotTest(key, sl) { var f = sl[2]; return MAGIC_BASE[key] ? function (e) { return f(e) && fitsBase(e, key); } : f; }
+  function slotTitle(key, sl) { var bk = MAGIC_BASE[key], b = bk && db.byId[(cur.eq || {})[bk]]; return sl[1] + ' 고르기' + (b ? ' — ' + b.n + '에 맞는 것만' : MAGIC_BASE[key] ? ' — 먼저 ' + (key === 'bodyM' ? '갑옷' : '무기') + '부터 차면 거기에 맞는 것만 보여요' : ''); }
   function eqLine(e) { var sp = e.sp || {}, a = [];
     if (e.t === 'Weapon') { a.push(sp['Damage'] || ''); if (sp['Proficiency Bonus']) a.push('숙련 +' + sp['Proficiency Bonus']); a.push(sp['Group'] || ''); if (sp['Range']) a.push('사거리 ' + sp['Range']); if (sp['Properties']) a.push(sp['Properties']); }
     else if (e.t === 'Armor') { a.push((sp['Armor Type'] || '') + ' ' + (sp['Armor Category'] || '')); if (sp['Armor Bonus']) a.push('방어 +' + sp['Armor Bonus']); if (sp['Check'] && sp['Check'] !== '-') a.push('판정 ' + sp['Check']); if (sp['Speed'] && sp['Speed'] !== '-') a.push('이동 ' + sp['Speed']); }
@@ -834,7 +849,7 @@
     var q = cur.eq = cur.eq || {}, byKey = {}; EQ_SLOTS.forEach(function (sl) { byKey[sl[0]] = sl; });
     if (keys === 'other') { openSearch('그 밖의 물품 더하기', function (x) { return [{ label: '더하기', fn: function () { (q.other = q.other || []).push(x.id); syncEquip(); rebuild(); } }]; },
       eqList(function (e) { return e.t === 'Gear' || (e.t === 'Magic Item' && !slotOf(e) && !/^(Armor|Weapon)$/.test(mit(e)) && !IMPL.test(mit(e))); })); return; }
-    var ks = keys.split(','), one = function (k) { var sl = byKey[k]; openSearch(sl[1] + ' 고르기', function (x) { return [{ label: '이걸로 차기', fn: function () { q[k] = x.id; syncEquip(); rebuild(); } }]; }, eqList(sl[2])); };
+    var ks = keys.split(','), one = function (k) { var sl = byKey[k]; openSearch(slotTitle(k, sl), function (x) { return [{ label: '이걸로 차기', fn: function () { q[k] = x.id; syncEquip(); rebuild(); } }]; }, eqList(slotTest(k, sl))); };
     if (ks.length === 1 && !q[ks[0]]) { one(ks[0]); return; }
     /* 자리가 여럿이거나 이미 찬 자리: 무엇을 할지 먼저 묻는다 */
     var box = $('gpick'); if (!box) { box = document.createElement('div'); box.id = 'gpick'; box.className = 'mtbox'; document.body.appendChild(box); }
@@ -869,7 +884,7 @@
       d.innerHTML = '<small>' + sl[1] + '</small>' + (e ? '<b>' + esc(e.n) + '</b><i>' + esc(eqLine(e)) + '</i><u title="빼기">×</u>' : '<em>비어 있음</em>');
       d.onclick = function (ev) {
         if (ev.target.tagName === 'U') { delete q[key]; syncEquip(); rebuild(); return; }
-        openSearch(sl[1] + ' 고르기', function (x) { return [{ label: '이걸로 차기', fn: function () { q[key] = x.id; syncEquip(); rebuild(); } }]; }, eqList(sl[2]));
+        openSearch(slotTitle(key, sl), function (x) { return [{ label: '이걸로 차기', fn: function () { q[key] = x.id; syncEquip(); rebuild(); } }]; }, eqList(slotTest(key, sl)));
       };
       return d;
     }
