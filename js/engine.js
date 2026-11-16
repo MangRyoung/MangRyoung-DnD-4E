@@ -49,6 +49,8 @@
         if (tk.charAt(0) === '$') tk = vars[tk] || tk;
         var cats = el.cat || [], k = lc(tk), cid = db.catName[k], named = db.byName[k] || [];
         if (el.id === tk || lc(el.n) === k) ok = true;
+        /* 파워 레벨(숫자 분류)은 그 레벨 이하면 된다 — 4판 규칙: 새 파워는 자기 레벨 이하에서 고른다 (예: 7레벨 조우 자리에 3레벨 조우) */
+        if (!ok && el.t === 'Power' && /^\d+$/.test(tk)) for (var c0 = 0; c0 < cats.length && !ok; c0++) if (/^\d+$/.test(cats[c0]) && +cats[c0] <= +tk) ok = true;
         for (var c = 0; c < cats.length && !ok; c++) {
           if (cats[c] === tk || lc(cats[c]) === k || (cid && cats[c] === cid)) ok = true;
           /* 분류 이름이 다른 요소의 이름일 때(예: Human Power Selection): 그 요소의 id 를 분류로 가진 것도 맞는다 */

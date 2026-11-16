@@ -1028,7 +1028,8 @@
     var all0 = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || '') ; }), all = all0.filter(function (e) { return !banned(e); }), nBan = all0.length - all.length;
     var pre = {}; all.forEach(function (e) { pre[e.id] = prereq(e, res, cur.level); });
     var rank = { ok: 0, unk: 1, no: 2 };
-    all.sort(function (a, b) { return rank[pre[a.id]] - rank[pre[b.id]] || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); });
+    var plv = function (e) { return e.t === 'Power' ? +(e.sp || {})['Level'] || 0 : 0; };
+    all.sort(function (a, b) { return rank[pre[a.id]] - rank[pre[b.id]] || plv(b) - plv(a) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); });
     var chosen = (cur.choices[s.key] || []).slice(), active = null, nNo = all.filter(function (e) { return pre[e.id] === 'no'; }).length;
     var onlyOk = localStorage.getItem('d4e_onlyok') !== '0';
     $('mOpt').hidden = !nNo; $('mOnly').checked = onlyOk; $('mOnlyN').textContent = '(조건 미달 ' + nNo + '개)';
@@ -1060,7 +1061,7 @@
         if (!ftest(e)) continue; total++; if (n >= 300) continue;
         var d = document.createElement('div'); n++;
         d.className = (active === e ? 'on ' : '') + ((res.owned[e.id] && chosen.indexOf(e.id) < 0) || pre[e.id] === 'no' ? 'dim' : '') + (e.t === 'Power' ? ' pl ' + usageClass(e) : e.t === 'Feat' ? ' fl t-' + (lc((e.sp || {})['Tier']) || 'heroic') : '');
-        d.innerHTML = (chosen.indexOf(e.id) >= 0 ? '✔ ' : '') + esc(nm(e)) + PRE_BADGE[pre[e.id]] + '<small>' + esc(short(e)) + (e.pre ? ' · 조건: ' + esc(e.pp || e.pre) : '') + '</small>';
+        d.innerHTML = (chosen.indexOf(e.id) >= 0 ? '✔ ' : '') + esc(nm(e)) + PRE_BADGE[pre[e.id]] + '<small>' + (e.t === 'Power' && (e.sp || {})['Level'] ? esc(e.sp['Level']) + '레벨 · ' : '') + esc(short(e)) + (e.pre ? ' · 조건: ' + esc(e.pp || e.pre) : '') + '</small>';
         d.onclick = (function (e) { return function () { show(e); }; })(e);
         box.appendChild(d);
       }
