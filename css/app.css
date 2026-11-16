@@ -383,3 +383,6 @@ body.op-open{overflow:hidden}
 .op-hp small{font-size:10px;color:#7a7365}.op-hp b{font-size:17px}.op-hp .mid b{font-size:13px;color:#b23a32}
 .op-sg{display:grid;grid-template-columns:auto 1fr 1fr;border:1px solid #9cc4c0;border-radius:6px;overflow:hidden}.op-sg .t{background:#3f8f8a;color:#fff;font-weight:700;display:flex;align-items:center;padding:0 7px;font-size:11.5px}.op-sg div{border:0!important;border-radius:0!important}.op-sg div+div{border-left:1px solid #cfe2e0!important}
 .op-df b{color:#7a2b22}
+.op-lang{font-size:12px}.op-lang b{color:#7a2b22;margin-right:4px}
+.op-gear{margin:8px 0 4px;border:1px solid #d9d2c4;border-radius:6px;overflow:hidden}.op-gr{display:grid;grid-template-columns:44px minmax(0,1fr);border-top:1px solid #ece6da}.op-gr:first-child{border-top:0}
+.op-gr>b{background:#f4efe5;color:#7a2b22;display:flex;align-items:center;justify-content:center;font-size:11.5px}.op-gr>span{padding:3px 8px}.op-gr em{font-style:normal;font-weight:700}.op-gr small{font-weight:400;color:#7a7365}
