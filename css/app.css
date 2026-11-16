@@ -178,7 +178,7 @@ details.sec>summary .pgh{margin:0}.inh{margin:8px 0 0;font-size:13px;background:
 /* 서명 · 팀 */
 .top #signBtn{margin-left:8px}.status{margin-left:auto}
 .tbar{display:flex;gap:4px;flex-wrap:wrap}.tchip{background:var(--bg);color:var(--sub);border:1px solid var(--line);border-radius:999px;padding:2px 12px;font-size:13px}.tchip.on{background:var(--acc);color:#fff;border-color:var(--acc)}
-body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
+body:not(.is-gm) button.gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 #signBox .box{padding:16px;gap:10px}
 /* 번역 탭 · 칸별 번역 */
 .trb{align-items:center}.trtab{display:inline-flex;border:1px solid #cdbf9f;border-radius:999px;overflow:hidden;margin-right:auto}

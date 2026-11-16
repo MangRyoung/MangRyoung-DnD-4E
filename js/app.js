@@ -1400,10 +1400,14 @@
     box.innerHTML = '<div class="bar"><strong>GM · 권한</strong><span class="hint">' + (g.hashes.length ? 'GM: ' + (g.names || []).map(esc).join(', ') : '아직 GM 이 없어요. 지금은 누구나 전부 고칠 수 있어요') + '</span><span class="sp"></span>' +
         (ME.hash && !real && open0 ? '<button class="mini" data-gm="add">내 서명을 GM 으로 등록</button>' : '') + (!ME.hash ? '<button class="mini ghost" data-gm="sign">서명하기</button>' : '') + '</div>' +
       (g.hashes.length ? '<div class="gmgrid"><div><b>GM 목록</b>' + (g.names || []).map(function (n, i) { return '<div class="gmrow"><span>' + esc(n) + (g.hashes[i] === ME.hash ? ' <span class="hint">(나)</span>' : '') + '</span>' + (real ? '<button class="mini ghost" data-gm="del" data-i="' + i + '">GM 풀기</button>' : '') + '</div>'; }).join('') +
-          (real ? '<p class="hint">다른 사람을 GM 으로 올리려면, 그 사람이 서명한 뒤 접속해 있을 때 아래에서 골라요.</p><div class="gmrow"><select id="gmPick"><option value="">접속 중인 서명 고르기</option></select><button class="mini ghost" data-gm="promote">GM 으로 올리기</button></div>' : '') + '</div>' +
+          (real ? '<p class="hint">다른 사람을 GM 으로 올리려면 아래에서 골라요. 지금 접속 중인 서명과, 시트를 올렸거나 요청을 적은 적이 있는 서명이 나와요.</p><div class="gmrow"><select id="gmPick"><option value="">서명 고르기</option></select><button class="mini ghost" data-gm="promote">GM 으로 올리기</button></div>' : '') + '</div>' +
         '<div><b>PL 에게 허용할 것</b>' + PERMS.map(function (p) { return '<label class="gmrow"><span>' + p[1] + '</span><input type="checkbox" data-perm="' + p[0] + '"' + (perm(p[0]) ? ' checked' : '') + (real ? '' : ' disabled') + '></label>'; }).join('') +
           '<p class="hint">' + (real ? '끄면 GM 만 할 수 있어요. 자기 시트를 고치고 올리는 것은 언제나 누구나 돼요.' : 'GM 만 바꿀 수 있어요.') + '</p></div></div>' : '');
-    var pk = $('gmPick'); if (pk && window.D4EPresence && D4EPresence.signed) D4EPresence.signed().forEach(function (p) { if (g.hashes.indexOf(p.hash) >= 0 || !p.hash) return; var o = document.createElement('option'); o.value = p.hash + '|' + p.name; o.textContent = p.name; pk.appendChild(o); });
+    /* GM 으로 올릴 수 있는 서명: 접속 중인 서명 + 시트를 올린 서명 + 요청 · 답글을 적은 서명 (서명 해시가 남아 있는 곳들) */
+    var pk = $('gmPick'); if (pk) { var seenH = {}, addOpt = function (hash, name, where) { if (!hash || !name || seenH[hash] || g.hashes.indexOf(hash) >= 0 || !$('gmPick')) return; seenH[hash] = 1; var o = document.createElement('option'); o.value = hash + '|' + name; o.textContent = name + ' (' + where + ')'; $('gmPick').appendChild(o); };
+      if (window.D4EPresence && D4EPresence.signed) D4EPresence.signed().forEach(function (p) { addOpt(p.hash, p.name, '접속 중'); });
+      (REQS || []).forEach(function (d) { addOpt(d.byHash, d.by, '요청'); (d.replies || []).forEach(function (r) { addOpt(r.byHash, r.by, '요청'); }); });
+      if (D4EShare.ready()) D4EShare.list().then(function (rows) { rows.forEach(function (r) { var d = r.data || {}; addOpt(d.ownerHash, d.owner, '시트'); }); }).catch(function () {}); }
     box.onclick = async function (ev) { var k = ev.target.getAttribute && ev.target.getAttribute('data-gm'); if (!k) return; var g2 = D4EHouse.gm();
       try { if (k === 'sign') { openSign(); return; }
         if (k === 'add') { if (g2.hashes.length || !ME.hash || !confirm('「' + ME.name + '」 서명을 GM 으로 등록할까요?')) return; await saveGm({ hashes: [ME.hash], names: [ME.name] }); }
