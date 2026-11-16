@@ -296,12 +296,13 @@
       (Object.keys(t).length && (trCtx.shared || ownTr(cur.tr, e.id)) ? '<button class="mini ghost" data-tr="del">' + (trCtx.shared ? '공용 번역 지우기' : '내 번역 지우기') + '</button>' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button></div></div>';
   }
   function ctxFor(node) { if (node.closest('#dexView')) trCtx = { map: SHTR, edit: !!ME.hash, shared: true }; else if (node.closest('#teamSheet') && teamCtx) trCtx = teamCtx; else if (!node.closest('#mDetail')) trCtx = { map: cur.tr || {}, edit: true }; }
-  function redrawCard(card, e) { if (card.closest('#dexView')) { var bx = card.closest('#dexView'); bx.innerHTML = window.D4EApp.cardIn(e); var d0 = bx.querySelector('details'); if (d0) d0.open = true; return; }
+  function redrawCard(card, e) { if (card.closest('#dexView') && window.D4EDex) { D4EDex.redraw(); return; }
+    if (RICH_TYPES.test(e.t)) { var tr0 = document.createElement('div'); tr0.innerHTML = richDetail(e); card.replaceWith(tr0.firstChild); return; }
     ctxFor(card); var open = card.tagName !== 'DETAILS' || card.open || card.classList.contains('trform'), tmp = document.createElement('div');
     tmp.innerHTML = (e.t === 'Power' && e.sp && e.sp['Power Usage']) ? powerCard(e, open) : cardHtml(e); card.replaceWith(tmp.firstChild); }
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-tr]'); if (!b) return; ev.preventDefault(); ev.stopPropagation();
-    var bar = b.closest('.trb'), id = bar.getAttribute('data-id'), card = bar.closest('.pc,.gc'), act = b.getAttribute('data-tr'), e = EL(id); if (!e) return; if (card) ctxFor(card);
+    var bar = b.closest('.trb'), id = bar.getAttribute('data-id'), card = bar.closest('.pc,.gc,.rd'), act = b.getAttribute('data-tr'), e = EL(id); if (!e) return; if (card) ctxFor(card);
     if (act === 'vtr' || act === 'vor') { if (act === 'vor') trOrig[id] = 1; else delete trOrig[id]; redrawCard(card, e); return; }
     if (act === 'edit') { var tmp = document.createElement('div'); tmp.innerHTML = trForm(e); card.replaceWith(tmp.firstChild); return; }
     if (act === 'ped') { var tp = document.createElement('div'); tp.innerHTML = pedForm(e); card.replaceWith(tp.firstChild); return; }
@@ -1062,14 +1063,15 @@
     return out;
   }
   function richDetail(e) {
-    var sp = e.sp || {}, used = {}, h = '<h3>' + esc(nm(e)) + ' <span class="hint">' + esc(typeKo(e.t)) + (e.src ? ' · ' + esc(e.src.join(', ')) : '') + '</span></h3>';
-    if (sp['Short Description']) { h += '<p><b>' + esc(sp['Short Description']) + '</b></p>'; used['Short Description'] = 1; }
+    var sp = e.sp || {}, used = {}, h = '<div class="rd"><h3>' + tname(e, nm(e)) + ' <span class="hint">' + esc(typeKo(e.t)) + (e.src ? ' · ' + esc(e.src.join(', ')) : '') + '</span></h3>';
+    if (sp['Short Description']) { h += '<p><b>' + tx(e, 'Short Description', sp['Short Description']) + '</b></p>'; used['Short Description'] = 1; }
     if (e.pre || e.pp) h += '<p><b>선행 조건</b> ' + esc(e.pp || e.pre) + '</p>';
     var mech = (MECH[e.t] || []).filter(function (k) { return sp[k]; });
     if (mech.length) { h += '<div class="mech">'; mech.forEach(function (k) { used[k] = 1; var v = sp[k]; if (k === 'Role' || k === 'Power Source') v = v.split('.')[0]; h += '<div><small>' + MECH_KO[k] + '</small><span>' + esc(v) + '</span></div>'; }); h += '</div>'; }
     var g = gives(e), feats = g.filter(function (x) { return x.el.t !== 'Power'; }), pws = g.filter(function (x) { return x.el.t === 'Power' && x.el.sp && x.el.sp['Power Usage']; });
     if (feats.length) { h += '<h4>특성</h4>'; feats.forEach(function (x) { var t = x.el;
-      h += '<details class="ft"><summary>' + esc(t.n) + (x.lv > 1 ? ' <span class="badge">' + x.lv + '레벨</span>' : '') + (t.sp && t.sp['Short Description'] ? ' <span class="hint">' + esc(t.sp['Short Description']) + '</span>' : '') + '</summary><p>' + rich(t.body || '') + '</p></details>'; }); }
+      var tt = TR(t), tvw = tview(t), sd = t.sp && t.sp['Short Description'];
+      h += '<details class="ft" data-ftid="' + esc(t.id) + '"><summary>' + (tvw && tt && tt.n ? esc(tt.n) + ' <small class="hint">' + esc(t.n) + '</small>' : esc(t.n)) + (x.lv > 1 ? ' <span class="badge">' + x.lv + '레벨</span>' : '') + (sd ? ' <span class="hint">' + esc(tvw && tt && tt.f && tt.f['Short Description'] ? tt.f['Short Description'] : glossAuto && tvw ? gsub(sd) : sd) + '</span>' : '') + '</summary>' + (RICH_TYPES.test(t.t) ? '<p>' + rich(t.body || '') + '</p>' : cardHtml(t)) + '</details>'; }); }
     if (pws.length) { h += '<h4>주는 파워</h4><div class="pcards one">' + pws.map(function (x) { return powerCard(x.el, false); }).join('') + '</div>'; }
     if (e.t === 'Class' || e.t === 'Hybrid Class') {
       var mine = (db.byType['Power'] || []).filter(function (p) { return (p.cat || []).indexOf(e.id) >= 0 && p.sp && p.sp['Power Usage'] && (p.cat || []).indexOf('1') >= 0; });
@@ -1082,9 +1084,9 @@
     if (sels.length) h += '<p class="hint">고르는 것: ' + sels.map(function (r) { return esc(typeKo(r[1].type) + ' ' + (r[1].number || 1) + '개'); }).join(' · ') + '</p>';
     var lore = (e.fl ? '<p class="fl">' + esc(e.fl) + '</p>' : '');
     Object.keys(sp).forEach(function (k) { if (used[k] || k.charAt(0) === '_' || /^(type|Full Text|Class Features|Powers|Power Name|Racial Traits|Trait Package)$/i.test(k)) return; lore += '<p><b>' + esc(k) + '</b> ' + esc(sp[k]) + '</p>'; });
-    if (e.body) lore += '<p>' + esc(e.body) + '</p>';
+    if (e.body) lore += '<p>' + tx(e, '_body', e.body) + '</p>';
     if (lore) h += '<details class="ft lore"><summary>설정 · 소개 글 <span class="hint">눌러서 보기</span></summary>' + lore + '</details>';
-    return h;
+    return h + trBar(e) + '</div>';
   }
   var F_KO = { 'Weight': '무게', 'Armor Bonus': '방어 보너스', 'Minimum Enhancement Bonus': '최소 강화', 'Check': '판정 벌점', 'Speed': '이동 벌점', 'Gold': '가격', 'Silver': '가격(은)', 'Special': '특수',
     'Armor Type': '갑옷 분류', 'Item Slot': '부위', 'Armor Category': '종류', 'Damage': '피해', 'Proficiency Bonus': '숙련 보너스', 'Weapon Category': '무기 분류', 'Hands Required': '손', 'Group': '무기군',

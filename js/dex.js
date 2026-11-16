@@ -65,5 +65,7 @@
       else if (r) { sel = r.getAttribute('data-did'); root.querySelectorAll('.drow.on').forEach(function (x) { x.classList.remove('on'); }); r.classList.add('on'); renderView(); if (window.innerWidth < 820) $('dexView').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
     root.addEventListener('input', function (ev) { var t = ev.target; if (t.id === 'dexQ') { q = t.value; renderList(); } else if (t.id === 'dexLo') { lo = t.value; renderList(); } else if (t.id === 'dexHi') { hi = t.value; renderList(); } });
     root.addEventListener('change', function (ev) { var t = ev.target, i = t.getAttribute && t.getAttribute('data-dfi'); if (i != null) { fv[C().id + ':' + i] = t.value; renderList(); } else if (t.id === 'dexSrc') { src = t.value; renderList(); } }); }
-  window.D4EDex = { render: function () { wire(); render(); }, reset: function () { cache = {}; } };
+  /* 카드 안에서 번역을 쓰거나 탭을 바꾼 뒤: 고른 요소를 다시 그리되, 펼쳐 둔 것은 그대로 */
+  function redraw() { var box = $('dexView'); if (!box) return; var open = Array.prototype.map.call(box.querySelectorAll('details'), function (d) { return d.open; }); renderView(); Array.prototype.forEach.call(box.querySelectorAll('details'), function (d, i) { if (open[i]) d.open = true; }); renderList(); }
+  window.D4EDex = { redraw: redraw, render: function () { wire(); render(); }, reset: function () { cache = {}; } };
 })();
