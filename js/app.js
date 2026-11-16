@@ -176,8 +176,8 @@
     return { race: one('Race'), cls: one('Class'), level: ch.level, hp: s['hit points'] || 0, surges: s['healing surges'] || 0,
       ac: s['ac'] || 0, fort: s['fortitude defense'] || 0, ref: s['reflex defense'] || 0, will: s['will defense'] || 0,
       speed: s['speed'] || 0, init: s['initiative'] || 0,
-      powers: ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && !isChildOwned(r, p); }).map(function (p) { return p.n; }),
-      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }), pw: pwCount(ownedOf(r, 'Power').filter(function (p) { return !isChildOwned(r, p); })), hsv: Math.floor((s['hit points'] || 0) / 4) + (s['healing surge value'] || 0),
+      powers: ownedOf(r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && !isChildOwned(r, p) && (ch.hidePw || []).indexOf(p.id) < 0; }).map(function (p) { return p.n; }),
+      feats: ownedOf(r, 'Feat').map(function (f) { return f.n; }), pw: pwCount(ownedOf(r, 'Power').filter(function (p) { return !isChildOwned(r, p) && (ch.hidePw || []).indexOf(p.id) < 0; })), hsv: Math.floor((s['hit points'] || 0) / 4) + (s['healing surge value'] || 0),
       role: ((ownedOf(r, 'Class')[0] || {}).sp || {})['Role'] || '', path: one('Paragon Path'), epic: one('Epic Destiny') };
   }
 
@@ -1408,7 +1408,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', tok: d.tok || '', hidePw: d.hidePw || [], level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
