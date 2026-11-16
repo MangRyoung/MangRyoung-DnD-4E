@@ -46,9 +46,17 @@
       else if ((m = /^(heroic|paragon|epic)(?: tier)?$/.exec(c))) res = level >= { heroic: 1, paragon: 11, epic: 21 }[m[1]];
       else if ((m = /^(str|strength|con|constitution|dex|dexterity|int|intelligence|wis|wisdom|cha|charisma) (\d+)$/.exec(c))) res = (r.stats[AB_SHORT[m[1]] || m[1]] || 10) >= +m[2];
       else if ((m = /^(?:trained in|training in) (.+)$/.exec(c))) { var sk = m[1].replace(/ skill$/, ''); if (db.byName[sk]) res = (r.stats[sk + ' trained'] || 0) > 0; }
+      else if (/^id_/.test(c)) res = has(c); /* 요소 id 로 적힌 조건(특정 파워 · 클래스 · 하이브리드 클래스): 가졌는지만 보면 된다 */
+      else if (c === 'fighter weapon talent class feature' || c === 'fighter weapon talent') res = has('one-handed weapon talent') || has('two-handed weapon talent'); /* 데이터에서는 Fighter Talents 아래 두 갈래로 나뉘어 있다 */
+      else if ((m = /^must worship (?:the )?(.+)$/.exec(c))) { if (has(m[1]) || has('the ' + m[1])) res = true; else if (db.byName[m[1]] || db.byName['the ' + m[1]]) res = false; }
+      else if ((m = /^proficiency with (.+)$/.exec(c))) { var pw = m[1].replace(/s$/, ''), pa = pw.replace(/ armor$/, ''), psh = pa.replace(/ shield$/, ''), pn = ['weapon proficiency (' + pw + ')', 'armor proficiency (' + pa + ')', 'shield proficiency (' + psh + ')'], wpn = (db.byName[pw] || []).filter(function (x) { return x.t === 'Weapon'; })[0];
+        if (pn.some(has) || (wpn && has(lc((wpn.sp || {})['Weapon Category'])))) res = true; else if (wpn || pn.some(function (x) { return db.byName[x]; })) res = false; }
+      else if ((m = /^can use (?:the |a |an )?(.+?) implements?$/.exec(c))) { var ip = 'implement proficiency (' + m[1].replace(/^ki focuses$/, 'ki focus').replace(/s$/, '') + ')', ip2 = 'implement proficiency (' + m[1] + ')'; if (has(ip) || has(ip2)) res = true; else if (db.byName[ip] || db.byName[ip2]) res = false; }
       else {
-        var names = [c, c.replace(/^any /, ''), c.replace(/ (class feature|racial trait|class|race|power|feat|feature|theme|background)$/, ''), c.replace(/^any (.+) class$/, '$1')];
+        var names = [c, c.replace(/^any /, ''), c.replace(/ (class feature|racial trait|racial power|regional background|countsasclass|class|race|power|feat|feature|theme|background)$/, ''), c.replace(/^any (.+) class$/, '$1')];
         for (var i = 0; i < names.length && res === undefined; i++) { if (has(names[i])) res = true; }
+        /* 「shifter」처럼 종족 이름의 일부만 적힌 조건 */
+        if (res === undefined && /^[a-z-]+$/.test(c)) { for (var rk in r.owned) if (r.owned[rk].t === 'Race' && lc(r.owned[rk].n).split(/[ ,]+/).indexOf(c) >= 0) res = true; }
         if (res === undefined) for (var j = 0; j < names.length && res === undefined; j++) { if (db.byName[names[j]]) res = false; }
       }
       if (res === undefined) return 'unk';
