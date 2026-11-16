@@ -343,7 +343,8 @@
     /* 치명타: 주사위 최댓값 + 보정, 그리고 강화 +N 마다 추가 주사위(마법 무기에 치명타 칸이 있으면 그 글), High Crit 무기는 [W] 추가 */
     var crit = '';
     if (dice) { var mx = maxDice + dbonus, ex = [];
-      if (enh) ex.push(itemEnh >= inh && enhItem && (enhItem.sp || {})['Critical'] ? (enhItem.sp['Critical']) : '+' + enh + 'd6');
+      /* 치명타 주사위는 마법 무기 · 도구의 치명타 속성에서만(강화가 내재 보너스에 밀려도 속성은 그대로). 내재 보너스는 치명타 주사위를 주지 않는다 — 2026-11-16 망령 님 결정 */
+      if ((isW || isI) && enhItem && (enhItem.sp || {})['Critical']) ex.push(enhItem.sp['Critical']);
       if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
       crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
     return { terms: rawTerms, dbonus: dbonus, isW: isW, isI: isI, enh: enh, half: half, prof: prof, die: die[1] + 'd' + die[2], dieMax: +die[1] * +die[2], atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : isI ? '도구 없음' : ''), noTool: !W && !I && (isW || isI), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
@@ -384,11 +385,12 @@
     var ch = cur, r = res, st = r.stats, q = ch.eq || {}, ctx = { r: r, ch: ch }, T = ch.tr || {};
     var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0, hp = st['hit points'] || 0, inh = st['inherent attack'] || 0;
     var W = db.byId[q.main], Wm = db.byId[q.mainM], I = db.byId[q.impl], O = db.byId[q.off], Om = db.byId[q.offM];
+    var itemCrit = function (m) { var c = /(\d+d\d+)/.exec((m && m.sp && m.sp['Critical']) || ''); return c ? c[1] : '0'; };
     var has = function (n) { for (var k in r.owned) if (lc(r.owned[k].n) === n) return true; return false; };
     var wset = function (w, m) { var wsp = (w && w.sp) || {}, die = /(\d+)d(\d+)/.exec(wsp['Damage'] || '1d4') || [0, 1, 4], enh = Math.max(inh, plusN(m));
       var prof = w && (has(lc(wsp['Weapon Category'])) || has('weapon proficiency (' + lc(w.n) + ')')) ? +(wsp['Proficiency Bonus'] || 0) : 0;
-      return { hit: half + prof + enh, W: die[1] + 'd' + die[2], WMax: +die[1] * +die[2], Dmg: enh, Crit: enh ? enh + 'd6' : '0' }; };
-    var s1 = wset(W, Wm), s2 = I ? { hit: half + Math.max(inh, plusN(I)), W: '1d4', WMax: 4, Dmg: Math.max(inh, plusN(I)), Crit: Math.max(inh, plusN(I)) ? Math.max(inh, plusN(I)) + 'd6' : '0' } : (O && O.t === 'Weapon' ? wset(O, Om) : { hit: half + inh, W: '1d4', WMax: 4, Dmg: inh, Crit: inh ? inh + 'd6' : '0' });
+      return { hit: half + prof + enh, W: die[1] + 'd' + die[2], WMax: +die[1] * +die[2], Dmg: enh, Crit: itemCrit(m) }; };
+    var s1 = wset(W, Wm), s2 = I ? { hit: half + Math.max(inh, plusN(I)), W: '1d4', WMax: 4, Dmg: Math.max(inh, plusN(I)), Crit: itemCrit(I) } : (O && O.t === 'Weapon' ? wset(O, Om) : { hit: half + inh, W: '1d4', WMax: 4, Dmg: inh, Crit: '0' });
     /* 캠페인 매크로는 Hit 과 Hit2 를 값으로 견주므로, 둘이 같으면 공격 줄이 두 번 찍힌다. 같을 때는 Hit2 를 1 낮추고 그만큼 능력 쪽 보정에 얹는다 */
     if (s2.hit === s1.hit) s2.hit -= 1;
     var P = { Level: ch.level, MaxHP: hp, HP: hp, Temp_HP: 0, AC: st['ac'] || 0, MaxAC: st['ac'] || 0, Fort: st['fortitude defense'] || 0, MaxFort: st['fortitude defense'] || 0, Reflex: st['reflex defense'] || 0, MaxReflex: st['reflex defense'] || 0,
@@ -496,7 +498,7 @@
     h += '<div class="vrow"><div class="surge"><span class="sgt">원기 <small>Healing Surge</small></span><span data-why="healing surge value"><small>회복량</small><b>' + hsv + '</b></span><span data-why="healing surges"><small>횟수</small><b>' + (s['healing surges'] || 0) + '<i>회</i></b></span></div>' +
       '<div class="vit mv">' + (race ? st('speed', '이동 속도') : '<div title="이동 속도는 종족에서 와요. 종족을 고르면 채워져요"><small>이동 속도</small><b>—</b></div>') + st('initiative', '우선권') + '</div></div>';
     h += '<div class="vit def">' + st('ac', 'AC') + st('fortitude defense', 'Fort') + st('reflex defense', 'Ref') + st('will defense', 'Will') + '</div></div></div>';
-    if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격 굴림과 피해 굴림 +' + (s['inherent attack'] || 0) + ' (치명타 +' + (s['inherent attack'] || 0) + 'd6) · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요</span></p>';
+    if (s['inherent attack'] || s['inherent defense']) h += '<p class="inh">내재 보너스 · 공격 굴림과 피해 굴림 +' + (s['inherent attack'] || 0) + ' · 방어 +' + (s['inherent defense'] || 0) + ' <span class="hint">강화 보너스라 마법 장비의 강화와는 큰 쪽만 적용돼요. 치명타 주사위는 마법 무기 · 도구의 치명타 속성으로 붙어요</span></p>';
     h += '<div class="why" id="why" hidden></div>';
     var ab = '<table class="tbl"><tr><th></th><th class="n">값</th><th class="n">수정치</th><th class="n">+½레벨</th></tr>';
     E.ABILITIES.forEach(function (a) { var v = s[lc(a)] || 10, m = Math.floor((v - 10) / 2);
