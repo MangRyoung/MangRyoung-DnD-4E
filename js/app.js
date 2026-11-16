@@ -185,7 +185,13 @@
    * (1) 용어 자동 번역: 카드의 글에서 팀 용어집의 영어 용어를 한국어로 바꿔 보여 준다. 화면에서만 바꾸고 저장하지 않는다.
    * (2) 내 번역: 캐릭터마다 자기 시트의 파워 · 물품에 칸별로 번역을 적는다. ch.tr[id] = {n 이름, fl 플레이버, body 설명, f:{칸: 글}}.
    * 카드마다 「번역 | 원문」 탭으로 바꿔 본다. */
-  var trCtx = { map: {}, edit: false }, teamCtx = null, trOrig = {}, glossAuto = localStorage.getItem('d4e_gauto') !== '0';
+  /* 공용 번역: 요소 id 기준으로 공유 DB(kind = dnd4e_tr)에 둔다. 서명한 팀원이면 누구나 도감에서 쓴다.
+   * 시트의 번역 묶음(ch.tr)은 이 묶음을 「밑바탕」으로 삼는다(프로토타입) — 시트에 자기 번역이 있으면 그것, 없으면 공용 번역이 보인다. 저장(JSON)에는 자기 것만 들어간다. */
+  var SHTR = {}, SHTR_KIND = 'dnd4e_tr', shLoaded = false;
+  function shTr(o) { o = o || {}; if (o !== SHTR && Object.getPrototypeOf(o) !== SHTR) Object.setPrototypeOf(o, SHTR); return o; }
+  function ownTr(map, id) { return !!map && Object.prototype.hasOwnProperty.call(map, id); }
+  async function loadShTr() { if (!D4EShare.ready()) return; try { var rows = await D4EShare.list(SHTR_KIND); Object.keys(SHTR).forEach(function (k) { delete SHTR[k]; }); rows.forEach(function (r) { if (r.data) SHTR[r.id] = r.data; }); shLoaded = true; } catch (e) {} }
+  var trCtx = { map: shTr({}), edit: false }, teamCtx = null, trOrig = {}, glossAuto = localStorage.getItem('d4e_gauto') !== '0';
   function gsub(t) {
     if (!t) return ''; var G = D4EHouse.glossary();
     if (gsub.src !== G) { gsub.src = G; gsub.map = {}; var terms = G.map(function (p) { gsub.map[lc(p[0])] = p[1]; return p[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }).sort(function (a, b) { return b.length - a.length; });
@@ -268,7 +274,8 @@
   function trBar(e) {
     var has = glossAuto || !!TR(e), isP = e.t === 'Power' && e.sp && e.sp['Power Usage'], edd = isP && calcCtx && calcCtx.ch && calcCtx.ch.ed && calcCtx.ch.ed[e.id]; if (!has && !trCtx.edit && !edd) return '';
     return '<div class="trb" data-id="' + esc(e.id) + '">' + (has ? '<span class="trtab"><button data-tr="vtr" class="' + (trOrig[e.id] ? '' : 'on') + '">번역</button><button data-tr="vor" class="' + (trOrig[e.id] ? 'on' : '') + '">원문</button></span>' : '') +
-      (trCtx.edit ? '<button class="mini ghost" data-tr="edit">' + (TR(e) ? '내 번역 고치기' : '내 번역 쓰기') + '</button>' + (isP ? '<button class="mini ghost" data-tr="ped">성능 고치기</button>' : '') : '') + (edd ? '<span class="pedb" title="이 시트에서 성능을 고친 파워예요">고침</span>' : '') + '</div>';
+      (!trCtx.shared && SHTR[e.id] && !ownTr(trCtx.map, e.id) && !trOrig[e.id] ? '<span class="shtag" title="도감에서 팀이 같이 쓰는 번역이에요' + (SHTR[e.id].by ? ' · ' + esc(SHTR[e.id].by) : '') + '">공용 번역</span>' : '') + (trCtx.shared && !trCtx.edit ? '<span class="hint">서명하면 공용 번역을 쓸 수 있어요</span>' : '') +
+      (trCtx.edit ? '<button class="mini ghost" data-tr="edit">' + (trCtx.shared ? (SHTR[e.id] ? '공용 번역 고치기' : '공용 번역 쓰기') : ownTr(trCtx.map, e.id) ? '내 번역 고치기' : SHTR[e.id] ? '내 번역으로 따로 쓰기' : '내 번역 쓰기') + '</button>' + (isP && !trCtx.shared ? '<button class="mini ghost" data-tr="ped">성능 고치기</button>' : '') : '') + (edd ? '<span class="pedb" title="이 시트에서 성능을 고친 파워예요">고침</span>' : '') + '</div>';
   }
   function trFields(e) {
     var sp = e.sp || {}, out = [{ k: '_n', label: '이름', orig: e.n, one: true }], seen = {};
@@ -281,20 +288,20 @@
     return out;
   }
   function trForm(e) {
-    var t = (cur.tr || {})[e.id] || {}, h = '<div class="gc misc trform" data-id="' + esc(e.id) + '"><div class="gh"><span class="pn">' + esc(e.n) + ' · 내 번역</span><span class="pd">칸마다 적어요. 비운 칸은 용어 자동 번역으로 보여요</span></div><div class="tfs">';
+    var t = (trCtx.shared ? SHTR[e.id] : (cur.tr || {})[e.id]) || {}, h = '<div class="gc misc trform" data-id="' + esc(e.id) + '"><div class="gh"><span class="pn">' + esc(e.n) + (trCtx.shared ? ' · 공용 번역' : ' · 내 번역') + '</span><span class="pd">칸마다 적어요. 비운 칸은 용어 자동 번역으로 보여요</span></div><div class="tfs">';
     trFields(e).forEach(function (f) { var v = f.k === '_n' ? t.n : f.k === '_fl' ? t.fl : f.k === '_body' ? (t.body || t.t) : (t.f || {})[f.k], g = gsub(f.orig);
       h += '<div class="tf"><b>' + esc(f.label) + '</b><div class="to">' + esc(f.orig) + '</div>' + (g !== f.orig ? '<div class="tg">' + esc(g) + '</div>' : '') +
         (f.one ? '<input type="text" data-k="' + esc(f.k) + '" value="' + esc(v || '') + '" placeholder="번역">' : '<textarea data-k="' + esc(f.k) + '" placeholder="번역">' + esc(v || '') + '</textarea>') + '</div>'; });
     return h + '</div><div class="trb" data-id="' + esc(e.id) + '"><button class="mini" data-tr="save">저장</button><button class="mini ghost" data-tr="sub" title="내가 적은 글 속의 영어 용어를 용어집의 한국어로 바꿔요">적은 글의 용어 치환</button>' +
-      (Object.keys(t).length ? '<button class="mini ghost" data-tr="del">내 번역 지우기</button>' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button></div></div>';
+      (Object.keys(t).length && (trCtx.shared || ownTr(cur.tr, e.id)) ? '<button class="mini ghost" data-tr="del">' + (trCtx.shared ? '공용 번역 지우기' : '내 번역 지우기') + '</button>' : '') + '<button class="mini ghost" data-tr="cancel">그만두기</button></div></div>';
   }
-  function ctxFor(node) { if (node.closest('#dexView')) trCtx = { map: {}, edit: false }; else if (node.closest('#teamSheet') && teamCtx) trCtx = teamCtx; else if (!node.closest('#mDetail')) trCtx = { map: cur.tr || {}, edit: true }; }
+  function ctxFor(node) { if (node.closest('#dexView')) trCtx = { map: SHTR, edit: !!ME.hash, shared: true }; else if (node.closest('#teamSheet') && teamCtx) trCtx = teamCtx; else if (!node.closest('#mDetail')) trCtx = { map: cur.tr || {}, edit: true }; }
   function redrawCard(card, e) { if (card.closest('#dexView')) { var bx = card.closest('#dexView'); bx.innerHTML = window.D4EApp.cardIn(e); var d0 = bx.querySelector('details'); if (d0) d0.open = true; return; }
     ctxFor(card); var open = card.tagName !== 'DETAILS' || card.open || card.classList.contains('trform'), tmp = document.createElement('div');
     tmp.innerHTML = (e.t === 'Power' && e.sp && e.sp['Power Usage']) ? powerCard(e, open) : cardHtml(e); card.replaceWith(tmp.firstChild); }
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-tr]'); if (!b) return; ev.preventDefault(); ev.stopPropagation();
-    var bar = b.closest('.trb'), id = bar.getAttribute('data-id'), card = bar.closest('.pc,.gc'), act = b.getAttribute('data-tr'), e = EL(id); if (!e) return;
+    var bar = b.closest('.trb'), id = bar.getAttribute('data-id'), card = bar.closest('.pc,.gc'), act = b.getAttribute('data-tr'), e = EL(id); if (!e) return; if (card) ctxFor(card);
     if (act === 'vtr' || act === 'vor') { if (act === 'vor') trOrig[id] = 1; else delete trOrig[id]; redrawCard(card, e); return; }
     if (act === 'edit') { var tmp = document.createElement('div'); tmp.innerHTML = trForm(e); card.replaceWith(tmp.firstChild); return; }
     if (act === 'ped') { var tp = document.createElement('div'); tp.innerHTML = pedForm(e); card.replaceWith(tp.firstChild); return; }
@@ -303,8 +310,13 @@
     if (act === 'peddel') { if (cur.ed) delete cur.ed[id]; saveChars(); rebuild(); toast('「' + e.n + '」 을(를) 원래대로 돌렸어요'); return; }
     if (act === 'sub') { card.querySelectorAll('[data-k]').forEach(function (x) { x.value = gsub(x.value); }); return; }
     if (act === 'save') { var o = { f: {} }; card.querySelectorAll('[data-k]').forEach(function (x) { var k = x.getAttribute('data-k'), v = x.value.trim(); if (!v) return; if (k === '_n') o.n = v; else if (k === '_fl') o.fl = v; else if (k === '_body') o.body = v; else o.f[k] = v; });
-      cur.tr = cur.tr || {}; if (o.n || o.fl || o.body || Object.keys(o.f).length) cur.tr[id] = o; else delete cur.tr[id]; saveChars(); delete trOrig[id]; }
-    if (act === 'del') { if (cur.tr) delete cur.tr[id]; saveChars(); }
+      var some = !!(o.n || o.fl || o.body || Object.keys(o.f).length);
+      if (card.closest('#dexView')) { if (!ME.hash) { alert('공용 번역은 서명한 뒤에 쓸 수 있어요.'); return; }
+        if (some) { o.by = ME.name || ''; o.at = Date.now(); SHTR[id] = o; D4EShare.put(id, o, SHTR_KIND).then(function () { toast('「' + e.n + '」 공용 번역을 저장했어요'); }, function (er) { alert('공용 번역을 저장하지 못했어요: ' + er.message); }); }
+        else { delete SHTR[id]; D4EShare.del(id, SHTR_KIND).catch(function () {}); }
+        delete trOrig[id]; }
+      else { cur.tr = shTr(cur.tr); if (some) cur.tr[id] = o; else delete cur.tr[id]; saveChars(); delete trOrig[id]; } }
+    if (act === 'del') { if (card.closest('#dexView')) { if (!ME.hash) { alert('공용 번역은 서명한 뒤에 지울 수 있어요.'); return; } if (!confirm('이 공용 번역을 지울까요? 팀 모두에게서 사라져요.')) return; delete SHTR[id]; D4EShare.del(id, SHTR_KIND).catch(function (er) { alert('지우지 못했어요: ' + er.message); }); } else { if (cur.tr) delete cur.tr[id]; saveChars(); } }
     var inModal = !!card.closest('#mDetail'); card.classList.add('trform'); redrawCard(card, e);
     /* 상세 창에서 번역을 쓰거나 지웠으면 시트의 장비 줄 · 재주 타일 이름도 바로 바뀌게 */
     if ((act === 'save' || act === 'del') && db && cur && inModal && trCtx.edit) { var keep = trCtx; rebuild(); trCtx = keep; }
@@ -594,7 +606,7 @@
       (pf.length ? sec('prof', '숙련 <span class="hint">' + pf.length + '</span>', '<div class="tags">' + pf.map(function (e) { return '<span data-el="' + esc(e.id) + '">' + esc(glossAuto ? gsub(e.n) : e.n) + '</span>'; }).join('') + '</div>', false) : '');
   }
   function sheetHtml(ch, r, who) {
-    trCtx = { map: ch.tr || {}, edit: ch === cur }; calcCtx = { r: r, ch: ch };
+    ch.tr = shTr(ch.tr); trCtx = { map: ch.tr, edit: ch === cur }; calcCtx = { r: r, ch: ch };
     var s = r.stats, hp = s['hit points'] || 0, half = Math.floor(ch.level / 2);
     var race = ownedOf(r, 'Race')[0], cls = ownedOf(r, 'Class')[0];
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
@@ -702,7 +714,7 @@
   /* ---------- 만들기 ---------- */
   function rebuild() {
     if (!db) { saveChars(); return; } /* 룰 데이터가 아직 안 읽혔을 때(읽는 중에 레벨 등을 바꾼 경우) — 값만 보관하고, 다 읽히면 그때 그린다 */
-    trCtx = { map: cur.tr || {}, edit: true };
+    cur.tr = shTr(cur.tr); trCtx = { map: cur.tr, edit: true };
     res = E.build(db, cur);
     cur.sum = summary(cur, res);
     saveChars(); renderSelects();
@@ -1160,7 +1172,7 @@
     $('modal').querySelector('.mbody').style.gridTemplateColumns = 'minmax(0,1fr)'; $('modal').querySelector('.box').classList.add('fit'); $('modal').hidden = false;
   }
   function openPicker(s) {
-    trCtx = { map: {}, edit: false };
+    trCtx = { map: shTr({}), edit: false };
     var all0 = E.options(db, s, res.vars).filter(function (e) { return !/Unselectable|Not Selectable/i.test(e.pre || '') ; }), all = all0.filter(function (e) { return !banned(e); }), nBan = all0.length - all.length;
     var pre = {}; all.forEach(function (e) { pre[e.id] = prereq(e, res, cur.level); });
     var rank = { ok: 0, unk: 1, no: 2 };
@@ -1210,7 +1222,7 @@
   }
   /* 모든 요소에서 찾기 (하우스룰용). actions(e) → [{label, fn, ghost}] */
   function openSearch(title, actions, given, needQuery) {
-    trCtx = { map: {}, edit: false };
+    trCtx = { map: shTr({}), edit: false };
     $('mOpt').hidden = true; $('modal').querySelector('.box').classList.remove('few');
     var ftest2 = given && !needQuery ? buildFilters(given, function () { list(); }) : (($('mFilter').innerHTML = ''), function () { return true; });
     var all = given || Object.keys(db.byId).map(function (k) { return db.byId[k]; });
@@ -1239,7 +1251,7 @@
     }
     $('mSearch').oninput = list; list(); $('modal').hidden = false; $('mSearch').focus();
   }
-  function closeModal() { if (cur && !$('tab-edit').hidden) trCtx = { map: cur.tr || {}, edit: true };
+  function closeModal() { if (cur && !$('tab-edit').hidden) trCtx = { map: shTr(cur.tr || (cur.tr = {})), edit: true };
     $('modal').hidden = true; $('modal').querySelector('.box').classList.remove('fit', 'few'); }
 
   /* ---------- 서명 · GM ----------
@@ -1483,16 +1495,16 @@
         var u = el.getAttribute('data-u'); card0().querySelectorAll('.pwc').forEach(function (x) { x.classList.remove('on'); });
         if (pwOpen === u) { pwOpen = ''; pwBox.hidden = true; return; }
         pwOpen = u; el.classList.add('on'); var bb = built(), list = ownedOf(bb.r, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && !/^ID_INTERNAL/.test(p.id) && p.n !== 'Second Wind' && usageClass(p) === u; });
-        trCtx = { map: bb.ch.tr || {}, edit: false }; calcCtx = bb; pwBox.hidden = false; pwBox.innerHTML = list.length ? '' : '<span class="hint">없어요</span>';
+        trCtx = { map: shTr(bb.ch.tr), edit: false }; calcCtx = bb; pwBox.hidden = false; pwBox.innerHTML = list.length ? '' : '<span class="hint">없어요</span>';
         list.forEach(function (p) { var b = document.createElement('button'); b.className = 'tc-pchip ' + u; var t = (bb.ch.tr || {})[p.id]; b.textContent = (t && t.n) || p.n;
-          b.onclick = function () { trCtx = { map: bb.ch.tr || {}, edit: false }; calcCtx = bb; openDetail(p); $('mTitle').textContent = (d.name || '') + ' · ' + b.textContent; $('mDetail').innerHTML = powerCard(p, true); }; pwBox.appendChild(b); });
+          b.onclick = function () { trCtx = { map: shTr(bb.ch.tr), edit: false }; calcCtx = bb; openDetail(p); $('mTitle').textContent = (d.name || '') + ' · ' + b.textContent; $('mDetail').innerHTML = powerCard(p, true); }; pwBox.appendChild(b); });
       }; });
       var canEdit = !!(ME.gm || (d.ownerHash ? d.ownerHash === ME.hash : (chars[row.id] || (d.owner && d.owner === ME.name) || !d.ownerHash)));
       var b1 = document.createElement('button'); b1.className = 'mini'; b1.textContent = '시트 보기';
       b1.onclick = function () {
         if (!db) { alert('전체 시트는 룰 데이터를 불러온 뒤에 볼 수 있어요. 「데이터」 탭을 확인해 주세요.'); return; }
         var bb = built(), ch = bb.ch, r = bb.r; var ts = $('teamSheet'); ts.hidden = false; ts.innerHTML = '<div class="tsbar"><b>' + esc(d.name || '이름 없음') + '</b><span class="hint">' + (canEdit ? '주인이나 GM 은 「이 시트 고치기」로 만들기 화면에서 고친 뒤 다시 올릴 수 있어요' : '보기 전용이에요') + '</span>' + '<button class="mini ghost" data-ts="one">한 장 요약</button>' + (canEdit ? '<button class="mini" data-ts="edit">이 시트 고치기</button>' : '') + '<button class="mini ghost" data-ts="close">닫기 ×</button></div>' + sheetHtml(ch, r, d.owner);
-        teamCtx = { map: ch.tr || {}, edit: false }; teamCalc = { r: r, ch: ch }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
+        teamCtx = { map: shTr(ch.tr), edit: false }; teamCalc = { r: r, ch: ch }; wireSheet(ts, r); ts.scrollIntoView({ behavior: 'smooth' });
         ts.querySelector('[data-ts=close]').onclick = function (ev) { ev.stopPropagation(); ts.hidden = true; ts.innerHTML = ''; card.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); };
         ts.querySelector('[data-ts=one]').onclick = function (ev) { ev.stopPropagation(); trCtx = teamCtx; calcCtx = teamCalc; openOnePage(ch, r, d.owner); };
         var eb = ts.querySelector('[data-ts=edit]'); if (eb) eb.onclick = function (ev) { ev.stopPropagation();
@@ -1582,7 +1594,7 @@
     if ((name === 'edit' || name === 'house') && !db) name = 'data';
     ['edit', 'team', 'house', 'data', 'req', 'mon'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
     if (name === 'mon' && window.D4EMon) D4EMon.render();
-    if (name === 'data' && window.D4EDex) D4EDex.render();
+    if (name === 'data' && window.D4EDex) { D4EDex.render(); loadShTr().then(function () { if (!$('tab-data').hidden) D4EDex.render(); }); }
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (name === 'edit') renderEdit();
     if (name === 'team') renderTeam();
@@ -1671,10 +1683,10 @@
     window.D4EApp = { onePage: function () { if (db && cur && res) openOnePage(cur, res, ME.name); }, mtData: mtData, hasChar: function () { return !!(db && cur && res); }, charNames: function () { return Object.keys(chars).map(function (k) { return chars[k].name; }).filter(Boolean); }, gsub: gsub, vocab: function (key, n) {
         var V = vocabCache[key]; if (!V) { var c = {}; (db.byType['Power'] || []).forEach(function (p) { var v = (p.sp || {})[key]; if (!v) return; (key === 'Keywords' ? String(v).split(',') : [String(v)]).forEach(function (x) { x = x.trim(); if (x && x.length < 60) c[x] = (c[x] || 0) + 1; }); });
           V = vocabCache[key] = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }); }
-        return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, cardIn: function (e) { trCtx = { map: {}, edit: false }; var kc = calcCtx; calcCtx = null; try { return fields(e); } finally { calcCtx = kc; } }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
+        return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, shName: function (id) { var t = SHTR[id]; return (t && t.n) || ''; }, cardIn: function (e) { trCtx = { map: SHTR, edit: !!ME.hash, shared: true }; var kc = calcCtx; calcCtx = null; try { return fields(e); } finally { calcCtx = kc; } }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
       houseChanged: function () { if (!$('tab-edit').hidden) renderEdit(); status('룰 요소 ' + Object.keys(db.byId).length.toLocaleString() + '개 · 하우스룰 ' + D4EHouse.count() + '개'); } };
     D4EHouse.start();
-    await loadSign();
+    await loadSign(); loadShTr().then(function () { if (shLoaded && Object.keys(SHTR).length && db && cur && !$('tab-edit').hidden) rebuild(); });
     status('데이터를 찾는 중…');
     /* 사이트의 기본 데이터가 먼저(고쳐 올린 판이 모두에게 바로 가게). 사이트에서 못 읽을 때만 이 브라우저에 예전에 보관한 것을 쓴다. */
     var d = (await D4EData.loadSite()) || (await D4EData.loadStored());

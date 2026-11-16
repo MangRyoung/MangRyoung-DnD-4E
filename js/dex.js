@@ -31,7 +31,7 @@
   function pool(c) { if (cache[c.id]) return cache[c.id]; var d = db(), out = []; c.t.forEach(function (t) { (d.byType[t] || []).forEach(function (e) { if ((e.sp || {})['InternalOnly']) return; if (t === 'Power' && !(e.sp || {})['Power Usage']) return; out.push(e); }); });
     out.forEach(function (e) { e._lv = +String((e.sp || {})['Level'] || '').replace(/\D.*$/, '') || 0; });
     out.sort(function (a, b) { return (c.lv ? a._lv - b._lv : 0) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); }); return (cache[c.id] = out); }
-  function name(e) { var k = A().nm ? A().nm(e) : e.n; return k || e.n; }
+  function name(e) { var sh = A().shName && A().shName(e.id); if (sh) return sh + ' (' + e.n + ')'; var k = A().nm ? A().nm(e) : e.n; return k || e.n; }
   function list() { var c = C(), ql = lc(q.trim()); return pool(c).filter(function (e) {
       if (c.lv && lo && e._lv < +lo) return false; if (c.lv && hi && e._lv > +hi) return false;
       for (var i = 0; i < c.f.length; i++) { var v = fv[c.id + ':' + i]; if (v && c.f[i][1](e) !== v) return false; }
@@ -55,11 +55,12 @@
     box.innerHTML = L.length ? L.slice(0, MAX).map(function (e) { var k = name(e), u = e.t === 'Power' ? lc((e.sp || {})['Power Usage']) : '', uc = u.indexOf('daily') >= 0 ? ' u-day' : u.indexOf('encounter') >= 0 ? ' u-enc' : u ? ' u-at' : '', tier = e.t === 'Feat' ? ' t-' + lc((e.sp || {})['Tier'] || 'heroic') : '';
       return '<div class="drow' + uc + tier + (sel === e.id ? ' on' : '') + '" data-did="' + esc(e.id) + '">' + (C().lv ? '<i>' + (e._lv || '') + '</i>' : '') + '<b>' + esc(k) + '</b><span>' + esc(sub(e)) + '</span></div>'; }).join('') : '<p class="hint">조건에 맞는 것이 없어요.</p>'; }
   function renderView() { var box = $('dexView'); if (!box) return; var e = sel && db().byId[sel];
-    box.innerHTML = e ? A().cardIn(e) + '<p class="hint dexid">' + esc(e.t) + ' · ' + esc(e.id) + ((e.src || []).length ? ' · ' + esc(e.src.join(', ')) : '') + '</p>' : '<p class="hint">왼쪽에서 하나를 고르면 내용이 여기에 나와요. 「번역 / 원문」 탭으로 바꿔 볼 수 있어요.</p>'; }
+    box.innerHTML = e ? A().cardIn(e) + '<p class="hint dexid">' + esc(e.t) + ' · ' + esc(e.id) + ((e.src || []).length ? ' · ' + esc(e.src.join(', ')) : '') + '</p>' : '<p class="hint">왼쪽에서 하나를 고르면 내용이 여기에 나와요. 「번역 / 원문」 탭으로 바꿔 볼 수 있고, 서명한 팀원은 「공용 번역 쓰기」로 모두가 같이 보는 번역을 적을 수 있어요.</p>'; }
   var lastDb = null;
   function render() { var root = $('dexBody'); if (!root) return; if (db() !== lastDb) { cache = {}; lastDb = db(); sel = null; } if (!db()) { root.hidden = true; $('dexNone').hidden = false; return; } root.hidden = false; $('dexNone').hidden = true; if (!pool(C()).length) cat = 'power'; renderBar(); renderList(); renderView(); }
   function wire() { var root = $('dexCard'); if (!root || root._w) return; root._w = 1;
     root.addEventListener('click', function (ev) { var c = ev.target.closest('[data-dcat]'), r = ev.target.closest('[data-did]');
+      if (ev.target.closest('#dexView [data-tr=save], #dexView [data-tr=del]')) { setTimeout(renderList, 80); return; }
       if (c) { cat = c.getAttribute('data-dcat'); localStorage.setItem('d4e_dexcat', cat); sel = null; lo = hi = ''; src = ''; renderBar(); renderList(); renderView(); }
       else if (r) { sel = r.getAttribute('data-did'); root.querySelectorAll('.drow.on').forEach(function (x) { x.classList.remove('on'); }); r.classList.add('on'); renderView(); if (window.innerWidth < 820) $('dexView').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
     root.addEventListener('input', function (ev) { var t = ev.target; if (t.id === 'dexQ') { q = t.value; renderList(); } else if (t.id === 'dexLo') { lo = t.value; renderList(); } else if (t.id === 'dexHi') { hi = t.value; renderList(); } });
