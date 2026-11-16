@@ -1349,7 +1349,7 @@
     await loadSign();
     status('데이터를 찾는 중…');
     var d = (await D4EData.loadStored()) || (await D4EData.loadSite());
-    if (d) { useData(d); await loadHouse(); tab('edit'); syncDown(true); window.addEventListener('focus', function () { syncDown(); }); }
+    if (d) { useData(d); await loadHouse(); tab('edit'); if (!ME.hash) queueUp(); syncDown(true); window.addEventListener('focus', function () { syncDown(); }); }
     else { $('dataState').textContent = '아직 룰 데이터가 없어요. 아래에서 파일을 한 번 불러와 주세요.'; status('룰 데이터 없음'); tab('data'); }
   }
   start();
