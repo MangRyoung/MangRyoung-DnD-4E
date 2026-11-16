@@ -311,7 +311,7 @@
       if (enh) ex.push(itemEnh >= inh && enhItem && (enhItem.sp || {})['Critical'] ? (enhItem.sp['Critical']) : '+' + enh + 'd6');
       if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
       crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
-    return { terms: rawTerms, dbonus: dbonus, isW: isW, isI: isI, enh: enh, half: half, prof: prof, die: die[1] + 'd' + die[2], dieMax: +die[1] * +die[2], atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : ''), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
+    return { terms: rawTerms, dbonus: dbonus, isW: isW, isI: isI, enh: enh, half: half, prof: prof, die: die[1] + 'd' + die[2], dieMax: +die[1] * +die[2], atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : isI ? '도구 없음' : ''), noTool: !W && !I && (isW || isI), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
   }
   function attackInfo(p, ctx) {
     p = eff(p, (ctx || calcCtx || {}).ch);
@@ -330,7 +330,7 @@
       if (x.dmg) h += '<strong>피해 ' + esc(x.dmg) + '</strong>' + (x.dice ? '<div><b>' + esc(x.dice) + '</b> 주사위</div>' : '') + x.D.map(line).join('') + (x.crit ? '<div><b>치명타</b> ' + esc(x.crit) + '</div>' : '');
       if (x.condA.length || x.condD.length) h += '<strong class="cnh">조건부 (위 숫자에 넣지 않음)</strong>' + x.condA.map(function (o) { o = Object.assign({}, o, { label: '공격 · ' + o.label }); return line(o); }).join('') + x.condD.map(function (o) { o = Object.assign({}, o, { label: '피해 · ' + o.label }); return line(o); }).join('');
       return h + '</div>'; };
-    return block(ai.main, ai.main.tool || '공격') + (ai.off ? block(ai.off, '보조 손 · ' + ai.off.tool) : '') + (ai.sec ? block(ai.sec, '2차 공격') : '') + '<p class="hint" style="margin:4px 0 0">줄 그어진 것은 같은 종류의 더 큰 보너스에 밀려 빠진 것이에요.</p>';
+    return (ai.main.noTool ? '<p class="hint notool" style="margin:0 0 4px">' + (ai.main.isI ? '도구 파워예요. 장비의 도구 칸에 성표 · 지팡이 같은 도구를 끼워야 강화와 도구에 붙는 보정(익스퍼타이즈 등)이 들어가요.' : '무기 파워예요. 장비의 주 무기 칸에 무기를 끼워야 숙련 · 강화 · 무기에 붙는 보정이 들어가요.') + '</p>' : '') + block(ai.main, ai.main.tool || '공격') + (ai.off ? block(ai.off, '보조 손 · ' + ai.off.tool) : '') + (ai.sec ? block(ai.sec, '2차 공격') : '') + '<p class="hint" style="margin:4px 0 0">줄 그어진 것은 같은 종류의 더 큰 보너스에 밀려 빠진 것이에요.</p>';
   }
   document.addEventListener('click', function (ev) {
     var pa = ev.target.closest('.pa'); if (!pa) return; var card = pa.closest('.pc'), e = card && db.byId[card.getAttribute('data-pc')]; if (!e) return;
@@ -417,7 +417,7 @@
     var tv = tview(p), sub = function (x) { return tv && glossAuto ? gsub(x) : x; };
     var h = '<details class="pc ' + cls + '"' + (open ? ' open' : '') + ' data-pc="' + esc(p.id) + '"><summary><span class="pn">' + tname(p) + '</span>' + (function () { var a0 = attackInfo(p), m0 = a0 && a0.main; return m0 ? '<span class="ps">' + (m0.atk >= 0 ? '+' : '') + m0.atk + (m0.dmg ? ' · ' + esc(m0.dmg) : '') + '</span>' : ''; })() + '<span class="pd">' + esc(sp['Display'] || '') + '</span></summary>';
     h += '<div class="pm"><span><i class="dot"></i>' + esc(usageKo(p)) + (sp['Keywords'] ? ' ✦ ' + (tv && TR(p) && (TR(p).f || {})['Keywords'] ? esc(TR(p).f['Keywords']) : esc(sub(sp['Keywords']))) : '') + '</span><span>' + esc(gloss(act) || ACT_KO[lc(act)] || act) + (sp['Attack Type'] ? ' · ' + (tv && TR(p) && (TR(p).f || {})['Attack Type'] ? esc(TR(p).f['Attack Type']) : esc(sub(sp['Attack Type']))) : '') + '</span></div>';
-    var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (ai.tool ? '<small>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
+    var aiA = attackInfo(p), ai = aiA && aiA.main; if (ai) h += '<div class="pa" title="누르면 보정 내역"><span>공격 <b>' + (ai.atk >= 0 ? '+' : '') + ai.atk + '</b> vs ' + esc(gloss(ai.vs === 'AC' ? 'Armor Class' : ai.vs) || ai.vs) + '</span>' + (ai.dmg ? '<span>피해 <b>' + esc(ai.dmg) + '</b></span>' : '') + (ai.crit ? '<span class="cr">치명타 ' + esc(ai.crit) + '</span>' : '') + (aiA.off ? '<span class="cr">보조 손 ' + (aiA.off.atk >= 0 ? '+' : '') + aiA.off.atk + ' · ' + esc(aiA.off.dmg) + '</span>' : '') + (ai.tool ? '<small' + (ai.noTool ? ' class="notool"' : '') + '>' + esc(ai.tool) + ' ▾</small>' : '<small>▾</small>') + '</div>';
     h += '<div class="pb">' + (p.fl ? '<p class="pfl">' + (tv && TR(p) && TR(p).fl ? esc(TR(p).fl) : esc(p.fl)) + '</p>' : '') + rows.join('') + (p.body && !rows.length ? '<div class="pr"><span>' + tx(p, '_body', p.body) + '</span></div>' : '') +
       (p.src ? '<p class="psrc">' + esc(p.src.join(', ')) + '</p>' : '') + '</div>' + trBar(p) + '</details>';
     return h;
