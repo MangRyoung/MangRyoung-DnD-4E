@@ -454,3 +454,4 @@ body.op-open{overflow:hidden}
 .mf-ph{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:12px 0 6px}.mf-pw{border:1px solid var(--line);border-radius:8px;padding:6px;margin-bottom:6px;background:var(--card)}
 .mf-pr{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:4px}.mf-pr input{flex:1;min-width:90px}.mf-pr select{flex:none}.mf-pw textarea,.mform textarea{width:100%;box-sizing:border-box}
 .mf-prev{margin-top:12px}.mf-prev>small{display:block;color:var(--sub);margin-bottom:4px}
+.mb-h small{font-weight:400;font-size:11px;opacity:.85;margin-left:4px}.mbar .trtab{margin-right:6px}

@@ -147,6 +147,6 @@
       else if (k === 'copy') copy(pasteText(), '시트 글을 복사했어요. 맵툴에서 토큰을 고르고 「시트 불러오기」에 붙여 넣으세요.');
       else if (k === 'loader') copy(LOADER, '매크로를 복사했어요. 캠페인 매크로 창에서 새 매크로를 만들고 붙여 넣으세요(이름은 「시트 불러오기」).'); };
   }
-  window.D4EMt = { open: open, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
+  window.D4EMt = { open: open, guid: guid, uuid: uuid, loadZip: loadZip, xe: xe, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
   document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; var o = document.getElementById('chOne'); if (o) o.onclick = function () { window.D4EApp && window.D4EApp.onePage(); }; });
 })();
