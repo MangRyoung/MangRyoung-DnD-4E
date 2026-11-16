@@ -79,8 +79,45 @@
     b.textContent = t; b.className = 'toast on' + (bad ? ' bad' : ''); clearTimeout(toastT); toastT = setTimeout(function () { b.className = 'toast'; }, 3500); };
 
   /* ---------- 보관 ---------- */
-  function loadChars() { try { chars = JSON.parse(localStorage.getItem('d4e_chars') || '{}'); } catch (e) { chars = {}; } }
-  function saveChars() { localStorage.setItem('d4e_chars', JSON.stringify(chars)); if (cur) localStorage.setItem('d4e_cur', cur.id); }
+  /* ---------- 내 시트 자동 저장 · 기기 사이 맞추기 ----------
+   * 서명한 사람의 시트는 고칠 때마다 공유 DB 에 저절로 올라가고(잠깐 뒤에 한 번), 다른 기기에서 같은 서명으로 들어오면 내려받는다.
+   * ch.mt = 내용이 마지막으로 바뀐 때, ch.sy = 마지막으로 DB 와 맞춘 때, ch.pub = 팀 시트에 보이게 올렸는지, ch.foreign = 남의 시트를 가져온 것(저절로 올리지 않음).
+   * DB 문서의 priv:true 는 「내 보관용」 — 팀 시트 탭에는 안 보인다. */
+  var SNAP = {}, REMOTE = {}, upTimer = 0, syncing = false;
+  var sig = function (ch) { var o = Object.assign({}, ch); delete o.mt; delete o.sy; return JSON.stringify(o); };
+  function loadChars() { try { chars = JSON.parse(localStorage.getItem('d4e_chars') || '{}'); } catch (e) { chars = {}; } Object.keys(chars).forEach(function (k) { SNAP[k] = sig(chars[k]); }); }
+  function saveRaw() { try { localStorage.setItem('d4e_chars', JSON.stringify(chars)); } catch (e) { toast('이 브라우저의 저장 공간이 가득 찼어요. 안 쓰는 캐릭터를 지워 주세요', true); } if (cur) localStorage.setItem('d4e_cur', cur.id); }
+  function saveChars() {
+    if (cur && chars[cur.id] === cur) { var g = sig(cur); if (SNAP[cur.id] !== g) { SNAP[cur.id] = g; cur.mt = Date.now(); queueUp(); } }
+    saveRaw();
+  }
+  function syncNote(t, bad) { var el = document.getElementById('syncState'); if (el) { el.textContent = t || ''; el.className = 'hint syncst' + (bad ? ' bad' : ''); } }
+  function canAuto(ch) { if (!ME.hash || !ch || ch.foreign) return false; if (!REMOTE[ch.id] && ch.name === '새 캐릭터' && !Object.keys(ch.choices || {}).length) return false; /* 아직 손대지 않은 빈 시트는 올리지 않는다 */ var rm = REMOTE[ch.id]; return !(rm && rm.ownerHash && rm.ownerHash !== ME.hash); }
+  function queueUp() { clearTimeout(upTimer); if (!canAuto(cur)) { syncNote(ME.hash ? (cur && cur.foreign ? '남의 시트예요 · 「팀에 올리기」를 눌러야 반영돼요' : '') : '서명하면 저절로 저장돼서 다른 기기에서도 이어 할 수 있어요'); return; } syncNote('저장 대기 중…'); upTimer = setTimeout(pushCur, 2500); }
+  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
+  function applyDoc(n, d) {
+    n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
+    n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.owner = d.owner || ''; return n;
+  }
+  async function pushCur() {
+    if (!db || !res || !cur || syncing || !canAuto(cur) || !D4EShare.ready()) return; var ch = cur, doc = docOf(ch, res);
+    try { syncNote('저장 중…'); await D4EShare.put(ch.id, doc); ch.sy = doc.at; if ((ch.mt || 0) > doc.at) ch.mt = doc.at; ch.owner = ME.name; REMOTE[ch.id] = { ownerHash: ME.hash, at: doc.at }; SNAP[ch.id] = sig(ch); saveRaw();
+      syncNote('저장됨 ' + new Date(doc.at).toLocaleTimeString().replace(/:\d\d$/, '') + (ch.pub ? ' · 팀에 보임' : ' · 내 보관용')); }
+    catch (e) { syncNote('저장하지 못했어요 (' + e.message + ')', true); }
+  }
+  /* 서명한 뒤 · 시작할 때 · 창으로 돌아올 때: 내 시트를 DB 와 맞춘다. 더 새로운 쪽이 이긴다 */
+  var lastSync = 0;
+  async function syncDown(force) {
+    if (!ME.hash || !D4EShare.ready() || syncing || (!force && Date.now() - lastSync < 20000)) return; syncing = true; lastSync = Date.now();
+    try { var rows = await D4EShare.list(undefined, ME.hash), got = 0, changedCur = false;
+      rows.forEach(function (row) { var d = row.data || {}, at = d.at || 0, loc = chars[row.id]; REMOTE[row.id] = { ownerHash: d.ownerHash, at: at };
+        if (!loc) { loc = chars[row.id] = applyDoc({ id: row.id }, d); loc.mt = loc.sy = at; loc.pub = !d.priv; SNAP[row.id] = sig(loc); got++; }
+        else if (at > (loc.mt || 0) && at > (loc.sy || 0)) { applyDoc(loc, d); loc.mt = loc.sy = at; loc.pub = !d.priv; delete loc.foreign; SNAP[row.id] = sig(loc); got++; if (loc === cur) changedCur = true; }
+        else if (loc.pub == null) loc.pub = !d.priv; });
+      saveRaw(); if (got) { if (db && !$('tab-edit').hidden) renderEdit(); toast('다른 기기에서 저장한 시트 ' + got + '개를 가져왔어요'); }
+      syncing = false; if (cur && canAuto(cur) && (cur.mt || 0) > (cur.sy || 0)) queueUp(); else if (cur && canAuto(cur) && cur.sy) syncNote('저장됨 · ' + (cur.pub ? '팀에 보임' : '내 보관용')); else queueUp();
+    } catch (e) { syncing = false; syncNote('내 시트를 맞추지 못했어요 (' + e.message + ')', true); }
+  }
   function newChar() {
     var id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
     var ch = { id: id, name: '새 캐릭터', level: 1, choices: {}, abilities: { Strength: 10, Constitution: 10, Dexterity: 10, Intelligence: 10, Wisdom: 10, Charisma: 8 } };
@@ -1126,7 +1163,7 @@
   function wireSign() {
     $('signBtn').onclick = openSign; $('sgClose').onclick = function () { $('signBox').hidden = true; };
     $('sgSave').onclick = async function () { var n = $('sgName').value.trim(), sc = $('sgSecret').value; if (!n || !sc) { alert('이름과 비밀구를 모두 적어 주세요.'); return; }
-      localStorage.setItem('d4e_sign', JSON.stringify({ name: n, secret: sc })); await loadSign(); openSign(); if (!$('tab-team').hidden) renderTeam(); };
+      localStorage.setItem('d4e_sign', JSON.stringify({ name: n, secret: sc })); await loadSign(); openSign(); if (!$('tab-team').hidden) renderTeam(); syncDown(true); };
     $('sgClear').onclick = async function () { localStorage.removeItem('d4e_sign'); await loadSign(); openSign(); };
     $('sgGmAdd').onclick = async function () { var g = D4EHouse.gm(); if (g.hashes.length && !ME.gm) return; if (!confirm('「' + ME.name + '」 서명을 GM 으로 등록할까요?')) return;
       try { await saveGm({ hashes: g.hashes.concat([ME.hash]), names: (g.names || []).concat([ME.name]), at: Date.now() }); } catch (e) { alert('등록하지 못했어요: ' + e.message); } };
@@ -1154,7 +1191,8 @@
       var ex = (await D4EShare.list()).filter(function (r) { return r.id === cur.id; })[0];
       if (ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && !ME.gm) { status(''); btn.disabled = false; btn.textContent = bt0; alert('이 시트는 「' + (ex.data.owner || '?') + '」 서명으로 올라가 있어요. 주인이나 GM 만 덮어쓸 수 있어요.'); return; }
       var keep = ex && ex.data && ex.data.ownerHash && ex.data.ownerHash !== ME.hash && ME.gm;
-      await D4EShare.put(cur.id, { name: cur.name, owner: keep ? ex.data.owner : me, ownerHash: keep ? ex.data.ownerHash : ME.hash, team: cur.team || '', set: cur.set || '', port: cur.port || '', level: cur.level, abilities: cur.abilities, choices: cur.choices, eq: cur.eq || {}, equip: cur.equip || [], grants: cur.grants || [], tr: cur.tr || {}, ed: cur.ed || {}, hb: cur.hb || [], hbx: cur.hbx || [], pg: cur.pg || {}, sum: summary(cur, res), at: Date.now() });
+      clearTimeout(upTimer); cur.pub = true; var doc = docOf(cur, res); if (keep) { doc.owner = ex.data.owner; doc.ownerHash = ex.data.ownerHash; } await D4EShare.put(cur.id, doc);
+      if (!keep) { cur.sy = doc.at; REMOTE[cur.id] = { ownerHash: ME.hash, at: doc.at }; delete cur.foreign; SNAP[cur.id] = sig(cur); saveRaw(); syncNote('저장됨 · 팀에 보임'); }
       var tn = (D4EHouse.teams()[cur.team] || {}).name;
       status('팀 시트에 올렸어요 (' + new Date().toLocaleTimeString() + ')'); toast('「' + (cur.name || '이름 없음') + '」 시트를 ' + (tn ? '「' + tn + '」 팀에' : '팀 없이') + (ex ? ' 다시 올렸어요 (덮어씀)' : ' 올렸어요'));
       btn.textContent = '올렸어요 ✓'; setTimeout(function () { btn.textContent = bt0; }, 2500);
@@ -1169,7 +1207,7 @@
     chip('', '전체'); Object.keys(T).sort(function (a, b) { return T[a].name < T[b].name ? -1 : 1; }).forEach(function (id) { chip(id, T[id].name); }); chip('_none', '팀 없음');
     $('teamRen').hidden = $('teamDelBtn').hidden = !T[teamView];
     var rows;
-    try { rows = await D4EShare.list(); } catch (e) { box.innerHTML = '<p class="hint">읽지 못했어요: ' + esc(e.message) + '</p>'; return; }
+    try { rows = (await D4EShare.list()).filter(function (r) { return !(r.data && r.data.priv); }); } catch (e) { box.innerHTML = '<p class="hint">읽지 못했어요: ' + esc(e.message) + '</p>'; return; }
     rows = rows.filter(function (r) { var t = (r.data || {}).team || ''; if (t && !T[t]) t = ''; return teamView === '' || (teamView === '_none' ? !t : t === teamView); });
     box.innerHTML = rows.length ? '' : '<p class="hint">여기에는 아직 올라온 시트가 없어요. 「내 캐릭터」에서 팀을 고르고 「팀에 올리기」를 눌러 보세요.</p>';
     rows.forEach(function (row) {
@@ -1210,8 +1248,7 @@
         var eb = ts.querySelector('[data-ts=edit]'); if (eb) eb.onclick = function (ev) { ev.stopPropagation();
           var loc = chars[row.id]; if (loc && !confirm('내 브라우저에 이 캐릭터가 이미 있어요.\n확인 = 팀에 올라온 판으로 덮어쓰고 고치기\n취소 = 내 브라우저의 판을 그대로 열기')) { cur = loc; saveChars(); tab('edit'); return; }
           var n = loc || newChar(); if (!loc) { delete chars[n.id]; n.id = row.id; chars[n.id] = n; }
-          n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
-          n.set = d.set || ''; n.setInit = n.set; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.owner = d.owner || ''; cur = n; saveChars(); tab('edit'); toast('만들기 화면으로 가져왔어요. 고친 뒤 「팀에 올리기」를 누르면 반영돼요'); };
+          applyDoc(n, d); n.pub = !d.priv; if (d.ownerHash === ME.hash && ME.hash) { delete n.foreign; n.mt = n.sy = d.at || Date.now(); REMOTE[row.id] = { ownerHash: d.ownerHash, at: d.at || 0 }; } else n.foreign = true; SNAP[n.id] = sig(n); cur = n; saveChars(); tab('edit'); toast(n.foreign ? '만들기 화면으로 가져왔어요. 남의 시트라 고친 뒤 「팀에 올리기」를 눌러야 반영돼요' : '만들기 화면으로 가져왔어요. 고치면 저절로 저장돼요'); };
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
       b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); cur = n; saveChars(); tab('edit'); };
@@ -1220,7 +1257,7 @@
         var b3 = document.createElement('button'); b3.className = 'mini ghost'; b3.textContent = '내리기';
         if (ME.gm && Object.keys(T).length) { var mv = document.createElement('select'); mv.className = 'mini'; teamOptions(mv, T[d.team] ? d.team : '', true);
           mv.onchange = async function () { d.team = mv.value; try { await D4EShare.put(row.id, d); renderTeam(); } catch (e) { alert(e.message); } }; c.appendChild(document.createTextNode(' ')); c.appendChild(mv); }
-        b3.onclick = async function () { if (!confirm('팀 시트에서 내릴까요? 내 브라우저의 캐릭터는 남아요.')) return; try { await D4EShare.del(row.id); renderTeam(); } catch (e) { alert(e.message); } };
+        b3.onclick = async function (ev) { ev.stopPropagation(); if (!confirm('팀 시트에서 내릴까요? 시트는 주인의 보관용으로 남아요.')) return; try { d.priv = true; d.at = Date.now(); await D4EShare.put(row.id, d); var lc0 = chars[row.id]; if (lc0) { lc0.pub = false; lc0.sy = d.at; SNAP[row.id] = sig(lc0); saveRaw(); } renderTeam(); } catch (e) { alert(e.message); } };
         c.appendChild(document.createTextNode(' ')); c.appendChild(b3);
       }
       /* 카드 어디를 눌러도 시트가 열린다 (단추 · 고르기 · 파워 칸은 제 할 일을 한다) */
@@ -1254,9 +1291,10 @@
     var id = localStorage.getItem('d4e_cur'); cur = chars[id] || chars[Object.keys(chars)[0]] || newChar();
     document.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { tab(b.getAttribute('data-tab')); }; });
     $('mClose').onclick = closeModal; $('modal').onclick = function (ev) { if (ev.target === $('modal')) closeModal(); };
-    $('chSel').onchange = function () { cur = chars[$('chSel').value]; saveChars(); renderEdit(); };
+    $('chSel').onchange = function () { clearTimeout(upTimer); cur = chars[$('chSel').value]; saveChars(); renderEdit(); if (cur && canAuto(cur) && (cur.mt || 0) > (cur.sy || 0)) queueUp(); else syncNote(cur && cur.sy && canAuto(cur) ? '저장됨 · ' + (cur.pub ? '팀에 보임' : '내 보관용') : ''); if (!canAuto(cur)) queueUp(); };
     $('chNew').onclick = function () { cur = newChar(); saveChars(); renderEdit(); };
-    $('chDel').onclick = function () { if (!confirm('「' + (cur.name || '') + '」을(를) 이 브라우저에서 지울까요?')) return; delete chars[cur.id]; cur = chars[Object.keys(chars)[0]] || newChar(); saveChars(); renderEdit(); };
+    $('chDel').onclick = function () { var rm = REMOTE[cur.id], mineRemote = !!(ME.hash && rm && rm.ownerHash === ME.hash && !cur.foreign); if (!confirm('「' + (cur.name || '') + '」을(를) 지울까요?' + (mineRemote ? '\n저장된 것도 함께 지워져서 다른 기기와 팀 시트에서도 사라져요.' : '\n이 브라우저에서만 지워져요.'))) return; clearTimeout(upTimer);
+      if (mineRemote) { var did = cur.id; D4EShare.del(did).catch(function (e) { toast('저장된 것을 지우지 못했어요: ' + e.message, true); }); delete REMOTE[did]; } delete SNAP[cur.id]; delete chars[cur.id]; cur = chars[Object.keys(chars)[0]] || newChar(); saveChars(); renderEdit(); };
     $('chName').oninput = function () { cur.name = $('chName').value.trim(); saveChars(); var o = $('chSel').selectedOptions[0]; if (o) o.textContent = cur.name || cur.id; var h = $('sheet').querySelector('h2'); if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.nodeValue = (cur.name || '이름 없음') + ' '; };
     $('chLevel').onchange = function () { cur.level = +$('chLevel').value; rebuild(); };
     $('gAuto').checked = glossAuto; $('gAuto').onchange = function () { glossAuto = $('gAuto').checked; localStorage.setItem('d4e_gauto', glossAuto ? '1' : '0'); trOrig = {}; if (db && !$('tab-edit').hidden) rebuild(); };
@@ -1311,7 +1349,7 @@
     await loadSign();
     status('데이터를 찾는 중…');
     var d = (await D4EData.loadStored()) || (await D4EData.loadSite());
-    if (d) { useData(d); await loadHouse(); tab('edit'); }
+    if (d) { useData(d); await loadHouse(); tab('edit'); syncDown(true); window.addEventListener('focus', function () { syncDown(); }); }
     else { $('dataState').textContent = '아직 룰 데이터가 없어요. 아래에서 파일을 한 번 불러와 주세요.'; status('룰 데이터 없음'); tab('data'); }
   }
   start();

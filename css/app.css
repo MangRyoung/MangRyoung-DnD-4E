@@ -356,3 +356,4 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .gmgrid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:14px;margin-top:8px}.gmgrid>div{border:1px solid var(--line);border-radius:10px;padding:8px 10px}
 .gmrow{display:flex;align-items:center;gap:8px;padding:4px 0;border-top:1px dashed var(--line)}.gmrow span{flex:1;min-width:0}.gmrow select{flex:1;min-width:0}.gmgrid b+.gmrow{border-top:0}
 @media(max-width:700px){.gmgrid{grid-template-columns:1fr}.online{width:100%;order:9}}
+.syncst{margin-left:6px;font-size:12px}.syncst.bad{color:#a03a32}

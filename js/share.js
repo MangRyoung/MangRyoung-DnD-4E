@@ -9,9 +9,11 @@
     client = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseKey);
     return client;
   }
-  async function list(kind) {
+  /* ownerHash 를 주면 그 서명의 시트만 가져온다(내 시트 맞추기용 — 남의 초상까지 내려받지 않게) */
+  async function list(kind, ownerHash) {
     var c = cl(); if (!c) throw new Error('공유 DB 설정이 없어요.');
-    var r = await c.from(cfg.table).select('id,data,updated_at').eq('kind', kind || cfg.kind).order('updated_at', { ascending: false }).limit(2000);
+    var q = c.from(cfg.table).select('id,data,updated_at').eq('kind', kind || cfg.kind); if (ownerHash) q = q.eq('data->>ownerHash', ownerHash);
+    var r = await q.order('updated_at', { ascending: false }).limit(2000);
     if (r.error) throw new Error(r.error.message);
     return r.data || [];
   }
