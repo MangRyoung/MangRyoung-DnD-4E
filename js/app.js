@@ -345,7 +345,9 @@
     if (dice) { var mx = maxDice + dbonus, ex = [];
       /* 치명타 주사위는 마법 무기 · 도구의 치명타 속성에서만(강화가 내재 보너스에 밀려도 속성은 그대로). 내재 보너스는 치명타 주사위를 주지 않는다 — 2026-11-16 망령 님 결정 */
       if ((isW || isI) && enhItem && (enhItem.sp || {})['Critical']) ex.push(enhItem.sp['Critical']);
-      if (isW && W && /high crit/i.test(wsp['Properties'] || '')) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
+      /* Wicked Blade 재주: 중검으로 하는 근접 기본 공격은 High Crit 으로 침 */
+      var wicked = isW && W && has('wicked blade') && /heavy blade/i.test(wsp['Group'] || '') && /^melee basic attack$/i.test(p.n);
+      if (isW && W && (wicked || /high crit/i.test(wsp['Properties'] || ''))) { var n = (r.stats['level'] || 1) >= 21 ? 3 : (r.stats['level'] || 1) >= 11 ? 2 : 1; ex.push('+' + (n * +die[1]) + 'd' + die[2] + ' (High Crit)'); }
       crit = mx + (ex.length ? ' ' + ex.join(' ') : ''); }
     return { terms: rawTerms, dbonus: dbonus, isW: isW, isI: isI, enh: enh, half: half, prof: prof, die: die[1] + 'd' + die[2], dieMax: +die[1] * +die[2], atk: atk, vs: am[2], dmg: dmg, crit: crit, tool: W ? W.n : I ? I.n : (isW ? '무기 없음' : isI ? '도구 없음' : ''), noTool: !W && !I && (isW || isI), A: A, D: Dp, dice: dice, condA: ga.cond, condD: gd.cond };
   }
