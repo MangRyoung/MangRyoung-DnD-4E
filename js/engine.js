@@ -44,8 +44,10 @@
     for (var i = 0; i < ands.length; i++) {
       var ors = ands[i].split('|'), ok = false;
       for (var j = 0; j < ors.length && !ok; j++) {
-        var tk = ors[j].trim();
+        var tk = ors[j].trim(), neg = false;
         if (!tk) { ok = true; break; }
+        /* "!beast form" 처럼 앞에 ! 가 붙으면 그 분류가 없어야 맞는다 (드루이드의 야수 형상이 아닌 상시 파워 칸) */
+        if (tk.charAt(0) === '!') { neg = true; tk = tk.slice(1).trim(); if (!matchCategory(db, el, tk, vars)) { ok = true; break; } continue; }
         if (tk.charAt(0) === '$') tk = vars[tk] || tk;
         var cats = el.cat || [], k = lc(tk), cid = db.catName[k], named = db.byName[k] || [];
         if (el.id === tk || lc(el.n) === k) ok = true;
@@ -156,7 +158,9 @@
           st.alias[lc(a.alias)] = a.name;
         } else if (tag === 'textstring') {
           st.text[a.name] = a.value;
-          if (a.name === '_CLASSNAME') st.vars['$$CLASS'] = a.value;
+          if (a.name === '_CLASSNAME') { st.vars['$$CLASS'] = a.value;
+            /* 하이브리드: 클래스 이름이 하이브리드 클래스면 그 바탕 클래스(_BaseClass)를 모아 둔다 — 파워 고르기에서 두 클래스 파워를 다 후보로 */
+            var hc = db.byId[a.value]; if (hc && hc.t === 'Hybrid Class' && hc.sp && hc.sp._BaseClass) { var hb = st.vars['$$HYB'] = st.vars['$$HYB'] || []; if (hb.indexOf(hc.sp._BaseClass) < 0) hb.push(hc.sp._BaseClass); } }
         }
       }
     }
@@ -239,7 +243,14 @@
 
   /* 고르기 칸의 후보 목록 */
   function options(db, sel, vars) {
-    return (db.byType[sel.type] || []).filter(function (e) { return e.id !== sel.from && matchCategory(db, e, sel.category, vars || {}); });
+    vars = vars || {}; var from = db.byId[sel.from], list = db.byType[sel.type] || [];
+    /* 하이브리드 클래스가 직접 주는 칸(예: 그 클래스의 1레벨 상시 파워)은 그 클래스의 바탕 클래스로, 레벨이 주는 칸은 두 바탕 클래스 중 하나면 된다 */
+    if (/\$\$CLASS/.test(sel.category || '')) {
+      if (from && from.t === 'Hybrid Class' && from.sp && from.sp._BaseClass) { var v1 = Object.assign({}, vars, { '$$CLASS': from.sp._BaseClass }); return list.filter(function (e) { return e.id !== sel.from && matchCategory(db, e, sel.category, v1); }); }
+      var hyb = vars['$$HYB'];
+      if (hyb && hyb.length) { var vs = hyb.map(function (b) { return Object.assign({}, vars, { '$$CLASS': b }); }); return list.filter(function (e) { return e.id !== sel.from && vs.some(function (v) { return matchCategory(db, e, sel.category, v); }); }); }
+    }
+    return list.filter(function (e) { return e.id !== sel.from && matchCategory(db, e, sel.category, vars); });
   }
 
   var api = { Db: Db, build: build, options: options, matchCategory: matchCategory, evalRequires: evalRequires, ABILITIES: ABILITIES };
