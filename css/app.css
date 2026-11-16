@@ -225,8 +225,8 @@ body:not(.is-gm) .gm{display:none}select.mini{padding:1px 6px;font-size:13px}
 .vrow{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:8px;margin-bottom:8px}
 .surge{display:flex;align-items:stretch;border-radius:10px;overflow:hidden;border:1px solid color-mix(in srgb,#3f8f8a 45%,var(--line));background:color-mix(in srgb,#3f8f8a 9%,var(--card))}
 .surge .sgt{background:#3f8f8a;color:#fff;font-weight:700;display:flex;flex-direction:column;justify-content:center;padding:4px 10px;font-size:14px;line-height:1.2}.surge .sgt small{font-weight:400;font-size:10px;opacity:.85;white-space:nowrap}
-.surge>span[data-why]{flex:1;text-align:center;padding:5px 6px;cursor:pointer}.surge>span+span[data-why]{border-left:1px solid color-mix(in srgb,#3f8f8a 30%,var(--line))}
-.surge small{display:block;font-size:12px;color:var(--sub)}.surge b{font-size:20px}.surge b i{font-style:normal;font-size:12px;font-weight:400;margin-left:2px;color:var(--sub)}
+.surge>span[data-why]{flex:1;min-width:54px;text-align:center;padding:5px 6px;cursor:pointer}.surge>span+span[data-why]{border-left:1px solid color-mix(in srgb,#3f8f8a 30%,var(--line))}
+.surge small{display:block;font-size:12px;color:var(--sub)}.surge b{font-size:20px;white-space:nowrap}.surge b i{font-style:normal;font-size:12px;font-weight:400;margin-left:2px;color:var(--sub)}
 .vit.mv{grid-template-columns:repeat(2,minmax(0,1fr))}
 @media(max-width:560px){.vrow{grid-template-columns:1fr}}
 /* 맵툴로 내보내기 */
