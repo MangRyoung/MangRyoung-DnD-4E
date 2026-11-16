@@ -610,13 +610,14 @@
   }
   /* 능력치: 포인트 구매(캠페인에서 정한 포인트) 또는 직접 입력.
    * 4판 방식: 하나는 8, 나머지는 10 에서 시작. 8 기준 값별 비용은 아래 표, 기본 배열(8 하나 + 10 다섯)이 0포인트. */
+  /* 포인트는 「모두 10」에서 센다. 하나를 8로 낮추면 2점이 돌아온다 → 공식 규칙(8 하나 + 10 다섯에서 22점)과 같은 값. 세팅의 20점 = 공식 22점. */
   var COST8 = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9, 16: 11, 17: 14, 18: 18 };
   var campaign = { points: 22 };
-  function pointsUsed(ab) { var t = 0, low = 0, bad = false; E.ABILITIES.forEach(function (a) { var v = ab[a]; if (!(v in COST8)) bad = true; else t += COST8[v]; if (v < 10) low++; }); return { used: t - 10, low: low, bad: bad }; }
+  function pointsUsed(ab) { var t = 0, low = 0, bad = false; E.ABILITIES.forEach(function (a) { var v = ab[a]; if (!(v in COST8)) bad = true; else t += COST8[v]; if (v < 10) low++; }); return { used: t - 12, low: low, bad: bad }; }
   function renderAbil() {
     var box = $('abil'), free = cur.abMode === 'free', u = pointsUsed(cur.abilities), left = campaign.points - u.used; box.innerHTML = '';
     $('abilHead').innerHTML = free ? '<span class="hint">직접 입력 중</span> <button class="mini ghost" id="abMode">포인트 구매로</button>'
-      : '<span class="pts' + (left < 0 || u.bad || u.low > 1 ? ' bad' : left === 0 ? ' ok' : '') + '">포인트 ' + campaign.points + ' 중 <b>' + (u.bad ? '?' : left) + '</b> 남음</span>' +
+      : '<span class="pts' + (left < 0 || u.bad || u.low > 1 ? ' bad' : left === 0 ? ' ok' : '') + '" title="모두 10에서 시작해요. 하나를 8로 낮추면 2점이 돌아와요(공식 규칙의 8 하나 + 10 다섯 · 22점과 같아요).">포인트 ' + campaign.points + (u.low && !u.bad ? ' <small>+' + E.ABILITIES.reduce(function (t, k) { var v = cur.abilities[k]; return t + (v < 10 ? 2 - COST8[v] : 0); }, 0) + '</small>' : '') + ' 중 <b>' + (u.bad ? '?' : left) + '</b> 남음</span>' +
         (u.low > 1 ? ' <span class="hint bad">10 미만은 하나만 돼요</span>' : u.bad ? ' <span class="hint bad">8~18 사이로 맞춰 주세요</span>' : '') +
         ' <button class="mini ghost" id="abReset">처음으로</button> <button class="mini ghost" id="abMode">직접 입력</button>';
     $('abMode').onclick = function () { cur.abMode = free ? 'buy' : 'free'; saveChars(); renderAbil(); };
