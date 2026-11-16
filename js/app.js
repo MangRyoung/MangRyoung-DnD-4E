@@ -305,6 +305,8 @@
       cur.tr = cur.tr || {}; if (o.n || o.fl || o.body || Object.keys(o.f).length) cur.tr[id] = o; else delete cur.tr[id]; saveChars(); delete trOrig[id]; }
     if (act === 'del') { if (cur.tr) delete cur.tr[id]; saveChars(); }
     card.classList.add('trform'); redrawCard(card, e);
+    /* 시트 밖(상세 창)에서 번역을 쓰거나 지웠으면 시트의 장비 줄 · 재주 타일 이름도 바로 바뀌게 */
+    if ((act === 'save' || act === 'del') && db && cur && !card.closest('#sheet') && !bar.closest('#teamSheet')) { var keep = trCtx; rebuild(); trCtx = keep; }
   });
 
   /* ---------- 공격 · 피해 계산 ----------
@@ -949,7 +951,7 @@
     /* 무기 · 갑옷 · 목이 중심 자리: 한 줄씩 먼저, 그 아래에 나머지와 소지금 */
     var st = D4EHouse.setOf(ch.set || '') || {}, min = +st.minEnh || 0, E_ = function (k) { return db.byId[q[k]]; }, take = function (kind, slot, bk, mk) { var b = E_(bk), m = mk && E_(mk); skey = bk + (mk ? ',' + mk : ''); if (!b && !m) return -1; if (b) used[b.id] = 1; if (m) used[m.id] = 1; if (b && b.t === 'Magic Item' && !m) { m = b; b = null; } tile(kind, slot, b, m); return m ? plusN(m) : -1; }; /* -1 = 마법 물품 없음(최소 강화 규칙은 마법 물품을 살 때만 해당) */
     var row = function (label, kind, fill) { var n0 = tiles.length, plus = fill(), mine = tiles.splice(n0), has = mine.length > 0, magic = plus >= 0, ok = !min || plus >= min;
-      return '<div class="gmain ' + kind + (has ? '' : ' empty') + '"' + (ch === cur ? ' data-gslot="' + label + '" title="눌러서 고르기 · 바꾸기"' : '') + '><div class="gm-l"><b>' + label + '</b>' + (has && plus ? '<i>+' + plus + '</i>' : '') + '</div><div class="gm-c">' + (has ? mine.join('') : '<span class="gm-none">비어 있음</span>') + '</div>' +
+      return '<div class="gmain ' + kind + (has ? '' : ' empty') + '"' + (ch === cur ? ' data-gslot="' + label + '" title="눌러서 고르기 · 바꾸기"' : '') + '><div class="gm-l"><b>' + label + '</b>' + (has && plus > 0 ? '<i>+' + plus + '</i>' : '') + '</div><div class="gm-c">' + (has ? mine.join('') : '<span class="gm-none">비어 있음</span>') + '</div>' +
         (min && magic ? '<div class="gm-s ' + (ok ? 'ok' : 'no') + '">' + (ok ? '✓ +' + min + ' 이상' : '+' + min + ' 이상 필요') + '</div>' : '') + '</div>'; };
     var mains = row('무기', 'weapon', function () { var a = take('weapon', '주 무기', 'main', 'mainM'), b = take('impl', '도구', 'impl', 'implM'); return Math.max(a, b); }) +
       row('갑옷', 'armor', function () { return take('armor', '갑옷', 'body', 'bodyM'); }) + row('목', 'slot', function () { return take('slot', '목', 'neck'); });
