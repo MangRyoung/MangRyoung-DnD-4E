@@ -388,3 +388,11 @@ body.op-open{overflow:hidden}
 .op-gr>b{background:#f4efe5;color:#7a2b22;display:flex;align-items:center;justify-content:center;font-size:11.5px}.op-gr>span{padding:3px 8px}.op-gr em{font-style:normal;font-weight:700}.op-gr small{font-weight:400;color:#7a7365}
 
 .pa small.notool,.hint.notool{color:var(--warn,#b45309);font-weight:600}
+.versave{display:flex;gap:8px;margin:10px 0}.versave input{flex:1;min-width:0}
+.verlist{display:flex;flex-direction:column;gap:6px;overflow:auto}
+.vrow{display:flex;align-items:center;flex-wrap:wrap;gap:6px;padding:8px 10px;border:1px solid var(--line);border-radius:10px}
+.vrow.on{border-color:var(--acc);background:var(--acc2)}
+.vinfo{flex:1;min-width:150px;display:flex;flex-direction:column}.vinfo small{color:var(--sub)}
+.vnow{font-size:11px;padding:1px 6px;border-radius:999px;background:var(--acc);color:var(--card);align-self:flex-start}
+.vrow button{padding:4px 10px;font-size:13px}
+.vrow button:disabled{opacity:.35;cursor:default}

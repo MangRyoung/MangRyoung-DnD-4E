@@ -94,10 +94,10 @@
   function syncNote(t, bad) { var el = document.getElementById('syncState'); if (el) { el.textContent = t || ''; el.className = 'hint syncst' + (bad ? ' bad' : ''); } }
   function canAuto(ch) { if (!ME.hash || !ch || ch.foreign) return false; if (!REMOTE[ch.id] && ch.name === '새 캐릭터' && !Object.keys(ch.choices || {}).length) return false; /* 아직 손대지 않은 빈 시트는 올리지 않는다 */ var rm = REMOTE[ch.id]; return !(rm && rm.ownerHash && rm.ownerHash !== ME.hash); }
   function queueUp() { clearTimeout(upTimer); if (!canAuto(cur)) { syncNote(ME.hash ? (cur && cur.foreign ? '남의 시트예요 · 「팀에 올리기」를 눌러야 반영돼요' : '') : '서명하면 저절로 저장돼서 다른 기기에서도 이어 할 수 있어요'); return; } syncNote('저장 대기 중…'); upTimer = setTimeout(pushCur, 2500); }
-  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
+  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, vers: ch.vers || [], abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
   function applyDoc(n, d) {
     n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
-    n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.owner = d.owner || ''; return n;
+    n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.vers = JSON.parse(JSON.stringify(d.vers || [])); n.owner = d.owner || ''; return n;
   }
   async function pushCur() {
     if (!db || !res || !cur || syncing || !canAuto(cur) || !D4EShare.ready()) return; var ch = cur, doc = docOf(ch, res);
@@ -117,6 +117,41 @@
       saveRaw(); if (got) { if (db && !$('tab-edit').hidden) renderEdit(); toast('다른 기기에서 저장한 시트 ' + got + '개를 가져왔어요'); }
       syncing = false; if (cur && canAuto(cur) && (cur.mt || 0) > (cur.sy || 0)) queueUp(); else if (cur && canAuto(cur) && cur.sy) syncNote('저장됨 · ' + (cur.pub ? '팀에 보임' : '내 보관용')); else queueUp();
     } catch (e) { syncing = false; syncNote('내 시트를 맞추지 못했어요 (' + e.message + ')', true); }
+  }
+  /* ---------- 버전: 같은 캐릭터의 여러 판(10레벨 · 12레벨 …)을 시트 안에 보관 ----------
+   * 보관하는 것은 레벨 · 능력치 · 고르기 · 장비 · 고친 파워 · 홈브류 · 패시브 · 세팅. 이름 · 포트 · 설정 · 번역 · 팀은 모든 버전이 같이 쓴다. */
+  var VKEYS = ['level', 'abilities', 'abMode', 'choices', 'eq', 'equip', 'grants', 'ed', 'hb', 'hbx', 'pg', 'set', 'setInit'];
+  function snapOf(ch) { var o = {}; VKEYS.forEach(function (k) { if (ch[k] != null) o[k] = JSON.parse(JSON.stringify(ch[k])); }); return o; }
+  function sameSnap(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  function verKeep(label, replace) {
+    var vs = cur.vers = cur.vers || [], sm = res ? summary(cur, res) : {}, v = { label: label, at: Date.now(), level: cur.level, cls: sm.cls || '', race: sm.race || '', snap: snapOf(cur) };
+    var i = vs.findIndex(function (x) { return x.label === label; }); if (i >= 0) vs[i] = v; else vs.push(v); return v;
+  }
+  function verWhen(t) { var d = new Date(t); return (d.getMonth() + 1) + '/' + d.getDate() + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function renderVers() {
+    var vs = (cur.vers || []).slice().sort(function (a, b) { return (a.level - b.level) || (a.at - b.at); }), now = snapOf(cur);
+    $('verTitle').textContent = '「' + (cur.name || '이름 없음') + '」 버전 ' + vs.length + '개';
+    $('chVer').textContent = vs.length ? '버전 ' + vs.length : '버전';
+    $('verName').value = cur.level + '레벨';
+    $('verList').innerHTML = vs.length ? vs.map(function (v) { var same = sameSnap(v.snap, now);
+      return '<div class="vrow' + (same ? ' on' : '') + '"><div class="vinfo"><b>' + esc(v.label) + '</b>' + (same ? ' <span class="vnow">지금 시트</span>' : '') + '<small>' + v.level + '레벨' + (v.race || v.cls ? ' · ' + esc([v.race, v.cls].filter(Boolean).map(function (x) { return gloss(x) || x; }).join(' ')) : '') + ' · ' + verWhen(v.at) + '</small></div>' +
+        '<button data-vload="' + esc(v.label) + '"' + (same ? ' disabled' : '') + '>불러오기</button><button class="ghost" data-vover="' + esc(v.label) + '"' + (same ? ' disabled' : '') + ' title="지금 시트로 이 버전을 덮어써요">덮어쓰기</button><button class="ghost" data-vdel="' + esc(v.label) + '">지우기</button></div>'; }).join('') : '<p class="hint">아직 보관한 버전이 없어요. 위에서 이름을 붙여 저장해 보세요.</p>';
+  }
+  function openVers() { if (cur.foreign) { toast('남의 시트는 버전을 만들 수 없어요', true); return; } renderVers(); $('verBox').hidden = false; }
+  function wireVers() {
+    $('chVer').onclick = openVers; $('verClose').onclick = function () { $('verBox').hidden = true; };
+    $('verBox').onclick = function (ev) { if (ev.target === $('verBox')) $('verBox').hidden = true; };
+    $('verSave').onclick = function () { var l = $('verName').value.trim(); if (!l) { toast('버전 이름을 적어 주세요', true); return; }
+      if ((cur.vers || []).some(function (x) { return x.label === l; }) && !confirm('「' + l + '」 버전이 이미 있어요. 지금 시트로 덮어쓸까요?')) return;
+      verKeep(l); saveChars(); renderVers(); toast('「' + l + '」 버전으로 보관했어요'); };
+    $('verList').onclick = function (ev) { var b = ev.target.closest('button'); if (!b) return; var vs = cur.vers || [];
+      var l = b.getAttribute('data-vload') || b.getAttribute('data-vover') || b.getAttribute('data-vdel'), v = vs.find(function (x) { return x.label === l; }); if (!v) return;
+      if (b.hasAttribute('data-vdel')) { if (!confirm('「' + l + '」 버전을 지울까요?')) return; cur.vers = vs.filter(function (x) { return x !== v; }); saveChars(); renderVers(); return; }
+      if (b.hasAttribute('data-vover')) { if (!confirm('「' + l + '」 버전을 지금 시트로 덮어쓸까요?')) return; verKeep(l); saveChars(); renderVers(); toast('「' + l + '」 버전을 덮어썼어요'); return; }
+      var now = snapOf(cur), kept = vs.some(function (x) { return sameSnap(x.snap, now); }), auto = '';
+      if (!kept) { auto = '불러오기 전 ' + verWhen(Date.now()); verKeep(auto); }
+      VKEYS.forEach(function (k) { delete cur[k]; }); Object.assign(cur, JSON.parse(JSON.stringify(v.snap)));
+      saveChars(); renderEdit(); renderVers(); toast('「' + l + '」 버전을 불러왔어요' + (auto ? ' · 하던 시트는 「' + auto + '」로 보관했어요' : '')); };
   }
   function newChar() {
     var id = 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
@@ -647,7 +682,7 @@
     useSet();
     var sel = $('chSel'); sel.innerHTML = '';
     Object.keys(chars).forEach(function (id) { var o = document.createElement('option'); o.value = id; o.textContent = chars[id].name || id; if (id === cur.id) o.selected = true; sel.appendChild(o); });
-    $('chName').value = cur.name || ''; $('chLevel').value = cur.level;
+    $('chName').value = cur.name || ''; $('chLevel').value = cur.level; $('chVer').textContent = (cur.vers || []).length ? '버전 ' + cur.vers.length : '버전';
     rebuild(); renderAbil();
   }
   var buildTab = localStorage.getItem('d4e_btab') || 'g0';
@@ -1357,7 +1392,7 @@
     document.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { tab(b.getAttribute('data-tab')); }; });
     $('mClose').onclick = closeModal; $('modal').onclick = function (ev) { if (ev.target === $('modal')) closeModal(); };
     $('chSel').onchange = function () { clearTimeout(upTimer); cur = chars[$('chSel').value]; saveChars(); renderEdit(); if (cur && canAuto(cur) && (cur.mt || 0) > (cur.sy || 0)) queueUp(); else syncNote(cur && cur.sy && canAuto(cur) ? '저장됨 · ' + (cur.pub ? '팀에 보임' : '내 보관용') : ''); if (!canAuto(cur)) queueUp(); };
-    $('chNew').onclick = function () { cur = newChar(); saveChars(); renderEdit(); };
+    $('chNew').onclick = function () { cur = newChar(); saveChars(); renderEdit(); }; wireVers();
     $('chDel').onclick = function () { var rm = REMOTE[cur.id], mineRemote = !!(ME.hash && rm && rm.ownerHash === ME.hash && !cur.foreign); if (!confirm('「' + (cur.name || '') + '」을(를) 지울까요?' + (mineRemote ? '\n저장된 것도 함께 지워져서 다른 기기와 팀 시트에서도 사라져요.' : '\n이 브라우저에서만 지워져요.'))) return; clearTimeout(upTimer);
       if (mineRemote) { var did = cur.id; D4EShare.del(did).catch(function (e) { toast('저장된 것을 지우지 못했어요: ' + e.message, true); }); delete REMOTE[did]; } delete SNAP[cur.id]; delete chars[cur.id]; cur = chars[Object.keys(chars)[0]] || newChar(); saveChars(); renderEdit(); };
     $('chName').oninput = function () { cur.name = $('chName').value.trim(); saveChars(); var o = $('chSel').selectedOptions[0]; if (o) o.textContent = cur.name || cur.id; var h = $('sheet').querySelector('h2'); if (h && h.firstChild && h.firstChild.nodeType === 3) h.firstChild.nodeValue = (cur.name || '이름 없음') + ' '; };
