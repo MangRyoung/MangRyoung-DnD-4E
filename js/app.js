@@ -1368,12 +1368,74 @@
   }
 
   /* ---------- 탭 · 시작 ---------- */
+  /* ---------- 버그 · 개선 요청 게시판 (docs kind dnd4e_req, 한 글 = 문서 하나) ---------- */
+  var REQ_KIND = 'dnd4e_req', REQS = [], reqKind = 'bug', reqF = localStorage.getItem('d4e_reqf') || 'open', reqOpen = {};
+  var REQ_ST = { new: ['새 글', 'st-new'], seen: ['확인 중', 'st-seen'], done: ['고침', 'st-done'], hold: ['보류', 'st-hold'], no: ['안 함', 'st-no'] };
+  var REQ_TY = { bug: '버그', idea: '개선 요청' };
+  function reqText(t) { return esc(t || '').replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>'); }
+  function reqWho() { return ME.name || ($('rqName').value || '').trim(); }
+  function reqMine(d) { return !!(ME.hash && d.byHash && d.byHash === ME.hash); }
+  async function loadReqs() {
+    try { var rows = await D4EShare.list(REQ_KIND); REQS = rows.map(function (r) { return Object.assign({ id: r.id }, r.data || {}); }); renderReqs(); }
+    catch (e) { $('rqList').innerHTML = '<p class="hint bad">글을 읽지 못했어요: ' + esc(e.message) + '</p>'; }
+  }
+  function reqCount() { var n = REQS.filter(function (d) { return d.status === 'new' || d.status === 'seen' || !d.status; }).length; $('reqN').textContent = n ? ' ' + n : ''; }
+  function renderReqs() {
+    reqCount(); var gm = isGM('hb');
+    var fl = [['open', '열린 것'], ['bug', '버그'], ['idea', '개선 요청'], ['done', '고친 것'], ['all', '전체']];
+    $('rqFilter').innerHTML = fl.map(function (f) { var n = REQS.filter(function (d) { return reqPass(d, f[0]); }).length; return '<button class="mini' + (reqF === f[0] ? '' : ' ghost') + '" data-rf="' + f[0] + '">' + f[1] + ' ' + n + '</button>'; }).join('');
+    var list = REQS.filter(function (d) { return reqPass(d, reqF); }).sort(function (a, b) { return (b.last || b.at || 0) - (a.last || a.at || 0); });
+    $('rqList').innerHTML = list.length ? list.map(function (d) { var st = REQ_ST[d.status || 'new'] || REQ_ST.new, open = reqOpen[d.id], rp = d.replies || [], can = gm || reqMine(d);
+      var h = '<article class="rq card' + (open ? ' open' : '') + '" data-rq="' + esc(d.id) + '"><div class="rqhead"><span class="rqty ty-' + (d.type === 'idea' ? 'idea' : 'bug') + '">' + (REQ_TY[d.type] || '버그') + '</span><b class="rqt">' + esc(d.title || '(제목 없음)') + '</b><span class="rqst ' + st[1] + '">' + st[0] + '</span></div>' +
+        '<div class="rqmeta">' + esc(d.by || '익명') + ' · ' + verWhen(d.at || 0) + (rp.length ? ' · 답 ' + rp.length : '') + '</div>';
+      if (!open) return h + (d.body ? '<div class="rqprev">' + esc(String(d.body).slice(0, 140)) + (String(d.body).length > 140 ? '…' : '') + '</div>' : '') + '</article>';
+      h += '<div class="rqbody">' + reqText(d.body) + '</div>';
+      h += rp.map(function (r, i) { return '<div class="rqrep' + (r.gm ? ' gm' : '') + '"><div class="rqmeta"><b>' + esc(r.by || '익명') + '</b>' + (r.gm ? ' <span class="rqgm">GM</span>' : '') + ' · ' + verWhen(r.at || 0) + ((gm || (ME.hash && r.byHash === ME.hash)) ? ' <button class="mini ghost" data-rqrdel="' + i + '">지우기</button>' : '') + '</div>' + reqText(r.text) + '</div>'; }).join('');
+      h += '<div class="rqreply"><textarea rows="2" placeholder="답 달기"></textarea><button class="mini" data-rqrep>답 달기</button></div>';
+      h += '<div class="rqacts">' + (gm ? '<label class="hint">상태 <select data-rqst>' + Object.keys(REQ_ST).map(function (k) { return '<option value="' + k + '"' + ((d.status || 'new') === k ? ' selected' : '') + '>' + REQ_ST[k][0] + '</option>'; }).join('') + '</select></label>' : '') + '<span class="sp"></span>' + (can ? '<button class="mini ghost" data-rqdel>글 지우기</button>' : '') + '<button class="mini ghost" data-rqfold>접기</button></div>';
+      return h + '</article>'; }).join('') : '<p class="hint" style="padding:0 4px">' + (REQS.length ? '이 걸러 보기에 맞는 글이 없어요.' : '아직 올라온 글이 없어요.') + '</p>';
+  }
+  function reqPass(d, f) { var st = d.status || 'new'; return f === 'all' ? true : f === 'open' ? (st === 'new' || st === 'seen') : f === 'done' ? st === 'done' : (d.type || 'bug') === f && (st === 'new' || st === 'seen'); }
+  async function reqSave(id, fn) {
+    var row = await D4EShare.get(id, REQ_KIND); if (!row) throw new Error('글이 이미 지워졌어요');
+    var d = row.data || {}; fn(d); await D4EShare.put(id, d, REQ_KIND);
+    var i = REQS.findIndex(function (x) { return x.id === id; }); if (i >= 0) REQS[i] = Object.assign({ id: id }, d); renderReqs();
+  }
+  function wireReqs() {
+    $('rqName').value = localStorage.getItem('d4e_reqname') || '';
+    document.querySelectorAll('.rqkind button').forEach(function (b) { b.onclick = function () { reqKind = b.getAttribute('data-rk'); document.querySelectorAll('.rqkind button').forEach(function (x) { x.classList.toggle('on', x === b); }); }; });
+    $('rqRefresh').onclick = loadReqs;
+    $('rqFilter').onclick = function (ev) { var b = ev.target.closest('[data-rf]'); if (!b) return; reqF = b.getAttribute('data-rf'); localStorage.setItem('d4e_reqf', reqF); renderReqs(); };
+    $('rqPost').onclick = async function () {
+      var t = $('rqTitle').value.trim(), body = $('rqBody').value.trim(), who = reqWho();
+      if (!t) { toast('제목을 적어 주세요', true); return; } if (!who) { toast('이름을 적어 주세요 (서명하면 자동으로 들어가요)', true); $('rqName').focus(); return; }
+      if (!ME.name) localStorage.setItem('d4e_reqname', who);
+      var id = 'q' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), d = { type: reqKind, title: t.slice(0, 120), body: body.slice(0, 5000), by: who, byHash: ME.hash || '', at: Date.now(), last: Date.now(), status: 'new', replies: [] };
+      $('rqPost').disabled = true;
+      try { await D4EShare.put(id, d, REQ_KIND); REQS.unshift(Object.assign({ id: id }, d)); $('rqTitle').value = ''; $('rqBody').value = ''; if (reqF === 'done') reqF = 'open'; renderReqs(); toast('올렸어요. 고마워요!'); }
+      catch (e) { toast('올리지 못했어요: ' + e.message, true); } finally { $('rqPost').disabled = false; }
+    };
+    $('rqList').onclick = async function (ev) {
+      var art = ev.target.closest('[data-rq]'); if (!art) return; var id = art.getAttribute('data-rq'), b = ev.target.closest('button,select,textarea,a');
+      if (!b) { reqOpen[id] = !reqOpen[id]; renderReqs(); return; }
+      try {
+        if (b.hasAttribute('data-rqfold')) { reqOpen[id] = false; renderReqs(); }
+        else if (b.hasAttribute('data-rqrep')) { var ta = art.querySelector('.rqreply textarea'), txt = ta.value.trim(), who = reqWho(); if (!txt) return; if (!who) { toast('위쪽 이름 칸에 이름을 적어 주세요 (서명하면 자동)', true); return; }
+          b.disabled = true; await reqSave(id, function (d) { (d.replies = d.replies || []).push({ by: who, byHash: ME.hash || '', gm: !!(ME.hash && isGM('hb')), text: txt.slice(0, 3000), at: Date.now() }); d.last = Date.now(); if (isGM('hb') && ME.hash && (d.status || 'new') === 'new') d.status = 'seen'; }); }
+        else if (b.hasAttribute('data-rqrdel')) { var i = +b.getAttribute('data-rqrdel'); if (!confirm('이 답을 지울까요?')) return; await reqSave(id, function (d) { (d.replies || []).splice(i, 1); }); }
+        else if (b.hasAttribute('data-rqdel')) { if (!confirm('이 글을 지울까요? 되돌릴 수 없어요.')) return; await D4EShare.del(id, REQ_KIND); REQS = REQS.filter(function (x) { return x.id !== id; }); renderReqs(); toast('지웠어요'); }
+      } catch (e) { toast('저장하지 못했어요: ' + e.message, true); }
+    };
+    $('rqList').onchange = async function (ev) { var s = ev.target.closest('[data-rqst]'); if (!s) return; var id = ev.target.closest('[data-rq]').getAttribute('data-rq');
+      try { await reqSave(id, function (d) { d.status = s.value; d.last = Date.now(); }); toast('상태를 「' + REQ_ST[s.value][0] + '」(으)로 바꿨어요'); } catch (e) { toast('저장하지 못했어요: ' + e.message, true); } };
+  }
   function tab(name) {
     if ((name === 'edit' || name === 'house') && !db) name = 'data';
-    ['edit', 'team', 'house', 'data'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
+    ['edit', 'team', 'house', 'data', 'req'].forEach(function (t) { $('tab-' + t).hidden = t !== name; });
     document.querySelectorAll('.tabs button').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     if (name === 'edit') renderEdit();
     if (name === 'team') renderTeam();
+    if (name === 'req') { $('rqName').hidden = !!ME.name; renderReqs(); loadReqs(); }
     if (name === 'house') { renderGm(); Promise.resolve(D4EHouse.refresh()).then(function () { refreshSign(); renderGm(); }, function () {}); }
   }
   function useData(d) {
@@ -1391,6 +1453,7 @@
     for (var L = 1; L <= 30; L++) { var o = document.createElement('option'); o.value = L; o.textContent = L; $('chLevel').appendChild(o); }
     var id = localStorage.getItem('d4e_cur'); cur = chars[id] || chars[Object.keys(chars)[0]] || newChar();
     document.querySelectorAll('.tabs button').forEach(function (b) { b.onclick = function () { tab(b.getAttribute('data-tab')); }; });
+    wireReqs(); setTimeout(function () { if (D4EShare.ready()) D4EShare.list(REQ_KIND).then(function (rows) { REQS = rows.map(function (r) { return Object.assign({ id: r.id }, r.data || {}); }); reqCount(); }, function () {}); }, 1500);
     $('mClose').onclick = closeModal; $('modal').onclick = function (ev) { if (ev.target === $('modal')) closeModal(); };
     $('chSel').onchange = function () { clearTimeout(upTimer); cur = chars[$('chSel').value]; saveChars(); renderEdit(); if (cur && canAuto(cur) && (cur.mt || 0) > (cur.sy || 0)) queueUp(); else syncNote(cur && cur.sy && canAuto(cur) ? '저장됨 · ' + (cur.pub ? '팀에 보임' : '내 보관용') : ''); if (!canAuto(cur)) queueUp(); };
     $('chNew').onclick = function () { cur = newChar(); saveChars(); renderEdit(); }; wireVers();

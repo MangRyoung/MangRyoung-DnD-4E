@@ -4,9 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="d4e-version" content="202611161218">
+<meta name="d4e-version" content="202611161227">
 <title>4판 캐릭터 제작기</title>
-<link rel="stylesheet" href="css/app.css?v=202611161218">
+<link rel="stylesheet" href="css/app.css?v=202611161227">
 </head>
 <body>
 <header class="top">
@@ -16,6 +16,7 @@
     <button data-tab="team">팀 시트</button>
     <button data-tab="house">하우스룰</button>
     <button data-tab="data">데이터</button>
+    <button data-tab="req">버그 · 요청<span id="reqN" class="tabn"></span></button>
   </nav>
   <span id="online" class="online"></span>
   <span id="status" class="status"></span>
@@ -79,6 +80,21 @@
   <section class="card" id="teamSheet" hidden></section>
 </main>
 
+<main id="tab-req" class="tab" hidden>
+  <section class="card">
+    <h2>버그 · 개선 요청</h2>
+    <p class="hint" style="margin:0 0 10px">이상한 계산, 안 되는 기능, 있었으면 하는 것 — 누구나 자유롭게 적어 주세요. GM이 상태를 바꾸고 답을 달아요.</p>
+    <div class="rqform">
+      <div class="rqkind"><button type="button" data-rk="bug" class="on">버그</button><button type="button" data-rk="idea">개선 요청</button></div>
+      <input type="text" id="rqTitle" placeholder="제목 (예: 7레벨 조우 자리에 3레벨 파워가 안 나와요)">
+      <textarea id="rqBody" rows="4" placeholder="어떤 캐릭터 · 어느 화면에서, 무엇을 했더니 어떻게 됐는지 적어 주시면 고치기 쉬워요."></textarea>
+      <div class="rqsend"><input type="text" id="rqName" placeholder="이름"><span class="sp"></span><button id="rqPost">올리기</button></div>
+    </div>
+  </section>
+  <section class="card bar"><div id="rqFilter" class="rqfil"></div><span class="sp"></span><button id="rqRefresh" class="ghost">새로 읽기</button></section>
+  <div id="rqList" class="rqlist"></div>
+</main>
+
 <main id="tab-house" class="tab" hidden>
   <section class="card" id="gmPanel"></section>
   <section class="card bar"><h2>하우스룰 · 자작 요소</h2><span class="sp"></span>
@@ -135,17 +151,17 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=202611161218"></script>
-<script src="js/ko.js?v=202611161218"></script>
-<script src="js/presets.js?v=202611161218"></script>
-<script src="js/engine.js?v=202611161218"></script>
-<script src="js/data.js?v=202611161218"></script>
-<script src="js/share.js?v=202611161218"></script>
-<script src="js/house.js?v=202611161218"></script>
-<script src="js/app.js?v=202611161218"></script>
-<script src="js/mt_tpl.js?v=202611161218"></script>
-<script src="js/mt.js?v=202611161218"></script>
-<script src="js/presence.js?v=202611161218"></script>
-<script src="js/verbar.js?v=202611161218"></script>
+<script src="js/config.js?v=202611161227"></script>
+<script src="js/ko.js?v=202611161227"></script>
+<script src="js/presets.js?v=202611161227"></script>
+<script src="js/engine.js?v=202611161227"></script>
+<script src="js/data.js?v=202611161227"></script>
+<script src="js/share.js?v=202611161227"></script>
+<script src="js/house.js?v=202611161227"></script>
+<script src="js/app.js?v=202611161227"></script>
+<script src="js/mt_tpl.js?v=202611161227"></script>
+<script src="js/mt.js?v=202611161227"></script>
+<script src="js/presence.js?v=202611161227"></script>
+<script src="js/verbar.js?v=202611161227"></script>
 </body>
 </html>

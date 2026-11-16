@@ -27,5 +27,11 @@
     var r = await c.from(cfg.table).delete().eq('kind', kind || cfg.kind).eq('id', id);
     if (r.error) throw new Error(r.error.message);
   }
-  window.D4EShare = { list: list, put: put, del: del, ready: function () { return !!cl(); }, client: cl };
+  async function get(id, kind) {
+    var c = cl(); if (!c) throw new Error('공유 DB 설정이 없어요.');
+    var r = await c.from(cfg.table).select('id,data,updated_at').eq('kind', kind || cfg.kind).eq('id', id).maybeSingle();
+    if (r.error) throw new Error(r.error.message);
+    return r.data;
+  }
+  window.D4EShare = { list: list, put: put, del: del, get: get, ready: function () { return !!cl(); }, client: cl };
 })();
