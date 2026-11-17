@@ -9,7 +9,7 @@
   var sp = function (k) { return function (e) { return (e.sp || {})[k] || ''; }; };
   var first = function (k) { return function (e) { return String((e.sp || {})[k] || '').split(',')[0].trim(); }; };
   /* 특성의 주인(클래스 · 종족 · 패러곤 패스 …) 찾기: 주는 규칙(grant) · 고르는 규칙(select 의 category) · 종족의 Racial Traits 칸을 따라 내려간다. 데이터가 바뀌면 다시 만든다. */
-  var FT = { 'Class Feature': 1, 'Racial Trait': 1 }, OWNT = { 'Class': '클래스', 'Hybrid Class': '혼성 클래스', 'Race': '종족', 'Paragon Path': '패러곤 패스', 'Epic Destiny': '에픽 데스티니', 'Theme': '테마' }, THRU = { 'Grants': 1, 'Trait Package': 1, 'Build': 1, 'Level1Rules': 1, 'Internal': 1 };
+  var FT = { 'Class Feature': 1, 'Racial Trait': 1 }, OWNT = { 'Class': '클래스', 'Hybrid Class': '하이브리드 클래스', 'Race': '종족', 'Paragon Path': '패러곤 패스', 'Epic Destiny': '에픽 데스티니', 'Theme': '테마' }, THRU = { 'Grants': 1, 'Trait Package': 1, 'Build': 1, 'Level1Rules': 1, 'Internal': 1 };
   var ownMap = null, ownDb = null, preRx = null;
   function owners() { var d = db(); if (ownMap && ownDb === d) return ownMap; ownDb = d; ownMap = {}; preRx = null; var bycat = {};
     Object.keys(FT).forEach(function (t) { (d.byType[t] || []).forEach(function (e) { (e.cat || []).forEach(function (c) { (bycat[c] = bycat[c] || []).push(e.id); }); }); });
