@@ -168,7 +168,7 @@
     return h; }
   function form(m) {
     var r = math(m.lv, roleOf(m), m.tier), lab = function (t, x) { return '<label><small>' + t + '</small>' + x + '</label>'; };
-    var h = '<div class="mform"><div class="mbar"><b>' + (m.id && !m._pack ? '몬스터 고치기' : '새 몬스터') + '</b><span class="sp"></span><button data-mact="save">저장</button><button class="ghost" data-mact="cancel">취소</button></div>';
+    var h = '<div class="mform"><div class="mbar"><b>' + (ext ? '조우에 올린 몬스터 고치기' : m.id && !m._pack ? '몬스터 고치기' : '새 몬스터') + '</b><span class="sp"></span><button data-mact="save">저장</button><button class="ghost" data-mact="cancel">취소</button></div>';
     h += '<div class="mf-img"><div class="mf-imgbox' + (m.img ? '' : ' none') + '" id="monImgBox" title="그림 파일을 여기로 끌어다 놓아도 돼요">' + (m.img ? '<img src="' + esc(m.img) + '" alt="">' : '<span>그림</span>') + '</div><div><button class="mini" data-mact="img">그림 넣기</button> ' + (m.img ? '<button class="mini ghost" data-mact="imgdel">빼기</button>' : '') + '<p class="hint">토큰과 스탯 블록, 조우 판에 쓰여요. 가운데를 정사각형으로 잘라 256px 로 줄여요.</p><input type="file" id="monImgFile" accept="image/*" hidden></div></div>';
     h += '<div class="mf-g">' + lab('이름', inp('n', m.n, '100%')) + lab('레벨', '<input type="number" min="1" max="35" data-mf="lv" value="' + esc(m.lv) + '" style="width:64px">') +
       lab('역할', selc('role', m.role === 'Minion' ? (m.role2 || 'Skirmisher') : m.role, ROLES.map(function (x) { return [x, ROLE_KO[x] + ' ' + x]; }))) + lab('등급', selc('tier', m.tier, TIERS.map(function (x) { return [x, TIER_KO[x]]; }))) +

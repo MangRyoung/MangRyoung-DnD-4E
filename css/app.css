@@ -502,3 +502,19 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 @media(max-width:520px){.pw-g{grid-template-columns:1fr}}
 #encSel .pw-g{grid-template-columns:1fr}
 .pw-in input.grow{flex:1;min-width:90px}.mf-pw label select.wide{width:100%}.pw-in select{max-width:100%}
+
+/* 조우 판: 판은 위에 넓게, 설정 · 올리기 · 올린 몬스터는 아래에 나란히 (11-17) */
+.encgrid,.encgrid.wide{display:flex;flex-direction:column;gap:12px;min-width:0;max-width:100%}.encmain{order:-1;width:100%;max-width:100%;min-width:0}.encside{min-width:0;max-width:100%}
+.encside{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.encside>div{margin-bottom:0}.encside>.encmap,.encside>.encadd,.encside>.encroster{border:1px solid var(--line);border-radius:10px;background:var(--card);padding:10px 12px;min-height:100%}
+.encside>.encmap{align-content:flex-start}.encside>#encSel{grid-column:1/-1}
+.encside>.encroster:empty::after{content:'아직 올린 몬스터가 없어요.';color:var(--sub);font-size:13px}
+.encsels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}.encsels.n1{grid-template-columns:minmax(0,560px)}.encsels.n2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.encsel{border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:var(--card)}.encsel.on{border-color:var(--acc);box-shadow:0 0 0 2px var(--acc2)}
+@media (max-width:1000px){.encside{grid-template-columns:repeat(2,minmax(0,1fr))}.encside>.encmap{grid-column:1/-1}.encsels,.encsels.n3{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.encside,.encsels,.encsels.n2,.encsels.n3{grid-template-columns:1fr}.encsels.n1{grid-template-columns:1fr}}
+/* 올린 몬스터 고치기 창 */
+.encmodal{position:fixed;inset:0;z-index:60;background:rgba(20,14,8,.5);overflow:auto;padding:28px 14px;display:flex;justify-content:center;align-items:flex-start}
+.encmodal-box{background:var(--card);border-radius:12px;width:100%;max-width:1000px;padding:14px 18px 18px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
+@media (max-width:640px){.encmodal{padding:0}.encmodal-box{border-radius:0;min-height:100%;padding:10px 12px}}
+body.noscroll{overflow:hidden}
