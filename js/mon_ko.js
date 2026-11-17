@@ -325,7 +325,7 @@
   var TQ = { one: '하나', two: '둘', three: '셋', four: '넷', five: '다섯', 'one or two': '하나 또는 둘', 'one, two, or three': '하나에서 셋', 'two or three': '둘 또는 셋', 'up to two': '최대 둘', 'up to three': '최대 셋', 'up to four': '최대 넷', 'up to five': '최대 다섯', each: '각각', all: '모두', any: '아무나' };
   var TN = { creature: '개체', creatures: '개체', enemy: '적', enemies: '적', ally: '아군', allies: '아군', target: '대상', targets: '대상', object: '사물', objects: '사물', square: '칸', squares: '칸', 'living creature': '살아 있는 개체', 'living creatures': '살아 있는 개체', 'nonminion creature': '졸개가 아닌 개체', 'nonminion enemy': '졸개가 아닌 적', 'nonminion enemies': '졸개가 아닌 적' };
   var TA = { prone: '넘어진 ', bloodied: '반죽음 상태인 ', dazed: '멍해진 ', stunned: '기절한 ', grabbed: '붙잡힌 ', immobilized: '이동 불가 상태인 ', restrained: '속박된 ', slowed: '둔화된 ', weakened: '약화된 ', blinded: '눈이 먼 ', dominated: '지배된 ', helpless: '무력한 ', unconscious: '의식 없는 ', marked: '표식된 ', surprised: '기습당한 ', deafened: '귀가 먹은 ', petrified: '석화된 ', dying: '빈사 상태인 ', flying: '날고 있는 ', other: '다른 ', adjacent: '인접한 ', nonadjacent: '인접하지 않은 ', visible: '보이는 ', willing: '동의한 ', Medium: '중형 이하 ', Large: '대형 이하 ' };
-  var TZ = { burst: '폭발', blast: '분사', wall: '벽', zone: '구역', aura: '오라', area: '범위', cloud: '구름', line: '선' };
+  var TZ = { burst: '폭발', blast: '분사', wall: '벽', zone: '영역', aura: '오라', area: '범위', cloud: '구름', line: '선' };
   function tgtKo(x) { var t = String(x || '').trim().replace(/\.$/, ''), m, area = '', tail = '';
     if ((m = /^(?:the )?triggering (creature|enemy|ally|attacker)(?: in the (burst|blast|aura))?$/i.exec(t))) return (m[2] ? TZ[m[2].toLowerCase()] + ' 안의 ' : '') + '유발한 ' + ({ creature: '개체', enemy: '적', ally: '아군', attacker: '공격자' })[m[1].toLowerCase()];
     if ((m = /^(.*?) in (?:the )?(burst|blast|wall|zone|aura|area|cloud|line)$/i.exec(t))) { area = TZ[m[2].toLowerCase()] + ' 안의 '; t = m[1]; }
@@ -414,7 +414,7 @@
   function resKo(s) { return String(s || '').replace(/\b(acid|cold|fire|force|lightning|necrotic|poison|psychic|radiant|thunder|disease|fear|charm|sleep|illusion|petrification|gaze)\b/gi, function (x) { return KW[x.toLowerCase()] || ({ petrification: '석화' })[x.toLowerCase()] || x; }).replace(/\binsubstantial\b/gi, '비실체').replace(/\bvariable\b/gi, '가변').replace(/\bsee\b/gi, '참고:'); }
   /* 몬스터 한 마리를 번역한 사본으로 */
   function mon(m) { var o = {}; Object.keys(m).forEach(function (k) { o[k] = m[k]; });
-    o.n = nm(m.n); o.n_en = m.n; o.type = typeKo(m.type); o.senses = sensesKo(m.senses); o.speed = speedKo(m.speed); o.align = ALIGN[m.align] || m.align; o.lang = listKo(m.lang, LANG); o.skills = listKo(m.skills, SKILL);
+    o.n = m.nko || nm(m.n); o.n_en = m.n; o.type = typeKo(m.type); o.senses = sensesKo(m.senses); o.speed = speedKo(m.speed); o.align = ALIGN[m.align] || m.align; o.lang = listKo(m.lang, LANG); o.skills = listKo(m.skills, SKILL);
     o.immune = resKo(m.immune); o.resist = resKo(m.resist); o.vuln = resKo(m.vuln); o.hpnote = !m.hpnote ? '' : /missed attack never damages/i.test(m.hpnote) ? '빗나간 공격은 졸개에게 피해를 주지 못한다.' : body(m.hpnote);
     if (m.trap) { o.flavor = m.flk || m.flavor || ''; }
     o.pw = (m.pw || []).map(function (p) { return { n: p.nk || (m.trap && !p.k ? secKo(p.n) : nm(p.n)), k: p.k, act: p.ak || actKo(p.act), use: p.uk || useKo(p.use), kw: p.kk || kwKo(p.kw), t: p.tk || body(p.t) }; });

@@ -16,7 +16,7 @@
   /* 자료집(영어 원문)은 번역해서 보여 주고, 「원문」 탭을 누른 것만 그대로 보여 준다 */
   function isEn(m) { return !!(m && (m._pack || m.src === 'MM') && !m.ko); }
   var koN = {};
-  function nameKo(m) { if (!isEn(m) || !window.D4E_MONKO) return { n: m.n, type: m.type || '' }; var c = koN[m.id]; if (!c) { c = koN[m.id] = { n: koCache[m.id] ? koCache[m.id].n : D4E_MONKO.name(m.n), type: D4E_MONKO.type ? D4E_MONKO.type(m.type) : (m.type || '') }; } return c; }
+  function nameKo(m) { if (!isEn(m) || !window.D4E_MONKO) return { n: m.n, type: m.type || '' }; var c = koN[m.id]; if (!c) { c = koN[m.id] = { n: koCache[m.id] ? koCache[m.id].n : (m.nko || D4E_MONKO.name(m.n)), type: D4E_MONKO.type ? D4E_MONKO.type(m.type) : (m.type || '') }; } return c; }
   function ko(m) { if (!isEn(m) || !window.D4E_MONKO) return m; if (!koCache[m.id]) { var o = D4E_MONKO.mon(m), g = window.D4EApp && D4EApp.gsub; if (g) o.pw.forEach(function (p) { try { p.t = g(p.t); } catch (e) {} }); koCache[m.id] = o; } return koCache[m.id]; }
   function shown(m) { return isEn(m) && !orig[m.id] ? ko(m) : m; }
 
