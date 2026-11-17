@@ -6,9 +6,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var ROLES = ['Skirmisher', 'Brute', 'Soldier', 'Lurker', 'Controller', 'Artillery'];
-  var ROLE_KO = { Skirmisher: '척후', Brute: '맹수', Soldier: '병사', Lurker: '잠복', Controller: '제어', Artillery: '포격', Minion: '졸개', Blaster: '폭발형', Obstacle: '장애형', Warder: '수비형' };
+  var ROLE_KO = { Skirmisher: '척후', Brute: '맹수', Soldier: '병사', Lurker: '잠복', Controller: '제어', Artillery: '포격', Minion: '하수인', Blaster: '폭발형', Obstacle: '장애형', Warder: '수비형' };
   var TRAP_KO = { Trap: '함정', Hazard: '위험 요소', Terrain: '지형' };
-  var TIERS = ['Standard', 'Elite', 'Solo', 'Minion'], TIER_KO = { Standard: '일반', Elite: '정예', Solo: '단독', Minion: '졸개' };
+  var TIERS = ['Standard', 'Elite', 'Solo', 'Minion'], TIER_KO = { Standard: '일반', Elite: '정예', Solo: '단독', Minion: '하수인' };
   var KINDS = [['', '특성'], ['aura', '오라'], ['m', '근접 기본'], ['M', '근접'], ['r', '원거리 기본'], ['R', '원거리'], ['C', '근거리'], ['A', '범위']];
   var KIND_KO = { '': '', aura: '오라', m: '근접 기본', M: '근접', r: '원거리 기본', R: '원거리', c: '근거리', C: '근거리', a: '범위', A: '범위' };
   var XP = [0, 100, 125, 150, 175, 200, 250, 300, 350, 400, 500, 600, 700, 800, 1000, 1200, 1400, 1600, 2000, 2400, 2800, 3200, 4150, 5100, 6050, 7000, 9000, 11000, 13000, 15000, 19000];
@@ -46,10 +46,10 @@
     if (all) { m.saves = r.saves; m.ap = r.ap; if (!m.senses || /^Perception [+\-]\d+$/.test(m.senses) || /^지각 [+\-]\d+$/.test(m.senses)) m.senses = '지각 ' + (r.perc >= 0 ? '+' : '') + r.perc; }
     return m; }
   function atkTpl(m, kind) { var r = math(m.lv, roleOf(m), m.tier), mn = m.tier === 'Minion';
-    if (kind === 'A' || kind === 'C') return { n: kind === 'A' ? '범위 공격' : '근거리 공격', k: kind, act: '일반', use: '조우', kw: '', t: (kind === 'A' ? '범위 폭발 1 (10칸 안)' : '근거리 분사 3') + '; +' + r.atkNAD + ' vs. 반사; ' + dice(mn ? r.dmg : r.dmgLim * 0.75, mn) + ' 피해.' };
-    if (kind === 'R' || kind === 'r') return { n: '원거리 공격', k: 'r', act: '일반', use: '무제한', kw: '', t: '원거리 10; +' + r.atkAC + ' vs. AC; ' + dice(r.dmg, mn) + ' 피해.' };
-    if (kind === 'lim') return { n: '강한 일격', k: 'M', act: '일반', use: '조우', kw: '', t: '+' + r.atkAC + ' vs. AC; ' + dice(mn ? r.dmg : r.dmgLim, mn) + ' 피해.' };
-    return { n: '기본 공격', k: 'm', act: '일반', use: '무제한', kw: '', t: '+' + r.atkAC + ' vs. AC; ' + dice(r.dmg, mn) + ' 피해.' }; }
+    if (kind === 'A' || kind === 'C') return { n: kind === 'A' ? '범위 공격' : '근거리 공격', k: kind, act: '표준', use: '조우', kw: '', t: (kind === 'A' ? '범위 폭발 1 (10칸 안)' : '근거리 분사 3') + '; +' + r.atkNAD + ' vs. 반사; ' + dice(mn ? r.dmg : r.dmgLim * 0.75, mn) + ' 피해.' };
+    if (kind === 'R' || kind === 'r') return { n: '원거리 공격', k: 'r', act: '표준', use: '무제한', kw: '', t: '원거리 10; +' + r.atkAC + ' vs. AC; ' + dice(r.dmg, mn) + ' 피해.' };
+    if (kind === 'lim') return { n: '강한 일격', k: 'M', act: '표준', use: '조우', kw: '', t: '+' + r.atkAC + ' vs. AC; ' + dice(mn ? r.dmg : r.dmgLim, mn) + ' 피해.' };
+    return { n: '기본 공격', k: 'm', act: '표준', use: '무제한', kw: '', t: '+' + r.atkAC + ' vs. AC; ' + dice(r.dmg, mn) + ' 피해.' }; }
 
   /* ---------- 읽기 · 쓰기 ---------- */
   function gm() { return !window.D4EApp || D4EApp.isGM(); }
@@ -82,13 +82,13 @@
   function sg(v) { v = String(v == null ? '' : v).trim(); return v === '' ? '' : (/^[+\-]/.test(v) ? v : '+' + v); }
   function mod(v, lv) { v = +v; if (!v) return ''; var x = Math.floor((v - 10) / 2) + Math.floor((+lv || 0) / 2); return v + ' (' + (x >= 0 ? '+' : '') + x + ')'; }
   function block(m) {
-    var tier = m.tier && m.tier !== 'Standard' && m.tier !== 'Minion' ? (TIER_KO[m.tier] + ' ') : '', role = m.role === 'Minion' || m.tier === 'Minion' ? '졸개' + (m.role !== 'Minion' ? ' ' + (ROLE_KO[m.role] || m.role) : '') : (ROLE_KO[m.role] || m.role);
+    var tier = m.tier && m.tier !== 'Standard' && m.tier !== 'Minion' ? (TIER_KO[m.tier] + ' ') : '', role = m.role === 'Minion' || m.tier === 'Minion' ? '하수인' + (m.role !== 'Minion' ? ' ' + (ROLE_KO[m.role] || m.role) : '') : (ROLE_KO[m.role] || m.role);
     var ln = function (a, b) { return b ? '<div class="mb-l"><b>' + a + '</b> ' + esc(b) + '</div>' : ''; }, hpN = +m.hp || 0;
     var h = '<div class="mblock r-' + esc(String(m.role || '').toLowerCase()) + ' t-' + esc(String(m.tier || '').toLowerCase()) + '"><div class="mb-h">' + (m.img ? '<img class="mb-img" src="' + esc(m.img) + '" alt="">' : '') + '<div class="mb-t"><b>' + esc(m.n) + (m.n_en ? ' <small>' + esc(m.n_en) + '</small>' : '') + (m.q ? ' <i title="자료집에서 이름을 확실히 못 읽었어요. 확인해 주세요">?</i>' : '') + '</b><span>' + esc(m.type || '') + '</span></div><div class="mb-r"><b>' + (m.trap && !+m.lv ? esc(TRAP_KO[m.ttype] || m.ttype || '함정') : (m.lv || 1) + '레벨 ' + tier + role + (m.leader ? ' (지휘)' : '')) + '</b>' + (m.trap && !+m.xp ? '' : '<span>XP ' + esc(Number(m.xp || 0).toLocaleString()) + '</span>') + '</div></div><div class="mb-b">' + (m.flavor ? '<div class="mb-l mb-fl"><i>' + esc(m.flavor) + '</i></div>' : '');
     if (!m.trap || m.init || m.senses) h += '<div class="mb-l"><b>우선권</b> ' + esc(sg(m.init) || '-') + (m.senses ? ' &nbsp; <b>감각</b> ' + esc(m.senses) : '') + '</div>';
     (m.pw || []).filter(function (p) { return p.k === 'aura'; }).forEach(function (p) { h += '<div class="mb-l"><b>' + esc(p.n) + '</b>' + (p.kw ? ' (' + esc(p.kw) + ')' : '') + ' ' + esc(p.use || '오라') + '; ' + esc(p.t) + '</div>'; });
-    if (!m.trap || m.hp) h += '<div class="mb-l"><b>HP</b> ' + esc(m.hp) + (m.tier === 'Minion' || hpN <= 1 ? '; ' + esc(m.hpnote || '빗나간 공격은 졸개에게 피해를 주지 못한다.') : '; <b>반죽음</b> ' + Math.floor(hpN / 2) + (m.hpnote ? '; ' + esc(m.hpnote) : '')) + '</div>';
-    if (!m.trap || m.ac) h += '<div class="mb-def"><span><small>AC</small><b>' + esc(m.ac) + '</b></span><span><small>인내</small><b>' + esc(m.fort) + '</b></span><span><small>반사</small><b>' + esc(m.ref) + '</b></span><span><small>의지</small><b>' + esc(m.will) + '</b></span></div>';
+    if (!m.trap || m.hp) h += '<div class="mb-l"><b>HP</b> ' + esc(m.hp) + (m.tier === 'Minion' || hpN <= 1 ? '; ' + esc(m.hpnote || '빗나간 공격은 하수인에게 피해를 주지 못한다.') : '; <b>반죽음</b> ' + Math.floor(hpN / 2) + (m.hpnote ? '; ' + esc(m.hpnote) : '')) + '</div>';
+    if (!m.trap || m.ac) h += '<div class="mb-def"><span><small>AC</small><b>' + esc(m.ac) + '</b></span><span><small>Fort</small><b>' + esc(m.fort) + '</b></span><span><small>Ref</small><b>' + esc(m.ref) + '</b></span><span><small>Will</small><b>' + esc(m.will) + '</b></span></div>';
     h += ln('면역', m.immune) + ln('저항', m.resist) + ln('취약', m.vuln) + ln('내성 굴림', m.saves) + ln('이동', m.speed) + ln('행동 점수', m.ap) + '</div><div class="mb-p">';
     (m.pw || []).filter(function (p) { return p.k !== 'aura'; }).forEach(function (p) {
       var head = [p.act, p.use].filter(Boolean).join('; ');
@@ -124,27 +124,27 @@
   /* ---------- 파워 편집 칸 ----------
    * 저장되는 것은 여전히 p.t(글) 하나다. 편집하는 동안만 p._x 에 칸으로 나눠 두고, 읽을 때마다 글로 다시 합친다(pwJoin).
    * 글을 나눴다 합쳐서 원래 글과 같을 때만 칸으로 연다. 다르면 글 그대로 두고 「칸으로 나누기」를 누를 수 있다. */
-  var DEF_KO = { ac: 'AC', fortitude: '인내', fort: '인내', '인내': '인내', reflex: '반사', ref: '반사', '반사': '반사', will: '의지', '의지': '의지' };
-  var ACTS = ['일반', '이동', '보조', '자유', '즉시 방해', '즉시 반응', '기회', ''], USES = ['무제한', '조우', '일일', '재충전 6', '재충전 5 6', '재충전 4 5 6', '재충전 3 4 5 6'];
+  var DEF_KO = { ac: 'AC', fortitude: 'Fort', fort: 'Fort', '인내': 'Fort', reflex: 'Ref', ref: 'Ref', '반사': 'Ref', will: 'Will', '의지': 'Will' };
+  var ACTS = ['표준', '이동', '보조', '자유', '즉각 개입', '즉각 반응', '기회', ''], USES = ['무제한', '조우', '일일', '재충전 6', '재충전 5 6', '재충전 4 5 6', '재충전 3 4 5 6'];
   /* 사거리: 모양을 고르고 숫자를 적는다. [키, 이름, 숫자 칸 수, 기본값] */
-  var RG = { m: [['adj', '인접 (근접 1칸)', 0], ['reach', '간격', 1, [2]]], r: [['rng', '원거리', 1, [10]], ['rng2', '원거리 (가까이/멀리)', 2, [10, 20]]], C: [['cburst', '근거리 폭발', 1, [1]], ['cblast', '근거리 분사', 1, [3]]], A: [['aburst', '범위 폭발', 2, [1, 10]], ['awall', '범위 벽', 2, [8, 10]]] };
+  var RG = { m: [['adj', '인접 (근접 1칸)', 0], ['reach', '도달', 1, [2]]], r: [['rng', '원거리', 1, [10]], ['rng2', '원거리 (가까이/멀리)', 2, [10, 20]]], C: [['cburst', '근거리 폭발', 1, [1]], ['cblast', '근거리 분사', 1, [3]]], A: [['aburst', '범위 폭발', 2, [1, 10]], ['awall', '범위 벽', 2, [8, 10]]] };
   RG.M = RG.m; RG.R = RG.r;
   var RG_ALL = RG.m.concat(RG.r, RG.C, RG.A), RG_LBL = { reach: ['칸'], rng: ['칸'], rng2: ['', '칸'], cburst: [''], cblast: [''], aburst: ['', '칸 안'], awall: ['', '칸 안'] };
-  function rgParse(v) { v = String(v || '').trim(); var m; if (!v || /^(근접|근접 1|간격 1|melee|reach 1)$/i.test(v)) return { t: 'adj' };
-    if ((m = /^(?:간격|reach)\s*(\d+)$/i.exec(v))) return { t: 'reach', a: m[1] }; if ((m = /^(?:원거리|ranged)\s*(\d+)\s*\/\s*(\d+)$/i.exec(v))) return { t: 'rng2', a: m[1], b: m[2] }; if ((m = /^(?:원거리|ranged)\s*(\d+)$/i.exec(v))) return { t: 'rng', a: m[1] };
+  function rgParse(v) { v = String(v || '').trim(); var m; if (!v || /^(근접|근접 1|간격 1|도달 1|melee|reach 1)$/i.test(v)) return { t: 'adj' };
+    if ((m = /^(?:간격|도달|reach)\s*(\d+)$/i.exec(v))) return { t: 'reach', a: m[1] }; if ((m = /^(?:원거리|ranged)\s*(\d+)\s*\/\s*(\d+)$/i.exec(v))) return { t: 'rng2', a: m[1], b: m[2] }; if ((m = /^(?:원거리|ranged)\s*(\d+)$/i.exec(v))) return { t: 'rng', a: m[1] };
     if ((m = /^(?:근거리 폭발|close burst)\s*(\d+)$/i.exec(v))) return { t: 'cburst', a: m[1] }; if ((m = /^(?:근거리 분사|close blast)\s*(\d+)$/i.exec(v))) return { t: 'cblast', a: m[1] };
     if ((m = /^(?:범위 폭발|area burst)\s*(\d+)\s*\(?\s*(?:within\s*)?(\d+)\s*(?:칸 안|칸 이내|squares)?\s*\)?$/i.exec(v))) return { t: 'aburst', a: m[1], b: m[2] }; if ((m = /^(?:범위 벽|area wall)\s*(\d+)\s*\(?\s*(?:within\s*)?(\d+)\s*(?:칸 안|칸 이내|squares)?\s*\)?$/i.exec(v))) return { t: 'awall', a: m[1], b: m[2] };
     return { t: 'txt' }; }
-  function rgText(t, a, b) { a = Math.max(1, +a || 1); b = Math.max(1, +b || 1); return t === 'adj' ? '' : t === 'reach' ? '간격 ' + a : t === 'rng' ? '원거리 ' + a : t === 'rng2' ? '원거리 ' + a + '/' + b : t === 'cburst' ? '근거리 폭발 ' + a : t === 'cblast' ? '근거리 분사 ' + a : t === 'aburst' ? '범위 폭발 ' + a + ' (' + b + '칸 안)' : t === 'awall' ? '범위 벽 ' + a + ' (' + b + '칸 안)' : null; }
+  function rgText(t, a, b) { a = Math.max(1, +a || 1); b = Math.max(1, +b || 1); return t === 'adj' ? '' : t === 'reach' ? '도달 ' + a : t === 'rng' ? '원거리 ' + a : t === 'rng2' ? '원거리 ' + a + '/' + b : t === 'cburst' ? '근거리 폭발 ' + a : t === 'cblast' ? '근거리 분사 ' + a : t === 'aburst' ? '범위 폭발 ' + a + ' (' + b + '칸 안)' : t === 'awall' ? '범위 벽 ' + a + ' (' + b + '칸 안)' : null; }
   function rgForm(t) { return RG_ALL.filter(function (o) { return o[0] === t; })[0]; }
   /* 대상: 빈 값은 기본(한 개체 / 범위 내 모든 개체)이라 글에 적지 않는다 */
-  var TG1 = ['', '한 개체 또는 두 개체', '두 개체', '세 개체', '적 한 명', '반죽음 상태인 개체 하나', '멍해진 개체 하나', '넘어진 개체 하나', '붙잡힌 개체 하나', '이동 불가 상태인 개체 하나', '둔화된 개체 하나', '표식을 남긴 개체 하나', '전투 우위를 가진 개체 하나'];
-  var TGA = ['', '범위 내 모든 적', '범위 내 적 한 명', '범위 내 한 개체 또는 두 개체', '범위 내 반죽음 상태인 모든 적', '범위 내 모든 아군', '범위 내 자신과 모든 아군'];
+  var TG1 = ['', '크리처 하나 또는 둘', '크리처 둘', '크리처 셋', '적 하나', '반죽음 상태인 크리처 하나', '멍한 크리처 하나', '넘어진 크리처 하나', '붙잡힌 크리처 하나', '고정 상태인 크리처 하나', '둔화된 크리처 하나', '견제된 크리처 하나', '전투 우위를 가진 크리처 하나'];
+  var TGA = ['', '범위 내 모든 적', '범위 내 적 하나', '범위 내 크리처 하나 또는 둘', '범위 내 반죽음 상태인 모든 적', '범위 내 모든 아군', '범위 내 자신과 모든 아군'];
   function pwSplit(p) { var x = { trigger: '', range: '', target: '', bonus: '', vs: 'AC', dice: '', dtype: '', hit: '', miss: '', effect: '' }, main = [];
     String(p.t || '').split(/\n/).forEach(function (l) { l = l.trim(); if (!l) return; var mm;
-      if ((mm = /^(?:빗나감|빗나가면|Miss)\s*:\s*/i.exec(l)) && !x.miss) x.miss = l.slice(mm[0].length); else if ((mm = /^(?:효과|Effect)\s*:\s*/i.exec(l)) && !x.effect) x.effect = l.slice(mm[0].length); else if ((mm = /^(?:발동|발동 조건|Trigger)\s*:\s*/i.exec(l)) && !x.trigger) x.trigger = l.slice(mm[0].length); else main.push(l); });
+      if ((mm = /^(?:빗나감|빗나가면|Miss)\s*:\s*/i.exec(l)) && !x.miss) x.miss = l.slice(mm[0].length); else if ((mm = /^(?:효과|Effect)\s*:\s*/i.exec(l)) && !x.effect) x.effect = l.slice(mm[0].length); else if ((mm = /^(?:유발 조건|발동|발동 조건|Trigger)\s*:\s*/i.exec(l)) && !x.trigger) x.trigger = l.slice(mm[0].length); else main.push(l); });
     var t = main.join(' '), am = /([+\-]\d+)\s*vs\.?\s*(AC|Fortitude|Reflex|Will|Fort|Ref|인내|반사|의지)/i.exec(t);
-    if (!am) { var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { x.range = r0[1]; t = t.slice(r0[0].length); } x.hit = t; x.noatk = true; return x; }
+    if (!am) { var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|도달|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { x.range = r0[1]; t = t.slice(r0[0].length); } x.hit = t; x.noatk = true; return x; }
     x.bonus = String(+am[1]); x.vs = DEF_KO[am[2].toLowerCase()] || 'AC';
     t.slice(0, am.index).split(';').map(function (y) { return y.trim(); }).filter(Boolean).forEach(function (y) { if (/^(targets?|대상)\s*:?\s+/i.test(y)) x.target = y.replace(/^(targets?|대상)\s*:?\s*/i, ''); else if (!x.range) x.range = y; else x.target = x.target ? x.target + '; ' + y : y; });
     var rest = t.slice(am.index + am[0].length).replace(/^\s*[;,.]\s*/, ''), dm = /^(\d+d\d+(?:\s*[+\-]\s*\d+)?|\d+)\s+((?:[^,.;(]*?\s)?)(?:damage|피해)/i.exec(rest);
@@ -154,7 +154,7 @@
     if (b !== '' && !x.noatk) head.push((/^[+\-]/.test(b) ? b : '+' + b) + ' vs. ' + (x.vs || 'AC'));
     var dmg = x.dice && !x.noatk ? String(x.dice).trim() + ' ' + (x.dtype ? String(x.dtype).trim() + ' ' : '') + '피해' : '', hit = String(x.hit || '').trim(), tail = dmg && hit ? dmg + (hit.charAt(0) === '(' ? ' ' : ', ') + hit : dmg || hit;
     var line = head.join('; ') + (tail ? (head.length ? '; ' : '') + tail : ''); if (line && !/[.!?)…]$/.test(line)) line += '.';
-    return [x.trigger ? '발동: ' + x.trigger : '', line, x.miss ? '빗나감: ' + x.miss : '', x.effect ? '효과: ' + x.effect : ''].filter(Boolean).join('\n'); }
+    return [x.trigger ? '유발 조건: ' + x.trigger : '', line, x.miss ? '빗나감: ' + x.miss : '', x.effect ? '효과: ' + x.effect : ''].filter(Boolean).join('\n'); }
   function pwSame(a, b) { var n = function (v) { return String(v || '').replace(/\s+/g, ' ').replace(/[.]\s*$/, '').trim(); }; return n(a) === n(b); }
   function pwStd(m, p) { var r = math(m.lv, roleOf(m), m.tier), mn = m.tier === 'Minion' || m.role === 'Minion', x = p._x; if (!x) return; var lim = useOf(p) !== 'at', area = /^[CcAa]$/.test(p.k || '');
     x.noatk = false; x.bonus = String(x.vs === 'AC' ? r.atkAC : r.atkNAD); x.dice = dice(mn ? r.dmg : (lim ? r.dmgLim : r.dmg) * (area ? 0.75 : 1), mn); }
@@ -165,7 +165,7 @@
     var h = '<div class="mf-pw u-' + (kind === 'aura' || !kind ? 'tr' : useOf(p)) + '" data-pi="' + i + '"><div class="pw-h">' + selc('pw.k', kind, KINDS) + '<input type="text" class="pw-n" data-mf="pw.n" value="' + esc(p.n) + '" placeholder="이름">' +
       '<span class="pw-b"><button class="mini ghost" data-mpup="' + i + '" title="위로"' + (i ? '' : ' disabled') + '>↑</button><button class="mini ghost" data-mpdn="' + i + '" title="아래로"' + (i < n - 1 ? '' : ' disabled') + '>↓</button><button class="mini ghost" data-mpcp="' + i + '" title="복사해서 하나 더">복사</button><button class="mini ghost" data-mpdel="' + i + '" title="지우기">×</button></span></div>';
     if (kind === 'aura') { var an = (/\d+/.exec(p.use || '') || ['1'])[0]; return h + '<div class="pw-r"><label>오라 범위<input type="number" min="1" max="20" class="num" data-mf="pw.aur" value="' + esc(an) + '"></label><label class="grow">키워드<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" list="mfKw" placeholder="없으면 비워 두기"></label></div><label class="pw-f">효과<textarea data-mf="pw.t" rows="2" placeholder="오라 안의 적은 …">' + esc(p.t) + '</textarea></label></div>'; }
-    h += '<div class="pw-r"><label>행동<select data-mf="pw.actsel">' + opt(ACTS, p.act || '', '없음') + '</select></label><label>사용<select data-mf="pw.usesel">' + opt(USES.concat(['']), p.use || '', '없음') + '</select></label><label class="grow">키워드<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" list="mfKw" placeholder="화염, 무기…"></label></div>';
+    h += '<div class="pw-r"><label>행동<select data-mf="pw.actsel">' + opt(ACTS, (window.D4E_MONKO && D4E_MONKO.team ? D4E_MONKO.team(p.act || '') : p.act || ''), '없음') + '</select></label><label>사용<select data-mf="pw.usesel">' + opt(USES.concat(['']), p.use || '', '없음') + '</select></label><label class="grow">키워드<input type="text" data-mf="pw.kw" value="' + esc(p.kw) + '" list="mfKw" placeholder="화염, 무기…"></label></div>';
     if (!atk) return h + '<label class="pw-f">내용<textarea data-mf="pw.t" rows="2" placeholder="특성의 효과">' + esc(p.t) + '</textarea></label></div>';
     if (!x) return h + '<label class="pw-f">내용<textarea data-mf="pw.t" rows="3" placeholder="사거리; +명중 vs. 방어; 피해와 효과">' + esc(p.t) + '</textarea></label><div class="pw-m"><span class="hint">글이 복잡해서 그대로 뒀어요.</span><button class="mini ghost" data-mpsplit="' + i + '" title="글을 칸으로 나눠요. 문장 모양이 조금 바뀔 수 있어요">칸으로 나누기</button></div></div>';
     var forms = RG[kind] || RG_ALL, rg = rgParse(x.range); if (x._rt === 'txt') rg = { t: 'txt' }; if (rg.t !== 'txt' && !forms.some(function (o) { return o[0] === rg.t; })) { if (String(x.range || '').trim()) rg = { t: 'txt' }; else { rg = { t: forms[0][0], a: (forms[0][3] || [])[0], b: (forms[0][3] || [])[1] }; x.range = rgText(rg.t, rg.a, rg.b); } }
@@ -174,11 +174,11 @@
       (rg.t === 'txt' ? f('range', x.range, '예: 근거리 폭발 2', 'grow') : (fo && fo[2] >= 1 ? '<input type="number" min="1" max="99" class="num" data-mf="px._ra" value="' + esc(rg.a) + '">' + (lb[0] ? '<i>' + lb[0] + '</i>' : '') : '') + (fo && fo[2] >= 2 ? '<i>' + (rg.t === 'rng2' ? '/' : '·') + '</i><input type="number" min="1" max="99" class="num" data-mf="px._rb" value="' + esc(rg.b) + '"><i>' + (lb[1] || '') + '</i>' : '')) + '</span></label>';
     var tgl = (kind === 'C' || kind === 'A') ? TGA : TG1, tcur = String(x.target || '');
     h += '<label>대상<select data-mf="px._tg" class="wide">' + tgl.map(function (v) { return '<option value="' + esc(v) + '"' + (v === tcur ? ' selected' : '') + '>' + esc(v || (tgl === TGA ? '범위 내 모든 개체 (기본)' : '한 개체 (기본)')) + '</option>'; }).join('') + (tgl.indexOf(tcur) >= 0 ? '' : '<option value="' + esc(tcur) + '" selected>' + esc(tcur) + '</option>') + '<option value="__">직접 적기…</option></select></label></div>';
-    h += '<div class="pw-a"><label>명중<span class="pw-in">+' + f('bonus', x.bonus, '', 'num') + '<i>vs</i><select data-mf="px.vs">' + ['AC', '인내', '반사', '의지'].map(function (d) { return '<option' + (d === x.vs ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></span></label><label class="grow">피해<span class="pw-in">' + f('dice', x.dice, '2d8 + 5', 'dice') + f('dtype', x.dtype, '종류 (화염…)', 'dt', 'mfKw') + '<i>피해</i></span></label><button class="mini" data-mpstd="' + i + '" title="레벨 · 역할의 표준 명중과 피해로 채워요">표준</button></div>';
+    h += '<div class="pw-a"><label>명중<span class="pw-in">+' + f('bonus', x.bonus, '', 'num') + '<i>vs</i><select data-mf="px.vs">' + ['AC', 'Fort', 'Ref', 'Will'].map(function (d) { return '<option' + (d === x.vs ? ' selected' : '') + '>' + d + '</option>'; }).join('') + '</select></span></label><label class="grow">피해<span class="pw-in">' + f('dice', x.dice, '2d8 + 5', 'dice') + f('dtype', x.dtype, '종류 (화염…)', 'dt', 'mfKw') + '<i>피해</i></span></label><button class="mini" data-mpstd="' + i + '" title="레벨 · 역할의 표준 명중과 피해로 채워요">표준</button></div>';
     h += '<label class="pw-f">명중 시 추가 효과<textarea data-mf="px.hit" rows="1" placeholder="대상은 둔화 상태가 된다 (내성 굴림으로 끝남)">' + esc(x.hit) + '</textarea></label>';
     var more = x.miss || x.effect || x.trigger || p._more;
     h += more ? '<div class="pw-g"><label>빗나감' + f('miss', x.miss, '절반 피해') + '</label><label>효과 (명중과 상관없이)' + f('effect', x.effect, '') + '</label><label class="full">발동 조건' + f('trigger', x.trigger, '적이 인접한 칸을 떠날 때') + '</label></div>' : '';
-    h += '<div class="pw-m">' + (more ? '' : '<button class="mini ghost" data-mpmore="' + i + '">+ 빗나감 · 효과 · 발동 조건</button>') + '<span class="sp"></span><button class="mini ghost" data-mptext="' + i + '" title="칸 대신 글 한 덩어리로 적어요">글로 적기</button></div></div>';
+    h += '<div class="pw-m">' + (more ? '' : '<button class="mini ghost" data-mpmore="' + i + '">+ 빗나감 · 효과 · 유발 조건</button>') + '<span class="sp"></span><button class="mini ghost" data-mptext="' + i + '" title="칸 대신 글 한 덩어리로 적어요">글로 적기</button></div></div>';
     return h; }
   function form(m) {
     var r = math(m.lv, roleOf(m), m.tier), lab = function (t, x) { return '<label><small>' + t + '</small>' + x + '</label>'; };
@@ -189,14 +189,14 @@
       '<label class="chk"><input type="checkbox" data-mf="leader"' + (m.leader ? ' checked' : '') + '> 지휘(Leader)</label></div>';
     h += '<div class="mf-auto"><button data-mact="fill" title="레벨 · 역할 · 등급에 맞는 표준 수치로 HP · 방어 · 우선권 · 능력치 · XP 를 다시 채워요">표준 수치로 채우기</button><span class="hint" id="mfHint">기준: 명중 +' + r.atkAC + ' vs AC / +' + r.atkNAD + ' vs 그 밖 · 평균 피해 ' + r.dmg + ' (범위 ' + r.dmgArea + ', 조우 ' + r.dmgLim + ')</span></div>';
     h += '<div class="mf-g">' + lab('크기 · 기원 · 종류', inp('type', m.type, '100%', '예: 대형 원소 인간형 (불)')) + lab('XP', inp('xp', m.xp, '80px')) + '</div>';
-    h += '<div class="mf-g n">' + lab('HP', inp('hp', m.hp)) + lab('AC', inp('ac', m.ac)) + lab('인내', inp('fort', m.fort)) + lab('반사', inp('ref', m.ref)) + lab('의지', inp('will', m.will)) + lab('우선권', inp('init', m.init)) + lab('내성', inp('saves', m.saves)) + lab('행동 점수', inp('ap', m.ap)) + '</div>';
+    h += '<div class="mf-g n">' + lab('HP', inp('hp', m.hp)) + lab('AC', inp('ac', m.ac)) + lab('Fort', inp('fort', m.fort)) + lab('Ref', inp('ref', m.ref)) + lab('Will', inp('will', m.will)) + lab('우선권', inp('init', m.init)) + lab('내성', inp('saves', m.saves)) + lab('행동 점수', inp('ap', m.ap)) + '</div>';
     h += '<div class="mf-g">' + lab('감각', inp('senses', m.senses, '100%', '지각 +5; 암시야')) + lab('이동', inp('speed', m.speed, '100%', '6, 비행 8')) + '</div>';
     h += '<div class="mf-g">' + lab('면역', inp('immune', m.immune, '100%')) + lab('저항', inp('resist', m.resist, '100%', '불 10')) + lab('취약', inp('vuln', m.vuln, '100%')) + '</div>';
     h += '<div class="mf-g n">' + [['근력', 'str'], ['건강', 'con'], ['민첩', 'dex'], ['지능', 'int'], ['지혜', 'wis'], ['매력', 'cha']].map(function (a) { return lab(a[0], inp(a[1], m[a[1]])); }).join('') + '</div>';
     h += '<div class="mf-g">' + lab('성향', inp('align', m.align, '100%')) + lab('언어', inp('lang', m.lang, '100%')) + lab('기술', inp('skills', m.skills, '100%')) + lab('장비', inp('eq', m.eq, '100%')) + '</div>';
     h += '<div class="mf-ph"><b>파워 · 특성</b><span class="sp"></span><button class="mini" data-madd="m">+ 기본 공격</button><button class="mini" data-madd="r">+ 원거리</button><button class="mini" data-madd="lim">+ 조우 일격</button><button class="mini" data-madd="C">+ 근거리</button><button class="mini" data-madd="A">+ 범위</button><button class="mini ghost" data-madd="trait">+ 특성</button><button class="mini ghost" data-madd="aura">+ 오라</button></div>';
     h += (m.pw || []).map(function (p, i) { return pwCard(m, p, i); }).join('') || '<p class="hint">위 단추로 공격이나 특성을 넣어 주세요. 명중과 피해는 표준 수치로 미리 채워져요.</p>';
-    h += '<datalist id="mfKw">' + ['무기', '주문구', '화염', '냉기', '전격', '천둥', '산성', '독', '사령', '광휘', '정신', '역장', '공포', '매혹', '환영', '순간이동', '치유', '변신', '질병', '영역', '집중', '주시'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist><datalist id="mfTg">' + ['한 개체', '적 한 명', '한 개체 또는 두 개체', '범위 내 모든 개체', '범위 내 모든 적', '멍해진 개체 하나'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist>';
+    h += '<datalist id="mfKw">' + ['무기', '도구', '화염', '냉기', '전기', '천둥', '산성', '독성', '사령', '광휘', '염동', '역장', '공포', '매혹', '환영', '순간이동', '치유', '변신', '질병', '영역', '집중', '주시'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist><datalist id="mfTg">' + ['한 개체', '적 한 명', '한 개체 또는 두 개체', '범위 내 모든 개체', '범위 내 모든 적', '멍해진 개체 하나'].map(function (x) { return '<option value="' + x + '">'; }).join('') + '</datalist>';
     h += lab('메모 (GM만 보는 전술 · 설명)', '<textarea data-mf="note" rows="2">' + esc(m.note || '') + '</textarea>') + '<div class="mf-prev"><small>미리 보기</small>' + block(m) + '</div></div>';
     return h; }
   function readForm() { var m = editing, box = $(ext ? ext.box : 'monView'); if (!m || !box) return;
@@ -225,8 +225,8 @@
       else if (t.id === 'monFile') { var f = t.files && t.files[0]; if (!f) return; note('자료집을 읽는 중이에요…'); readPackFile(f).then(function (a) { return setLocal(a).then(function () { loadPack(); note('자료집 ' + a.length + '개를 이 브라우저에 불러왔어요.'); renderList(); }); }).catch(function (e) { note(''); alert('불러오지 못했어요: ' + e.message); }); t.value = ''; }
       else if (t.closest('.mform') && editing && /^(pw\.(k|actsel|usesel)|px\.(_rt|_tg))$/.test(t.getAttribute('data-mf') || '')) { var mfk = t.getAttribute('data-mf'), pr = t.closest('[data-pi]'), pq = editing.pw[+pr.getAttribute('data-pi')];
         if (mfk === 'px._rt' && pq && pq._x) { readForm(); var nf = rgForm(t.value), nd = (nf && nf[3]) || []; pq._x._rt = t.value; pq._x._ra = nd[0]; pq._x._rb = nd[1]; if (t.value !== 'txt') pq._x.range = rgText(t.value, nd[0], nd[1]); pq.t = pwJoin(pq._x); }
-        else if (mfk === 'px._tg' && pq && pq._x) { readForm(); if (t.value === '__') { var tv = prompt('대상을 적어 주세요 (예: 불타고 있는 개체 하나)', pq._x.target || ''); if (tv != null) pq._x.target = tv.trim(); } pq.t = pwJoin(pq._x); }
-        else if (t.value === '__' && pq) { var cur = mfk === 'pw.actsel' ? pq.act : pq.use, v = prompt(mfk === 'pw.actsel' ? '행동을 적어 주세요 (예: 즉시 반응, 자유)' : '사용 조건을 적어 주세요 (예: 재충전 — 처음 반죽음이 될 때)', cur || ''); readForm(); if (v != null) { if (mfk === 'pw.actsel') pq.act = v.trim(); else pq.use = v.trim(); } } else { readForm(); if (mfk === 'pw.k' && pq) { delete pq._x; delete pq._raw; var RF = RG[pq.k]; if (RF) { var sx = pwSplit(pq), g = rgParse(sx.range); if (g.t !== 'txt' && !RF.some(function (o) { return o[0] === g.t; })) { var d0 = RF[0][3] || []; sx.range = rgText(RF[0][0], d0[0], d0[1]); sx.target = ''; pq._x = sx; pq.t = pwJoin(sx); } } if (pq.k === 'aura' && !/오라/.test(pq.use || '')) pq.use = '오라 1'; else if (pq.k !== 'aura' && /^오라/.test(pq.use || '')) pq.use = ''; } }
+        else if (mfk === 'px._tg' && pq && pq._x) { readForm(); if (t.value === '__') { var tv = prompt('대상을 적어 주세요 (예: 불타고 있는 크리처 하나)', pq._x.target || ''); if (tv != null) pq._x.target = tv.trim(); } pq.t = pwJoin(pq._x); }
+        else if (t.value === '__' && pq) { var cur = mfk === 'pw.actsel' ? pq.act : pq.use, v = prompt(mfk === 'pw.actsel' ? '행동을 적어 주세요 (예: 즉각 반응, 자유)' : '사용 조건을 적어 주세요 (예: 재충전 — 처음 반죽음이 될 때)', cur || ''); readForm(); if (v != null) { if (mfk === 'pw.actsel') pq.act = v.trim(); else pq.use = v.trim(); } } else { readForm(); if (mfk === 'pw.k' && pq) { delete pq._x; delete pq._raw; var RF = RG[pq.k]; if (RF) { var sx = pwSplit(pq), g = rgParse(sx.range); if (g.t !== 'txt' && !RF.some(function (o) { return o[0] === g.t; })) { var d0 = RF[0][3] || []; sx.range = rgText(RF[0][0], d0[0], d0[1]); sx.target = ''; pq._x = sx; pq.t = pwJoin(sx); } } if (pq.k === 'aura' && !/오라/.test(pq.use || '')) pq.use = '오라 1'; else if (pq.k !== 'aura' && /^오라/.test(pq.use || '')) pq.use = ''; } }
         setTimeout(renderView, 0); }
       else if (t.closest('.mform') && editing && /^(role|tier|lv)$/.test(t.getAttribute('data-mf') || '')) { readForm(); var r = math(editing.lv, roleOf(editing), editing.tier), hn = $('mfHint'); if (hn) hn.textContent = '기준: 명중 +' + r.atkAC + ' vs AC / +' + r.atkNAD + ' vs 그 밖 · 평균 피해 ' + r.dmg + ' (범위 ' + r.dmgArea + ', 조우 ' + r.dmgLim + ')'; var pv = root.querySelector('.mf-prev'); if (pv) pv.innerHTML = '<small>미리 보기</small>' + block(editing); } });
     root.addEventListener('click', async function (ev) { var t = ev.target, row = t.closest('[data-mid]'), act = t.closest('[data-mact]'), add = t.closest('[data-madd]');
@@ -270,16 +270,16 @@
       : /standard|일반|표준/.test(a) ? ['일반', '1. 기본 행동', 'Standard Action'] : /move|이동/.test(a) ? ['이동', '2. 이동 행동', 'Move Action'] : /minor|보조|간략/.test(a) ? ['간략', '3. 간략 행동', 'Minor Action'] : /free|자유/.test(a) ? ['자유 행동', '5. 자유 행동', 'Free Action'] : ['-', '6. 행동 없음', 'No Action']; }
   var NATK_ACT = { '일반': '기본 행동', '이동': '이동 행동', '간략': '간략 행동', '즉각 반응': '즉각 반응', '즉각 개입': '즉각 개입', '기회 행동': '기회 행동', '자유 행동': '자유 행동', '-': '행동 없음' };
   /* 파워 한 줄 → 맵툴 공격 틀의 칸들. 본문에서 사거리 · 대상 · 명중 · 피해 주사위 · 피해 종류 · 명중 효과를 읽어 낸다 */
-  function parsePw(p) { var sx0 = pwSplit(p), t = String(p.t || '').split(/\n/).filter(function (l) { return !/^\s*(빗나감|빗나가면|효과|발동|발동 조건)\s*:/.test(l); }).join(' ').trim(), u = String(p.use || ''), o = { name: p.n || KIND_KO[p.k] || '특성', usage: useOf(p), act: actOf(p), trait: p.kw || '', recharge: '', trigger: '', range: '', target: '', bonus: '', vs: '', dice: '', dtype: '', hit: '', effect: '' };
+  function parsePw(p) { var sx0 = pwSplit(p), t = String(p.t || '').split(/\n/).filter(function (l) { return !/^\s*(빗나감|빗나가면|효과|유발 조건|발동|발동 조건)\s*:/.test(l); }).join(' ').trim(), u = String(p.use || ''), o = { name: p.n || KIND_KO[p.k] || '특성', usage: useOf(p), act: actOf(p), trait: p.kw || '', recharge: '', trigger: '', range: '', target: '', bonus: '', vs: '', dice: '', dtype: '', hit: '', effect: '' };
     var fin = function (r) { if (sx0.trigger) r.trigger = sx0.trigger; if (sx0.miss) r.hit = (r.hit ? r.hit + ' ' : '') + '빗나감: ' + sx0.miss; if (sx0.effect) r.effect = (r.effect ? r.effect + ' ' : '') + sx0.effect; return r; };
     var rc = /(recharge[sd]?[^;]*|재충전[^;]*)/i.exec(u); if (rc) o.recharge = rc[1].replace(/^recharges?\s*/i, '').replace(/^재충전\s*/, '') || '있음';
     var tg = /((?:when|if)\s[^;]*|[^;]*(?:때|하면))$/i.exec(u); if (tg && !rc) o.trigger = tg[1].trim(); else { var tg2 = u.split(';').map(function (x) { return x.trim(); }).filter(function (x) { return /^(when|if)\b|때$|하면$/i.test(x); })[0]; if (tg2) o.trigger = tg2; }
     var am = /([+\-]\d+)\s*vs\.?\s*(AC|Fortitude|Reflex|Will|Fort|Ref|인내|반사|의지)/i.exec(t);
-    if (!am) { o.effect = t; var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { o.range = r0[1]; o.effect = t.slice(r0[0].length); } return fin(o); }
+    if (!am) { o.effect = t; var r0 = /^((?:Reach|Ranged|Close|Area|Melee|간격|도달|원거리|근거리|범위|근접)[^;.]*)[;.]\s*/i.exec(t); if (r0) { o.range = r0[1]; o.effect = t.slice(r0[0].length); } return fin(o); }
     o.bonus = String(+am[1]); o.vs = { ac: 'AC', fortitude: 'Fort', fort: 'Fort', '인내': 'Fort', reflex: 'Ref', ref: 'Ref', '반사': 'Ref', will: 'Will', '의지': 'Will' }[am[2].toLowerCase()] || 'AC';
     t.slice(0, am.index).split(';').map(function (x) { return x.trim(); }).filter(Boolean).forEach(function (x) { if (/^targets?\b|대상/i.test(x)) o.target = x.replace(/^(targets?|대상)\s*:?\s*/i, ''); else if (!o.range) o.range = x; else o.trigger = o.trigger || x; });
     if (!o.range) o.range = (p.k === 'm' || p.k === 'M') ? '근접 1' : (p.k === 'r' || p.k === 'R') ? '원거리 10' : '';
-    if (!o.target && /^[CcAa]$/.test(p.k || '')) o.target = '범위 내 모든 개체';
+    if (!o.target && /^[CcAa]$/.test(p.k || '')) o.target = '범위 내 모든 크리처';
     var rest = t.slice(am.index + am[0].length).replace(/^\s*[;,.]\s*/, ''), dm = /^(\d+d\d+(?:\s*[+\-]\s*\d+)?|\d+)\s+([^,.;(]*?(?:damage|피해))/i.exec(rest);
     if (dm) { o.dice = dm[1].replace(/\s+/g, ''); o.dtype = dm[2].replace(/damage/i, '피해').trim() + '.'; o.hit = rest.slice(dm[0].length).replace(/^\s*[,;.]?\s*(and\s+)?/i, '').trim(); } else o.hit = rest;
     return fin(o); }

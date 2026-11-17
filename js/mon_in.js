@@ -4,7 +4,7 @@
 (function () {
   'use strict';
   var ROLE = { '솔져': 'Soldier', '브루트': 'Brute', '아틸러리': 'Artillery', '스커미셔': 'Skirmisher', '컨트롤러': 'Controller', '럴커': 'Lurker', soldier: 'Soldier', brute: 'Brute', artillery: 'Artillery', skirmisher: 'Skirmisher', controller: 'Controller', lurker: 'Lurker', '병사': 'Soldier', '맹수': 'Brute', '포격': 'Artillery', '척후': 'Skirmisher', '제어': 'Controller', '잠복': 'Lurker' };
-  var TIER = { '미니언': 'Minion', '엘리트': 'Elite', '솔로': 'Solo', minion: 'Minion', elite: 'Elite', solo: 'Solo', '졸개': 'Minion', '정예': 'Elite', '단독': 'Solo' };
+  var TIER = { '미니언': 'Minion', '엘리트': 'Elite', '솔로': 'Solo', minion: 'Minion', elite: 'Elite', solo: 'Solo', '졸개': 'Minion', '하수인': 'Minion', '정예': 'Elite', '단독': 'Solo' };
   var FOOT = { 'fwABAc9lFSoFAAAAKgABAQ==': 1, 'fwABAdBlFSoGAAAAKgABAA==': 2, 'fwABAdBlFSoHAAAAKgABAA==': 3, 'fwABAdFlFSoIAAAAKgABAQ==': 4 };
   var SIZE_KO = { 2: '대형', 3: '초대형', 4: '거대형' };
   var ACT = { '일반': '일반', '이동': '이동', '간략': '보조', '보조': '보조', '자유 행동': '자유', '자유': '자유', '즉각 개입': '즉시 방해', '즉시 방해': '즉시 방해', '즉각 반응': '즉시 반응', '즉시 반응': '즉시 반응', '기회 행동': '기회', '기회': '기회', '-': '', '': '' };
