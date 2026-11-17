@@ -188,6 +188,11 @@
   /* 공용 번역: 요소 id 기준으로 공유 DB(kind = dnd4e_tr)에 둔다. 서명한 팀원이면 누구나 도감에서 쓴다.
    * 시트의 번역 묶음(ch.tr)은 이 묶음을 「밑바탕」으로 삼는다(프로토타입) — 시트에 자기 번역이 있으면 그것, 없으면 공용 번역이 보인다. 저장(JSON)에는 자기 것만 들어간다. */
   var SHTR = {}, SHTR_KIND = 'dnd4e_tr', shLoaded = false;
+  /* 기본 번역 묶음(data/tr-pack.json, 감우가 옮긴 히로익 파워 · 클래스 특성 · 마법 물품): 공용 번역의 밑바탕.
+   * 보이는 순서는 시트의 자기 번역 → 공용 번역 → 기본 번역 → 용어 자동 번역. 공용 번역 DB(dnd4e_tr)에는 넣지 않는다. */
+  var TRPACK = {}; Object.setPrototypeOf(SHTR, TRPACK);
+  async function loadTrPack() { try { var r = await fetch('data/tr-pack.json?v=' + ((document.querySelector('meta[name=d4e-version]') || {}).content || ''), { cache: 'no-cache' }); if (!r.ok) return 0; var j = await r.json(), m = j && (j.tr || j); if (m && typeof m === 'object') Object.keys(m).forEach(function (k) { TRPACK[k] = m[k]; }); return Object.keys(TRPACK).length; } catch (e) { return 0; } }
+  function packTr(id) { return !ownTr(SHTR, id) && Object.prototype.hasOwnProperty.call(TRPACK, id); }
   function shTr(o) { o = o || {}; if (o !== SHTR && Object.getPrototypeOf(o) !== SHTR) Object.setPrototypeOf(o, SHTR); return o; }
   function ownTr(map, id) { return !!map && Object.prototype.hasOwnProperty.call(map, id); }
   async function loadShTr() { if (!D4EShare.ready()) return; try { var rows = await D4EShare.list(SHTR_KIND); Object.keys(SHTR).forEach(function (k) { delete SHTR[k]; }); rows.forEach(function (r) { if (r.data) SHTR[r.id] = r.data; }); shLoaded = true; } catch (e) {} }
@@ -274,8 +279,8 @@
   function trBar(e) {
     var has = glossAuto || !!TR(e), isP = e.t === 'Power' && e.sp && e.sp['Power Usage'], edd = isP && calcCtx && calcCtx.ch && calcCtx.ch.ed && calcCtx.ch.ed[e.id]; if (!has && !trCtx.edit && !edd) return '';
     return '<div class="trb" data-id="' + esc(e.id) + '">' + (has ? '<span class="trtab"><button data-tr="vtr" class="' + (trOrig[e.id] ? '' : 'on') + '">번역</button><button data-tr="vor" class="' + (trOrig[e.id] ? 'on' : '') + '">원문</button></span>' : '') +
-      (!trCtx.shared && SHTR[e.id] && !ownTr(trCtx.map, e.id) && !trOrig[e.id] ? '<span class="shtag" title="도감에서 팀이 같이 쓰는 번역이에요' + (SHTR[e.id].by ? ' · ' + esc(SHTR[e.id].by) : '') + '">공용 번역</span>' : '') + (trCtx.shared && !trCtx.edit ? '<span class="hint">서명하면 공용 번역을 쓸 수 있어요</span>' : '') +
-      (trCtx.edit ? '<button class="mini ghost" data-tr="edit">' + (trCtx.shared ? (SHTR[e.id] ? '공용 번역 고치기' : '공용 번역 쓰기') : ownTr(trCtx.map, e.id) ? '내 번역 고치기' : SHTR[e.id] ? '내 번역으로 따로 쓰기' : '내 번역 쓰기') + '</button>' + (isP && !trCtx.shared ? '<button class="mini ghost" data-tr="ped">성능 고치기</button>' : '') : '') + (edd ? '<span class="pedb" title="이 시트에서 성능을 고친 파워예요">고침</span>' : '') + '</div>';
+      (!trCtx.shared && ownTr(SHTR, e.id) && !ownTr(trCtx.map, e.id) && !trOrig[e.id] ? '<span class="shtag" title="도감에서 팀이 같이 쓰는 번역이에요' + (SHTR[e.id].by ? ' · ' + esc(SHTR[e.id].by) : '') + '">공용 번역</span>' : '') + (packTr(e.id) && !(trCtx.map !== SHTR && ownTr(trCtx.map, e.id)) && !trOrig[e.id] ? '<span class="shtag pk" title="미리 옮겨 둔 기본 번역이에요. 공용 번역이나 내 번역을 쓰면 그쪽이 먼저 보여요">기본 번역</span>' : '') + (trCtx.shared && !trCtx.edit ? '<span class="hint">서명하면 공용 번역을 쓸 수 있어요</span>' : '') +
+      (trCtx.edit ? '<button class="mini ghost" data-tr="edit">' + (trCtx.shared ? (ownTr(SHTR, e.id) ? '공용 번역 고치기' : '공용 번역 쓰기') : ownTr(trCtx.map, e.id) ? '내 번역 고치기' : SHTR[e.id] ? '내 번역으로 따로 쓰기' : '내 번역 쓰기') + '</button>' + (isP && !trCtx.shared ? '<button class="mini ghost" data-tr="ped">성능 고치기</button>' : '') : '') + (edd ? '<span class="pedb" title="이 시트에서 성능을 고친 파워예요">고침</span>' : '') + '</div>';
   }
   function trFields(e) {
     var sp = e.sp || {}, out = [{ k: '_n', label: '이름', orig: e.n, one: true }], seen = {};
@@ -1699,6 +1704,7 @@
       houseChanged: function () { if (!$('tab-edit').hidden) renderEdit(); status('룰 요소 ' + Object.keys(db.byId).length.toLocaleString() + '개 · 하우스룰 ' + D4EHouse.count() + '개'); } };
     D4EHouse.start();
     await loadSign(); loadShTr().then(function () { if (shLoaded && Object.keys(SHTR).length && db && cur && !$('tab-edit').hidden) rebuild(); });
+    loadTrPack().then(function (n) { if (n && db && cur && !$('tab-edit').hidden) rebuild(); if (n && window.D4EDex && !$('tab-data').hidden) D4EDex.render(); });
     status('데이터를 찾는 중…');
     /* 사이트의 기본 데이터가 먼저(고쳐 올린 판이 모두에게 바로 가게). 사이트에서 못 읽을 때만 이 브라우저에 예전에 보관한 것을 쓴다. */
     var d = (await D4EData.loadSite()) || (await D4EData.loadStored());

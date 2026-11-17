@@ -462,6 +462,7 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .drow.u-at{border-left-color:var(--at)}.drow.u-enc{border-left-color:var(--enc)}.drow.u-day{border-left-color:var(--day)}.drow.t-heroic{border-left-color:#8a5a2b}.drow.t-paragon{border-left-color:#3d6a8a}.drow.t-epic{border-left-color:#7a2b6b}
 .dexview .pc,.dexview .gc{max-width:640px}.dexid{font-size:11px;margin-top:6px;word-break:break-all}
 .shtag{font-size:11px;font-weight:700;color:#3d6a8a;border:1px solid #3d6a8a;border-radius:999px;padding:0 7px;margin-right:6px;white-space:nowrap}
+.shtag.pk{color:#6a5a2a;border-color:#a08a4a}
 /* ---------- 조우 판 ---------- */
 .monviews{display:flex;gap:5px;margin:4px 0 10px}
 .enclist{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}.encrow{display:flex;gap:10px;align-items:baseline;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer}.encrow:hover{background:var(--acc2)}.encrow span{color:var(--sub);font-size:12.5px}
