@@ -43,7 +43,7 @@
     root.querySelectorAll('[data-mview]').forEach(function (b) { b.classList.toggle('on', b.getAttribute('data-mview') === view); });
     $('monListWrap').hidden = view !== 'list'; $('encWrap').hidden = view !== 'enc' || !gm; if (view === 'enc' && gm) { if (!loaded) { $('encBody').innerHTML = '<p class="hint">읽는 중이에요.</p>'; Promise.all([load(), M().load()]).then(render); } else render(); } }
   function render() { var box = $('encBody'); if (!box) return; if (monEdit) { monEdit = false; M().editEnd(); }
-    if (!enc) { box.innerHTML = '<div class="mbar"><button id="encNew">+ 새 조우</button><span class="hint" id="encMsg"></span></div>' + (list.length ? '<div class="enclist">' + list.map(function (e) { var n = (e.toks || []).length; return '<div class="encrow" data-eid="' + esc(e.id) + '"><b>' + esc(e.name || '이름 없음') + '</b><span>일행 ' + (e.pn || 4) + '명 · ' + (e.plv || 1) + '레벨 · 몬스터 ' + n + '마리' + (e.hasMap ? ' · 맵 있음' : '') + (e.by ? ' · ' + esc(e.by) : '') + '</span></div>'; }).join('') + '</div>' : '<p class="hint">아직 저장한 조우가 없어요. 「+ 새 조우」로 시작해 보세요.</p>'); return; }
+    if (!enc) { box.innerHTML = '<div class="mbar"><button id="encNew">+ 새 조우</button><button id="encMapIn" class="ghost" title="맵툴 맵 파일(.rpmap)을 읽어 맵 · 격자 · 놓인 몬스터를 새 조우로 만들어요. 여기에 파일을 끌어다 놓아도 돼요">맵툴 맵 불러오기</button><input type="file" id="encMapInFile" accept=".rpmap" hidden><span class="hint" id="encMsg"></span></div>' + (list.length ? '<div class="enclist">' + list.map(function (e) { var n = (e.toks || []).length; return '<div class="encrow" data-eid="' + esc(e.id) + '"><b>' + esc(e.name || '이름 없음') + '</b><span>일행 ' + (e.pn || 4) + '명 · ' + (e.plv || 1) + '레벨 · 몬스터 ' + n + '마리' + (e.hasMap ? ' · 맵 있음' : '') + (e.by ? ' · ' + esc(e.by) : '') + '</span></div>'; }).join('') + '</div>' : '<p class="hint">아직 저장한 조우가 없어요. 「+ 새 조우」로 시작해 보세요.</p>'); return; }
     var h = '<div class="mbar"><button class="ghost" id="encBack">← 목록</button><input type="text" id="encName" value="' + esc(enc.name) + '" placeholder="조우 이름"><label>일행 <input type="number" id="encPn" min="1" max="10" value="' + esc(enc.pn) + '">명</label><label><input type="number" id="encPlv" min="1" max="30" value="' + esc(enc.plv) + '">레벨</label>' +
       '<span class="sp"></span><button id="encSave"' + (dirty ? ' class="need"' : '') + '>저장</button><button id="encMapOut" title="맵 그림 · 격자 · 놓은 자리 그대로 맵툴 맵 파일(.rpmap)로 받아요. 맵툴에서 「맵 → 맵 가져오기」로 열어요">맵툴 맵 받기</button><button class="ghost" id="encTok" title="올린 몬스터를 맵툴 토큰(.rptok) 묶음으로 받아요">토큰 묶음 받기</button>' + (enc.id ? '<button class="ghost" id="encDel">지우기</button>' : '') + '</div>' +
       '<div id="encXp" class="encxp"></div><p class="hint" id="encMsg"></p>' +
@@ -109,6 +109,23 @@
     var free = function (x, y) { for (var a = 0; a < s; a++) for (var b = 0; b < s; b++) if (occ[(x + a) + ',' + (y + b)]) return false; return true; }, px = 1, py = 1, found = false;
     for (var y = 1; y < rows - s && !found; y++) for (var x = 1; x < cols - s && !found; x++) if (free(x, y)) { px = x; py = y; found = true; }
     enc.toks.push({ m: mi, x: px, y: py, s: s }); selTok = enc.toks.length - 1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); }
+  /* 맵툴 파일 불러오기: .rpmap → 조우(맵 · 격자 · 몬스터 · 자리), .rptok → 지금 조우에 몬스터 한 마리. at 은 판 위 떨어뜨린 칸 */
+  async function importMt(files, at) { var I = window.D4EMonIn, L = (files || []).filter(function (f) { return f && I && (I.isTok(f) || I.isMap(f)); }); if (!L.length) return false;
+    if (monEdit) { alert('몬스터를 고치는 중에는 불러올 수 없어요.'); return true; }
+    for (var i = 0; i < L.length; i++) { var f = L[i]; try {
+      if (I.isMap(f)) { var r = await I.mapFile(f); if (enc && (enc.toks.length || mapUrl) && !confirm('지금 조우를 두고 「' + f.name + '」을(를) 새 조우로 열까요? 저장하지 않은 것은 사라져요.')) continue;
+        enc = blank(); enc.name = r.name || '불러온 조우'; mapUrl = ''; mapDirty = false; selTok = -1; pickDefault(); var k = 1;
+        if (r.mapFile) { try { var mp = await readMap(r.mapFile); mapUrl = mp.url; enc.w = mp.w; enc.h = mp.h; k = mp.k || 1; mapDirty = true; } catch (e) { msg('맵 그림은 읽지 못했어요: ' + e.message); } }
+        enc.cell = Math.max(8, Math.round(r.cell * k)); enc.ox = Math.round(r.ox * k); enc.oy = Math.round(r.oy * k); enc.ms = 1;
+        r.mons.forEach(function (m) { m.src = 'maptool'; M().fill(m); enc.mons.push(m); }); var g = gridN(); r.toks.forEach(function (t) { enc.toks.push({ m: t.m, x: Math.max(0, Math.min(g.x - t.s, t.x)), y: Math.max(0, Math.min(g.y - t.s, t.y)), s: t.s }); });
+        if (!r.mapFile) { var mx = 10, my = 8; enc.toks.forEach(function (t) { mx = Math.max(mx, t.x + t.s + 1); my = Math.max(my, t.y + t.s + 1); }); enc.w = mx * enc.cell; enc.h = my * enc.cell; }
+        dirty = true; render(); msg('「' + f.name + '」에서 맵' + (r.mapFile ? '' : '(그림 없음)') + '과 몬스터 ' + r.mons.length + '종 ' + r.toks.length + '마리를 불러왔어요. 저장을 눌러야 남아요.'); }
+      else { if (!enc) { enc = blank(); mapUrl = ''; mapDirty = false; selTok = -1; pickDefault(); render(); } var o = await I.tokenFile(f), snap = o.m; snap.src = 'maptool'; M().fill(snap); delete snap.id; var key = JSON.stringify([snap.n, snap.lv, snap.hp, snap.xp]);
+        var mi = enc.mons.findIndex(function (x) { return JSON.stringify([x.n, x.lv, x.hp, x.xp]) === key; }); if (mi < 0) { enc.mons.push(snap); mi = enc.mons.length - 1; }
+        addMon(null, mi); if (at) { var tk = enc.toks[enc.toks.length - 1], g2 = gridN(); tk.x = Math.max(0, Math.min(g2.x - tk.s, at.x)); tk.y = Math.max(0, Math.min(g2.y - tk.s, at.y)); drawBoard(); } msg('「' + snap.n + '」을(를) 토큰에서 불러와 올렸어요.'); }
+    } catch (e) { msg(f.name + ': ' + e.message); } }
+    return true; }
+  function cellAt(ev) { var bd = $('encBoard'); if (!bd || !enc) return null; var r = bd.getBoundingClientRect(), c = Math.max(8, +enc.cell || 50); return { x: Math.floor(((ev.clientX - r.left) / zoom - (enc.ox || 0)) / c), y: Math.floor(((ev.clientY - r.top) / zoom - (enc.oy || 0)) / c) }; }
   /* 끌어서 옮기기(마우스 · 손가락) */
   var drag = null;
   function wire() { var root = $('tab-mon'); if (!root || root._ew) return; root._ew = 1;
@@ -116,6 +133,7 @@
       if (mv) { view = mv.getAttribute('data-mview'); localStorage.setItem('d4e_monview', view); sync(); return; }
       if (!t.closest('#encWrap')) return;
       var row = t.closest('[data-eid]'), am = t.closest('[data-addm]'), more = t.closest('[data-more]');
+      if (t.id === 'encMapIn') { $('encMapInFile').click(); return; }
       if (t.id === 'encNew') { enc = blank(); mapUrl = ''; mapDirty = false; selTok = -1; dirty = false; pickDefault(); render(); }
       else if (row) open(row.getAttribute('data-eid'));
       else if (t.id === 'encBack') { if (dirty && !confirm('저장하지 않은 것이 있어요. 목록으로 갈까요?')) return; enc = null; render(); }
@@ -149,12 +167,16 @@
       else if (t.id === 'encZoom') { setZoom(+t.value || 1); } else if (t.id === 'encQ') { pickQ = t.value; drawPick(); } else if (t.id === 'encLo') { pickLo = t.value; pickAuto = false; drawPick(); } else if (t.id === 'encHi') { pickHi = t.value; pickAuto = false; drawPick(); } });
     var useMap = function (f) { if (!f || !enc) return; if (!/^image\//.test(f.type || '') && !/\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name || '')) { msg('그림 파일만 올릴 수 있어요.'); return; } msg('그림을 읽는 중…');
       readMap(f).then(function (r) { mapUrl = r.url; enc.w = r.w; enc.h = r.h; enc.ms = 1; mapDirty = true; touch(); drawBoard(); showN(); fit(false); msg('맵을 올렸어요 (' + r.w + '×' + r.h + (r.k < 1 ? ', 줄임' : '') + '). 「한 칸」 크기와 밀기로 격자를 그림에 맞추고, 칸이 너무 많으면 「맵 크기」나 「가로 칸」으로 줄여 주세요.'); }, function (e) { msg('그림을 읽지 못했어요: ' + e.message); }); };
-    root.addEventListener('change', function (ev) { var t = ev.target; if (!enc) return;
-      if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
+    root.addEventListener('change', function (ev) { var t = ev.target; if (!enc && t.id !== 'encMapInFile') return;
+      if (t.id === 'encMapInFile') { var mf = t.files && t.files[0]; t.value = ''; importMt([mf]); }
+      else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
     /* 맵 그림을 판 위로 끌어다 놓기 */
     var overBoard = function (ev) { return enc && ev.target.closest && ev.target.closest('.encboardwrap'); }, hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
     /* 그림을 토큰 위나 고른 몬스터 칸에 놓으면 그 몬스터 그림, 판의 빈 곳에 놓으면 맵 */
     var monZone = function (ev) { if (!enc || monEdit || !ev.target.closest) return -1; var tk = ev.target.closest('.etok'); if (tk) { var t = enc.toks[+tk.getAttribute('data-ti')]; return t ? t.m : -1; } if (ev.target.closest('#encSel') && enc.toks[selTok]) return enc.toks[selTok].m; return -1; };
+    var mtFiles = function (ev) { var dt = ev.dataTransfer, I = window.D4EMonIn; if (!dt || !I) return []; return Array.prototype.slice.call(dt.files || []).filter(function (f) { return I.isTok(f) || I.isMap(f); }); };
+    root.addEventListener('dragover', function (ev) { var w = ev.target.closest && ev.target.closest('#encWrap'); if (!w || !hasFile(ev) || overBoard(ev) || monZone(ev) >= 0) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; });
+    root.addEventListener('drop', function (ev) { if (!ev.target.closest || !ev.target.closest('#encWrap')) return; var L = mtFiles(ev); if (!L.length) return; ev.preventDefault(); ev.stopPropagation(); root.querySelectorAll('.encboardwrap.drop').forEach(function (x) { x.classList.remove('drop'); }); importMt(L, overBoard(ev) ? cellAt(ev) : null); }, true);
     root.addEventListener('dragover', function (ev) { if (monZone(ev) < 0 || !M().dragOk(ev)) return; ev.preventDefault(); ev.stopPropagation(); ev.dataTransfer.dropEffect = 'copy'; }, true);
     root.addEventListener('drop', function (ev) { var mi = monZone(ev); if (mi < 0 || !M().dragOk(ev)) return; ev.preventDefault(); ev.stopPropagation(); root.querySelectorAll('.encboardwrap.drop').forEach(function (x) { x.classList.remove('drop'); });
       M().dropImg(ev).then(function (u) { if (!enc || !enc.mons[mi]) return; enc.mons[mi].img = u; touch(); drawBoard(); drawSel(); msg('「' + enc.mons[mi].n + '」에 그림을 넣었어요. 이 조우의 사본에만 들어가요.'); }, function (e) { alert(e.message); }); }, true);

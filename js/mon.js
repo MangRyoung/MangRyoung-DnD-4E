@@ -207,6 +207,7 @@
     root.addEventListener('change', function (ev) { var t = ev.target;
       if (t.id === 'monRole') { F.role = t.value; renderList(); } else if (t.id === 'monSrc') { F.src = t.value; renderList(); }
       else if (t.id === 'monImgFile') { setImg(t.files && t.files[0]); t.value = ''; }
+      else if (t.id === 'monTokFile') { var fl = Array.prototype.slice.call(t.files || []); t.value = ''; importFiles(fl); }
       else if (t.id === 'monFile') { var f = t.files && t.files[0]; if (!f) return; var rd = new FileReader(); rd.onload = function () { try { var a = JSON.parse(rd.result); if (!Array.isArray(a)) throw new Error('몬스터 목록 파일이 아니에요.'); localStorage.setItem(PACK_KEY, JSON.stringify(a)); loadPack(); note('자료집 ' + pack.length + '마리를 이 브라우저에 불러왔어요.'); renderList(); } catch (e) { alert('불러오지 못했어요: ' + e.message); } t.value = ''; }; rd.readAsText(f); }
       else if (t.closest('.mform') && editing && /^(pw\.(k|actsel|usesel)|px\.(_rt|_tg))$/.test(t.getAttribute('data-mf') || '')) { var mfk = t.getAttribute('data-mf'), pr = t.closest('[data-pi]'), pq = editing.pw[+pr.getAttribute('data-pi')];
         if (mfk === 'px._rt' && pq && pq._x) { readForm(); var nf = rgForm(t.value), nd = (nf && nf[3]) || []; pq._x._rt = t.value; pq._x._ra = nd[0]; pq._x._rb = nd[1]; if (t.value !== 'txt') pq._x.range = rgText(t.value, nd[0], nd[1]); pq.t = pwJoin(pq._x); }
@@ -219,6 +220,7 @@
       if (ext && (t.id === 'monNew' || (t.closest('[data-mid]') && !t.closest('.mform')))) return;
       if (t.id === 'monNew') { editing = blank(); sel = null; renderList(); renderView(); return; }
       if (t.id === 'monPick') { $('monFile').click(); return; }
+      if (t.id === 'monTokIn') { $('monTokFile').click(); return; }
       if (t.id === 'monPackDel') { if (pack.length && confirm('이 브라우저에 불러온 자료집 ' + pack.length + '마리를 지울까요? (만든 몬스터는 그대로예요)')) { localStorage.removeItem(PACK_KEY); loadPack(); renderList(); renderView(); } return; }
       if (row && !editing) { sel = row.getAttribute('data-mid'); renderList(); renderView(); return; }
       if (row && editing) { if (confirm('고치던 것을 버리고 다른 몬스터를 볼까요?')) { editing = null; sel = row.getAttribute('data-mid'); renderList(); renderView(); } return; }
@@ -274,6 +276,7 @@
     var memo1 = [m.leader ? '지휘' : '', m.senses ? '감각 ' + m.senses : '', m.speed ? '이동 ' + m.speed : ''].filter(Boolean).join(' / '), memo2 = [m.immune ? '면역 ' + m.immune : '', m.resist ? '저항 ' + m.resist : '', m.vuln ? '취약 ' + m.vuln : ''].filter(Boolean).join(' / ');
     /* 캠페인 Monster 속성 중 기본값이 없는 칸은 비워서라도 넣어 둠 — 안 넣으면 맵툴이 「Value For "at1"」처럼 값을 물어봄 */
     var props = {}; ['Attack Bonus1', 'Damage1', 'Attack Bonus2', 'Damage2', 'Attack Bonus3', 'Damage3', 'Attack Bonus4', 'Damage4', 'Attack Bonus5', 'Damage5', 'at1', 'at2', 'at3', 'at4', 'at5', 'at6', 'at7', 'at8', 'Other', 'Ongoing1', 'Ongoing2', 'Ongoing3', 'EoNT'].forEach(function (k) { props[k] = ''; });
+    var keep = clean(m); delete keep.id; delete keep.img; delete keep.by; delete keep.at; delete keep.q; delete keep.src; delete keep.n_en; props.D4E = JSON.stringify(keep);
     Object.assign(props, { Level: String(m.lv || 1), HP: num(m.hp, 1), MaxHP: num(m.hp, 1), AC: num(m.ac), MaxAC: num(m.ac), Fort: num(m.fort), MaxFort: num(m.fort), Reflex: num(m.ref), MaxReflex: num(m.ref), Will: num(m.will), MaxWill: num(m.will),
       DisplayNAD: num(m.fort) + '/' + num(m.ref) + '/' + num(m.will), Mov: num(m.speed, 6), IniBonus: num(m.init, 0), save: sv, AP: ap, Role: role, Memo1: memo1, Memo2: memo2 });
     var macros = [], n = 0;
@@ -322,9 +325,20 @@
     if (!url) return Promise.reject(new Error('그림 파일이 아니에요.'));
     return fetch(url).then(function (r) { if (!r.ok) throw new Error('x'); return r.blob(); }).then(function (b) { if (!/^image\//.test(b.type || '')) throw new Error('x'); return readImg(new File([b], 'drop', { type: b.type })); }).catch(function () { throw new Error('그 사이트가 그림을 바로 가져가지 못하게 막아 두었어요. 그림을 컴퓨터에 저장한 뒤 그 파일을 끌어다 놓아 주세요.'); }); }
   function startBase(m) { editing = JSON.parse(JSON.stringify(clean(shown(m)))); editing.id = ''; delete editing.q; delete editing.src; delete editing.n_en; editing.ko = 1; editing.base = m.n; if (m.role === 'Minion') { editing.tier = 'Minion'; editing.role = 'Skirmisher'; } }
+  /* 맵툴 토큰(.rptok) · 맵(.rpmap) 파일을 「만든 것」 몬스터로 불러와 공유 DB에 저장 */
+  async function importFiles(files) { var I = window.D4EMonIn, L = (files || []).filter(function (f) { return I && (I.isTok(f) || I.isMap(f)); }); if (!L.length) return false;
+    if (ext) { alert('조우 판에서 고치는 중에는 불러올 수 없어요.'); return true; } if (editing && !confirm('고치던 것을 버리고 토큰을 불러올까요?')) return true; editing = null;
+    note('토큰을 읽는 중…'); var got = [], bad = [];
+    for (var i = 0; i < L.length; i++) { try { if (I.isTok(L[i])) got.push((await I.tokenFile(L[i])).m); else (await I.mapFile(L[i])).mons.forEach(function (m) { got.push(m); }); } catch (e) { bad.push(L[i].name + ': ' + e.message); } }
+    for (var j = 0; j < got.length; j++) { try { got[j].ko = 1; got[j].from = 'maptool'; fill(got[j], false); await save(got[j]); sel = got[j].id; } catch (e) { bad.push(got[j].n + ': 저장 실패 (' + e.message + ')'); } }
+    renderList(); renderView(); note((got.length ? '토큰 ' + got.length + '마리를 「만든 것」으로 불러왔어요. 수치와 파워는 한 번 훑어봐 주세요.' : '불러온 몬스터가 없어요.') + (bad.length ? ' 실패: ' + bad.join(' / ') : '')); return true; }
   function wireDrop() { var root = $('tab-mon'); if (!root || root._wd) return; root._wd = 1;
     /* 그림을 받을 수 있는 곳: 편집 화면(어디든), 스탯 블록을 보고 있는 칸 */
     var zone = function (ev) { var t = ev.target; if (!t.closest) return null; var f = t.closest('.mform'); if (f && editing) return f; var v = t.closest('#monView'); if (v && !editing && sel && byId(sel)) return v; return null; };
+    var mtFile = function (ev) { var dt = ev.dataTransfer, I = window.D4EMonIn; if (!dt || !I || !ev.target.closest || !ev.target.closest('#monListWrap')) return null; var L = Array.prototype.slice.call(dt.files || []).filter(function (f) { return I.isTok(f) || I.isMap(f); }); return L.length ? L : (Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0 && !dt.files.length ? [] : null); };
+    root.addEventListener('dragover', function (ev) { var w = ev.target.closest && ev.target.closest('#monListWrap'); if (!w || !ev.dataTransfer || Array.prototype.indexOf.call(ev.dataTransfer.types || [], 'Files') < 0 || zone(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; w.classList.add('imgdrop'); });
+    root.addEventListener('dragleave', function (ev) { var w = ev.target.closest && ev.target.closest('#monListWrap'); if (w && !w.contains(ev.relatedTarget)) w.classList.remove('imgdrop'); });
+    root.addEventListener('drop', function (ev) { var L = mtFile(ev); root.querySelectorAll('#monListWrap.imgdrop').forEach(function (x) { x.classList.remove('imgdrop'); }); if (!L || !L.length) return; ev.preventDefault(); ev.stopPropagation(); importFiles(L); }, true);
     root.addEventListener('dragover', function (ev) { var z = zone(ev); if (!z || !dragOk(ev)) return; ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; z.classList.add('imgdrop'); });
     root.addEventListener('dragleave', function (ev) { var z = ev.target.closest && (ev.target.closest('.mform') || ev.target.closest('#monView')); if (z && !z.contains(ev.relatedTarget)) z.classList.remove('imgdrop'); });
     root.addEventListener('drop', function (ev) { var z = zone(ev); if (!z || !dragOk(ev)) return; ev.preventDefault(); root.querySelectorAll('.imgdrop').forEach(function (x) { x.classList.remove('imgdrop'); });
@@ -334,5 +348,5 @@
         if (!m) return;
         if (m._pack) { startBase(m); editing.img = u; renderView(); note('자료집 몬스터는 고칠 수 없어서, 그림을 넣은 사본을 열었어요. 「저장」을 누르면 만든 몬스터로 남아요.'); return; }
         m.img = u; try { await save(m); renderList(); renderView(); note('「' + m.n + '」에 그림을 넣었어요.'); } catch (e) { alert('저장하지 못했어요: ' + e.message); } }, function (e) { alert(e.message); }); }); }
-  window.D4EMon = { tokenPart: monTokenPart, tplVersion: function () { return (window.D4E_MONT || {}).version || ''; }, dragOk: dragOk, dropImg: dropImg, editIn: editIn, editEnd: editEnd, tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
+  window.D4EMon = { readImg: readImg, importFiles: importFiles, fill: function (m) { return fill(m, false); }, tokenPart: monTokenPart, tplVersion: function () { return (window.D4E_MONT || {}).version || ''; }, dragOk: dragOk, dropImg: dropImg, editIn: editIn, editEnd: editEnd, tokenBlob: monTokenBlob, download: download, fileName: fileName, shown: shown, clean: clean, load: function () { return loaded ? Promise.resolve() : load(); }, gm: gm, XP: XP, ROLE_COL: ROLE_COL, ROLE_KO: ROLE_KO, TIER_KO: TIER_KO, tokenData: monTokenData, tokenXml: monTokenXml, parsePw: parsePw, saveToken: saveMonToken, render: function () { wire(); wireDrop(); render(); }, math: math, dice: dice, block: block, all: all, byId: byId };
 })();
