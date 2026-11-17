@@ -341,6 +341,8 @@
   function clause(s) { var m, t = s.trim(), i; if (!t) return s; if (!latin(t)) return t;
     /* 손으로 옮긴 문장(자료집 만들 때만 씀 — 사이트에서는 자료집의 tk 칸을 쓴다) */
     var DK = window.D4E_MONKO_DICT; if (DK && DK[t]) return DK[t];
+    /* 「Attack (No Action): …」「Trigger (Immediate Reaction): …」 */
+    if ((m = /^(Attack|Effect|Trigger|Secondary Attack|Hit|Miss)\s*\(([^()]+)\):\s*(.+)$/i.exec(t))) return ({ attack: '공격', effect: '효과', trigger: '발동', 'secondary attack': '2차 공격', hit: '명중', miss: '빗나감' })[m[1].toLowerCase()] + ' (' + actKo(m[2]) + '): ' + clause(m[3]);
     /* 새 꼴(MM3 이후) 사거리 줄: 「Melee 1 (one creature)」「Close burst 2 (enemies in the burst)」 */
     if ((m = /^((?:Immediate (?:Reaction|Interrupt) )?(?:Melee|Ranged|Close|Area|Reach|Personal)[^()]*?)\s*\(([^()]+)\)$/i.exec(t))) { var tg0 = tgtKo(m[2]); if (tg0) return clause(m[1]) + ' (' + tg0 + ')'; }
     if ((m = /^targets?:\s*(.+)$/i.exec(t))) { var tg1 = tgtKo(m[1]); if (tg1) return '대상: ' + tg1; }
@@ -354,7 +356,7 @@
     if ((m = new RegExp('^against an? (' + CONDRE + '|bloodied) (?:target|creature|enemy), (?:this attack|it|the [a-z\' \\-]+?) deals (?:an extra )?(' + DICE + ') (?:extra )?(' + TYPES + ')? ?damage$', 'i').exec(t))) return (COND[m[1].toLowerCase()] || '반죽음') + ' 상태인 대상에게는 추가로 ' + dmgKo(m[2], m[3]) + '를 준다';
     if ((m = /^requires? (?:an? )?([a-z][a-z' \-]+)$/i.exec(t))) { var rq = nm(cap(m[1])); return rq + ' 필요'; }
     if (/^multiple such effects stack$/i.test(t)) return '이런 효과는 여러 번 겹친다';
-    if ((m = /^the (?:[a-z' \-]+?)'s breath weapon recharges(?: automatically)?,? and (?:the [a-z' \-]+?|it) uses it(?: immediately)?$/i.exec(t))) return '브레스 웨폰이 재충전되고, 즉시 사용한다';
+    if ((m = /^the (?:[a-z' \-]+?)'s breath weapon recharges(?: automatically)?,? and (?:the [a-z' \-]+?|it) uses it(?: immediately)?$/i.exec(t))) return '브레스 무기가 재충전되고, 즉시 사용한다';
     if ((m = /^hit or miss: (.+)$/i.exec(t))) return '명중하든 빗나가든: ' + clause(m[1]);
     if ((m = /^(in addition|otherwise|also|then|additionally), (.+)$/i.exec(t))) return ({ 'in addition': '또한', otherwise: '그렇지 않으면', also: '또한', then: '그런 다음', additionally: '또한' })[m[1].toLowerCase()] + ', ' + clause(m[2]);
     if ((m = /^each time (?:it|the [a-z' \-]+?) hits, (.+)$/i.exec(t))) return '명중할 때마다, ' + clause(m[1]);
@@ -383,7 +385,7 @@
     if (/^this attack does not provoke opportunity attacks?$/i.test(t)) return '이 공격은 기회 공격을 유발하지 않는다';
     if ((m = /^this (?:movement|power|attack) does(?: not|n't) provoke(?: opportunity attacks?)?$/i.exec(t))) return '기회 공격을 유발하지 않는다';
     if ((m = /^(enemies|creatures) treat the area within the aura as difficult terrain$/i.exec(t))) return (/enem/i.test(m[1]) ? '적' : '다른 개체') + '은 오라 안을 험한 지형으로 취급한다';
-    if ((m = /^the (?:[a-z' \-]+?)'s breath weapon recharges,? and (?:the [a-z' \-]+?|it) uses it immediately$/i.exec(t))) return '브레스 웨폰이 재충전되고, 즉시 사용한다';
+    if ((m = /^the (?:[a-z' \-]+?)'s breath weapon recharges,? and (?:the [a-z' \-]+?|it) uses it immediately$/i.exec(t))) return '브레스 무기가 재충전되고, 즉시 사용한다';
     if ((m = /^see(?: also)? (?:the )?([a-z][a-z' \-]+?)(?: below| above)?$/i.exec(t))) { var sn = nm(cap(m[1])); return '「' + sn + '」 참조'; }
     if ((m = new RegExp('^(' + CONDRE + '|blind) creatures are immune$', 'i').exec(t))) return (COND[m[1].toLowerCase()] || '실명') + ' 상태인 개체는 면역';
     if ((m = /^(darkvision|low-light vision|truesight|blindsight|tremorsense)(?: (\d+))?$/i.exec(t))) return SENSE[m[1].toLowerCase()] + (m[2] ? ' ' + m[2] : '');
