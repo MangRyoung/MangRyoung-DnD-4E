@@ -45,7 +45,7 @@
   function render() { var box = $('encBody'); if (!box) return; if (monEdit) { monEdit = false; M().editEnd(); }
     if (!enc) { box.innerHTML = '<div class="mbar"><button id="encNew">+ 새 조우</button><button id="encMapIn" class="ghost" title="맵툴 맵 파일(.rpmap)을 읽어 맵 · 격자 · 놓인 몬스터를 새 조우로 만들어요. 여기에 파일을 끌어다 놓아도 돼요">맵툴 맵 불러오기</button><input type="file" id="encMapInFile" accept=".rpmap" hidden><span class="hint" id="encMsg"></span></div>' + (list.length ? '<div class="enclist">' + list.map(function (e) { var n = (e.toks || []).length; return '<div class="encrow" data-eid="' + esc(e.id) + '"><b>' + esc(e.name || '이름 없음') + '</b><span>일행 ' + (e.pn || 4) + '명 · ' + (e.plv || 1) + '레벨 · 몬스터 ' + n + '마리' + (e.hasMap ? ' · 맵 있음' : '') + (e.by ? ' · ' + esc(e.by) : '') + '</span></div>'; }).join('') + '</div>' : '<p class="hint">아직 저장한 조우가 없어요. 「+ 새 조우」로 시작해 보세요.</p>'); return; }
     var h = '<div class="mbar"><button class="ghost" id="encBack">← 목록</button><input type="text" id="encName" value="' + esc(enc.name) + '" placeholder="조우 이름"><label>일행 <input type="number" id="encPn" min="1" max="10" value="' + esc(enc.pn) + '">명</label><label><input type="number" id="encPlv" min="1" max="30" value="' + esc(enc.plv) + '">레벨</label>' +
-      '<span class="sp"></span><button id="encSave"' + (dirty ? ' class="need"' : '') + '>저장</button><button id="encMapOut" title="맵 그림 · 격자 · 놓은 자리 그대로 맵툴 맵 파일(.rpmap)로 받아요. 맵툴에서 「맵 → 맵 가져오기」로 열어요">맵툴 맵 받기</button><button class="ghost" id="encTok" title="올린 몬스터를 맵툴 토큰(.rptok) 묶음으로 받아요">토큰 묶음 받기</button>' + (enc.id ? '<button class="ghost" id="encDel">지우기</button>' : '') + '</div>' +
+      '<span class="sp"></span><button id="encSave"' + (dirty ? ' class="need"' : '') + '>저장</button><button id="encMapOut" title="맵 그림 · 격자 · 놓은 자리 그대로 맵툴 맵 파일(.rpmap)로 받아요. 맵툴에서 「맵 → 맵 가져오기」로 열어요">맵툴 맵 받기</button><button class="ghost" id="encTok" title="올린 몬스터를 맵툴 토큰(.rptok) 묶음으로 받아요">토큰 묶음 받기</button><button class="ghost" id="encTokIn" title="맵툴 토큰(.rptok)을 이 조우에 올려요. 맵 파일(.rpmap)이면 새 조우로 열어요. 판 위에 끌어다 놓아도 돼요">토큰 불러오기</button><input type="file" id="encTokInFile" accept=".rptok,.rpmap" multiple hidden>' + (enc.id ? '<button class="ghost" id="encDel">지우기</button>' : '') + '</div>' +
       '<div id="encXp" class="encxp"></div><p class="hint" id="encMsg"></p>' +
       '<div class="encgrid"><div class="encside"><div class="encmap"><b>맵</b><button class="mini" id="encMapPick">그림 올리기</button>' + '<button class="mini ghost" id="encMapDel">빼기</button><input type="file" id="encMapFile" accept="image/*" hidden>' +
       '<label>한 칸 <input type="number" id="encCell" min="8" max="400" value="' + esc(enc.cell) + '">px</label><label>가로 밀기 <input type="number" id="encOx" value="' + esc(enc.ox) + '"></label><label>세로 밀기 <input type="number" id="encOy" value="' + esc(enc.oy) + '"></label>' +
@@ -134,6 +134,7 @@
       if (!t.closest('#encWrap')) return;
       var row = t.closest('[data-eid]'), am = t.closest('[data-addm]'), more = t.closest('[data-more]');
       if (t.id === 'encMapIn') { $('encMapInFile').click(); return; }
+      if (t.id === 'encTokIn') { $('encTokInFile').click(); return; }
       if (t.id === 'encNew') { enc = blank(); mapUrl = ''; mapDirty = false; selTok = -1; dirty = false; pickDefault(); render(); }
       else if (row) open(row.getAttribute('data-eid'));
       else if (t.id === 'encBack') { if (dirty && !confirm('저장하지 않은 것이 있어요. 목록으로 갈까요?')) return; enc = null; render(); }
@@ -169,6 +170,7 @@
       readMap(f).then(function (r) { mapUrl = r.url; enc.w = r.w; enc.h = r.h; enc.ms = 1; mapDirty = true; touch(); drawBoard(); showN(); fit(false); msg('맵을 올렸어요 (' + r.w + '×' + r.h + (r.k < 1 ? ', 줄임' : '') + '). 「한 칸」 크기와 밀기로 격자를 그림에 맞추고, 칸이 너무 많으면 「맵 크기」나 「가로 칸」으로 줄여 주세요.'); }, function (e) { msg('그림을 읽지 못했어요: ' + e.message); }); };
     root.addEventListener('change', function (ev) { var t = ev.target; if (!enc && t.id !== 'encMapInFile') return;
       if (t.id === 'encMapInFile') { var mf = t.files && t.files[0]; t.value = ''; importMt([mf]); }
+      else if (t.id === 'encTokInFile') { var fl = Array.prototype.slice.call(t.files || []); t.value = ''; importMt(fl); }
       else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
     /* 맵 그림을 판 위로 끌어다 놓기 */
     var overBoard = function (ev) { return enc && ev.target.closest && ev.target.closest('.encboardwrap'); }, hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
