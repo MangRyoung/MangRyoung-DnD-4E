@@ -1070,9 +1070,11 @@
   function richDetail(e) {
     var sp = e.sp || {}, used = {}, h = '<div class="rd"><h3>' + tname(e, nm(e)) + ' <span class="hint">' + esc(typeKo(e.t)) + (e.src ? ' · ' + esc(e.src.join(', ')) : '') + '</span></h3>';
     if (sp['Short Description']) { h += '<p><b>' + tx(e, 'Short Description', sp['Short Description']) + '</b></p>'; used['Short Description'] = 1; }
+    var trfl = tview(e) && TR(e) && TR(e).fl;
+    if (trfl) h += '<p class="fl"><span class="mine">' + esc(trfl) + '</span></p>';
     if (e.pre || e.pp) h += '<p><b>선행 조건</b> ' + esc(e.pp || e.pre) + '</p>';
     var mech = (MECH[e.t] || []).filter(function (k) { return sp[k]; });
-    if (mech.length) { h += '<div class="mech">'; mech.forEach(function (k) { used[k] = 1; var v = sp[k]; if (k === 'Role' || k === 'Power Source') v = v.split('.')[0]; h += '<div><small>' + MECH_KO[k] + '</small><span>' + esc(v) + '</span></div>'; }); h += '</div>'; }
+    if (mech.length) { h += '<div class="mech">'; mech.forEach(function (k) { used[k] = 1; var v = sp[k], tk = tview(e) && TR(e) && (TR(e).f || {})[k]; if (tk) v = tk; if (k === 'Role' || k === 'Power Source') v = v.split('.')[0]; h += '<div><small>' + MECH_KO[k] + '</small><span>' + esc(v) + '</span></div>'; }); h += '</div>'; }
     var g = gives(e), feats = g.filter(function (x) { return x.el.t !== 'Power'; }), pws = g.filter(function (x) { return x.el.t === 'Power' && x.el.sp && x.el.sp['Power Usage']; });
     if (feats.length) { h += '<h4>특성</h4>'; feats.forEach(function (x) { var t = x.el;
       var tt = TR(t), tvw = tview(t), sd = t.sp && t.sp['Short Description'];
@@ -1088,7 +1090,7 @@
     var sels = (e.r || []).filter(function (r) { return r[0] === 'select'; });
     if (sels.length) h += '<p class="hint">고르는 것: ' + sels.map(function (r) { return esc(typeKo(r[1].type) + ' ' + (r[1].number || 1) + '개'); }).join(' · ') + '</p>';
     var lore = (e.fl ? '<p class="fl">' + esc(e.fl) + '</p>' : '');
-    Object.keys(sp).forEach(function (k) { if (used[k] || k.charAt(0) === '_' || /^(type|Full Text|Class Features|Powers|Power Name|Racial Traits|Trait Package)$/i.test(k)) return; lore += '<p><b>' + esc(k) + '</b> ' + esc(sp[k]) + '</p>'; });
+    Object.keys(sp).forEach(function (k) { if (used[k] || k.charAt(0) === '_' || /^(type|Full Text|Class Features|Powers|Power Name|Racial Traits|Trait Package)$/i.test(k)) return; lore += '<p><b>' + esc(rowLabel(k)) + '</b> ' + tx(e, k, sp[k]) + '</p>'; });
     if (e.body) lore += '<p>' + tx(e, '_body', e.body) + '</p>';
     if (lore) h += '<details class="ft lore"><summary>설정 · 소개 글 <span class="hint">눌러서 보기</span></summary>' + lore + '</details>';
     return h + trBar(e) + '</div>';
@@ -1098,7 +1100,7 @@
     'Properties': '속성', 'Range': '사거리', 'Level': '레벨', 'Rarity': '희귀도', 'Magic Item Type': '물품 종류', 'Enhancement': '강화', 'Critical': '치명타', 'Property': '특성', 'Power': '파워',
     'Requirement': '요구 조건', 'Tier': '티어', 'Short Description': '요약', 'Prerequisite': '선행 조건', 'Weapon': '무기', 'Armor': '갑옷', 'Size': '크기', 'Key Ability': '주 능력치', 'Benefit': '혜택',
     'Associated Skills': '관련 기술', 'Associated Languages': '관련 언어', 'Campaign': '캠페인', 'Key Skill': '주 기술', 'Component Cost': '재료비', 'Market Price': '시세', 'Time': '시간', 'Duration': '지속', 'Category': '분류',
-    'Alignment': '성향', 'Domains': '권역', 'Granted Powers': '주는 파워' };
+    'Alignment': '성향', 'Domains': '영역', 'Granted Powers': '주는 파워', 'Characteristics': '성격', 'Physical Qualities': '신체 특징', 'Immortality': '불멸' };
   var TIER_KO = { heroic: '영웅', paragon: '패러곤', epic: '에픽' }, RAR_KO = { common: '일반', uncommon: '비범', rare: '희귀', mundane: '평범' };
   var readablePre = function (e) { if (e.pp) return e.pp; return String(e.pre || '').split(/[;,]/).map(function (x) { return x.trim(); }).filter(function (x) { return x && !/^[~!]/.test(x) && !/unselectable|not selectable/i.test(x); }).join(', '); };
   var idNames = function (t) { return String(t).replace(/ID_[A-Z0-9_()\-]+/g, function (id) { return db.byId[id] ? db.byId[id].n : id; }); };
@@ -1114,7 +1116,8 @@
     Object.keys(sp).forEach(function (k) {
       var v = String(sp[k]).trim(); if (!v || v === '-' || skip[k] || k.charAt(0) === '_') return;
       v = idNames(v); if (k === 'Gold') v = Number(v).toLocaleString() + ' gp'; if (k === 'Weight') v = v + ' lb'; if (k === 'Proficiency Bonus' || k === 'Armor Bonus') v = '+' + v.replace(/^\+/, '');
-      if (v.length <= 30 && v.indexOf('\n') < 0) chips += '<div><small>' + esc(rowLabel(k)) + '</small><span>' + esc(v) + '</span></div>';
+      var tk = tv && TR(e) && (TR(e).f || {})[k]; if (tk && (k === 'Gold' || k === 'Weight' || k === 'Proficiency Bonus' || k === 'Armor Bonus')) tk = '';
+      if (v.length <= 30 && v.indexOf('\n') < 0) chips += '<div><small>' + esc(rowLabel(k)) + '</small><span>' + (tk ? '<span class="mine">' + esc(tk) + '</span>' : esc(v)) + '</span></div>';
       else rows += '<div class="pr' + (k === '하우스룰' ? ' hr' : '') + '"><b>' + esc(F_KO[k] || gloss(k) || k) + '</b><span>' + (k === '하우스룰' ? rich(v) : tx(e, k, v)) + '</span></div>';
     });
     var pre = readablePre(e);
