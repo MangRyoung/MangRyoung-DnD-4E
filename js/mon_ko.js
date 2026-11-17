@@ -100,7 +100,7 @@
   function nm(s) { s = String(s || '').trim(); if (!s) return s; if (FULL[s]) return FULL[s];
     var sfx = '', pm = /^(.*?)\s*(\([^)]*\))$/.exec(s); if (pm) { s = pm[1]; var inner = pm[2].slice(1, -1); sfx = /^\d+$/.test(inner) ? ' (' + inner + ')' : ' (' + nm(inner) + ')'; if (FULL[s]) return FULL[s] + sfx; }
     var of = /^(.+?) of (.+)$/i.exec(s); if (of) return nm(of[2]) + '의 ' + nm(of[1]) + sfx;
-    var miss = 0, out = s.split(/\s+/).map(function (w) { var k = w.toLowerCase().replace(/[,.]$/, ''), v = W[k]; if (v == null) { miss++; return w; } return v; }).filter(function (x) { return x !== ''; }).join(' ');
+    var miss = 0, out = s.split(/\s+/).map(function (w) { var k = w.toLowerCase().replace(/[,.]$/, ''), v = W[k]; if (v == null && window.D4E_MONKO_W) v = window.D4E_MONKO_W[k]; if (v == null) { miss++; return w; } return v; }).filter(function (x) { return x !== ''; }).join(' ');
     return out + sfx; }
   var SIZE = { tiny: '초소형', small: '소형', medium: '중형', large: '대형', huge: '초대형', gargantuan: '거대형' };
   var TYPEW = { trap: '함정', hazard: '위험 요소', terrain: '지형', object: '사물', 'single-use': '일회성', fantastic: '기묘한', aberrant: '변이', elemental: '원소', fey: '요정', immortal: '불멸', natural: '자연', shadow: '그림자', animate: '생동체', beast: '야수', humanoid: '인간형', magical: '마법', aquatic: '수생', undead: '언데드', angel: '천사', fire: '불', cold: '냉기',
@@ -320,9 +320,33 @@
     return null; }
   var PREFIX = [[/^miss$/i, '빗나감'], [/^hit$/i, '명중'], [/^effect$/i, '효과'], [/^aftereffect$/i, '후속 효과'], [/^secondary attack$/i, '2차 공격'], [/^tertiary attack$/i, '3차 공격'], [/^secondary target$/i, '2차 대상'], [/^primary target$/i, '1차 대상'], [/^first failed sav(?:e|ing throw)$/i, '첫 내성 실패'], [/^second failed sav(?:e|ing throw)$/i, '두 번째 내성 실패'], [/^third failed sav(?:e|ing throw)$/i, '세 번째 내성 실패'], [/^each failed sav(?:e|ing throw)$/i, '내성 실패마다'], [/^failed sav(?:e|ing throw)$/i, '내성 실패'], [/^special$/i, '특수'], [/^trigger$/i, '발동'], [/^requirements?$/i, '필요 조건'], [/^sustain minor$/i, '유지(보조)'], [/^sustain standard$/i, '유지(일반)'], [/^sustain move$/i, '유지(이동)'], [/^target$/i, '대상'], [/^attack$/i, '공격']];
   var SENSE = { darkvision: '암시야', 'low-light vision': '저조도 시야', truesight: '진시야', blindsight: '맹시', tremorsense: '진동 감지' };
+  /* 대상 글귀: 「one creature」「enemies in the burst」「the triggering enemy」 … 못 읽으면 null */
+  var RNG1 = { melee: '근접', ranged: '원거리', 'melee or ranged': '근접 또는 원거리', 'immediate reaction melee': '즉시 반응 근접', personal: '자신', 'close burst': '근거리 폭발', 'close blast': '근거리 분사' };
+  var TQ = { one: '하나', two: '둘', three: '셋', four: '넷', five: '다섯', 'one or two': '하나 또는 둘', 'one, two, or three': '하나에서 셋', 'two or three': '둘 또는 셋', 'up to two': '최대 둘', 'up to three': '최대 셋', 'up to four': '최대 넷', 'up to five': '최대 다섯', each: '각각', all: '모두', any: '아무나' };
+  var TN = { creature: '개체', creatures: '개체', enemy: '적', enemies: '적', ally: '아군', allies: '아군', target: '대상', targets: '대상', object: '사물', objects: '사물', square: '칸', squares: '칸', 'living creature': '살아 있는 개체', 'living creatures': '살아 있는 개체', 'nonminion creature': '졸개가 아닌 개체', 'nonminion enemy': '졸개가 아닌 적', 'nonminion enemies': '졸개가 아닌 적' };
+  var TA = { prone: '넘어진 ', bloodied: '반죽음 상태인 ', dazed: '멍해진 ', stunned: '기절한 ', grabbed: '붙잡힌 ', immobilized: '이동 불가 상태인 ', restrained: '속박된 ', slowed: '둔화된 ', weakened: '약화된 ', blinded: '눈이 먼 ', dominated: '지배된 ', helpless: '무력한 ', unconscious: '의식 없는 ', marked: '표식된 ', surprised: '기습당한 ', deafened: '귀가 먹은 ', petrified: '석화된 ', dying: '빈사 상태인 ', flying: '날고 있는 ', other: '다른 ', adjacent: '인접한 ', nonadjacent: '인접하지 않은 ', visible: '보이는 ', willing: '동의한 ', Medium: '중형 이하 ', Large: '대형 이하 ' };
+  var TZ = { burst: '폭발', blast: '분사', wall: '벽', zone: '구역', aura: '오라', area: '범위', cloud: '구름', line: '선' };
+  function tgtKo(x) { var t = String(x || '').trim().replace(/\.$/, ''), m, area = '', tail = '';
+    if ((m = /^(?:the )?triggering (creature|enemy|ally|attacker)(?: in the (burst|blast|aura))?$/i.exec(t))) return (m[2] ? TZ[m[2].toLowerCase()] + ' 안의 ' : '') + '유발한 ' + ({ creature: '개체', enemy: '적', ally: '아군', attacker: '공격자' })[m[1].toLowerCase()];
+    if ((m = /^(.*?) in (?:the )?(burst|blast|wall|zone|aura|area|cloud|line)$/i.exec(t))) { area = TZ[m[2].toLowerCase()] + ' 안의 '; t = m[1]; }
+    if ((m = /^(.*?) (?:it is grabbing|grabbed by (?:it|the [a-z' \-]+))$/i.exec(t))) { tail = '자신이 붙잡은 '; t = m[1]; }
+    else if ((m = /^(.*?) (?:it can see|the [a-z' \-]+? can see)$/i.exec(t))) { tail = '보이는 '; t = m[1]; }
+    else if ((m = /^(.*?) (?:marked by (?:it|the [a-z' \-]+))$/i.exec(t))) { tail = '자신이 표식한 '; t = m[1]; }
+    else if ((m = /^(.*?) adjacent to (?:it|the [a-z' \-]+)$/i.exec(t))) { tail = '자신과 인접한 '; t = m[1]; }
+    var q = '', qm = /^(one, two, or three|one or two|two or three|up to (?:two|three|four|five)|one|two|three|four|five|each|all|any)\s+(.*)$/i.exec(t); if (qm) { q = TQ[qm[1].toLowerCase()]; t = qm[2]; }
+    var adj = ''; while ((m = /^(prone|bloodied|dazed|stunned|grabbed|immobilized|restrained|slowed|weakened|blinded|dominated|helpless|unconscious|marked|surprised|deafened|petrified|dying|flying|other|adjacent|nonadjacent|visible|willing|Medium or smaller|Large or smaller)\s+(.*)$/i.exec(t))) { adj += TA[m[1].split(' ')[0]] || TA[m[1].toLowerCase()] || ''; t = m[2]; }
+    var n = TN[t.toLowerCase()]; if (!n) return null;
+    if (!q) q = /s$/i.test(t) || /^(enemies|allies|creatures)$/i.test(t) ? '모두' : '하나';
+    return area + tail + adj + n + ' ' + q; }
   function clause(s) { var m, t = s.trim(), i; if (!t) return s; if (!latin(t)) return t;
     /* 손으로 옮긴 문장(자료집 만들 때만 씀 — 사이트에서는 자료집의 tk 칸을 쓴다) */
     var DK = window.D4E_MONKO_DICT; if (DK && DK[t]) return DK[t];
+    /* 새 꼴(MM3 이후) 사거리 줄: 「Melee 1 (one creature)」「Close burst 2 (enemies in the burst)」 */
+    if ((m = /^((?:Immediate (?:Reaction|Interrupt) )?(?:Melee|Ranged|Close|Area|Reach|Personal)[^()]*?)\s*\(([^()]+)\)$/i.exec(t))) { var tg0 = tgtKo(m[2]); if (tg0) return clause(m[1]) + ' (' + tg0 + ')'; }
+    if ((m = /^targets?:\s*(.+)$/i.exec(t))) { var tg1 = tgtKo(m[1]); if (tg1) return '대상: ' + tg1; }
+    if (RNG1[t.toLowerCase()]) return RNG1[t.toLowerCase()];
+    if ((m = /^reach (\d+)$/i.exec(t))) return '간격 ' + m[1];
+    if ((m = /^(one|two|three) targets?$/i.exec(t))) return '대상 ' + ({ one: '하나', two: '둘', three: '셋' })[m[1].toLowerCase()];
     /* 머리말: 「Miss: …」 */
     if ((m = /^([A-Za-z][A-Za-z ]{2,26}):\s*(.+)$/.exec(t))) for (i = 0; i < PREFIX.length; i++) if (PREFIX[i][0].test(m[1].trim())) return PREFIX[i][1] + ': ' + clause(m[2]);
     if ((m = /^if both (?:[a-z]+ )?(?:attacks )?hit(?: the same target)?, (.+)$/i.exec(t))) return '둘 다 같은 대상에게 명중하면, ' + clause(m[1]);

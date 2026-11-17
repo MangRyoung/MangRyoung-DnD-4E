@@ -62,8 +62,8 @@
   async function loadLocal() { var a = null; try { a = await kvGet(PACK_KEY); if (!a) { var old = localStorage.getItem(PACK_KEY); if (old) { a = JSON.parse(old); await kvSet(PACK_KEY, a); localStorage.removeItem(PACK_KEY); } } } catch (e) { try { a = JSON.parse(localStorage.getItem(PACK_KEY) || '[]'); } catch (e2) { a = []; } } localPack = Array.isArray(a) ? a : []; }
   async function setLocal(a) { localPack = Array.isArray(a) ? a : []; try { await kvSet(PACK_KEY, localPack.length ? localPack : null); localStorage.removeItem(PACK_KEY); } catch (e) { localStorage.setItem(PACK_KEY, JSON.stringify(localPack)); } }
   function loadPack() { var site = sitePack || [], key = function (m) { return String(m.n || '').toLowerCase() + (m.trap ? '|t' : '|m'); }, seen = {};
-    /* 이 브라우저에 불러온 자료집 + 사이트 기본 자료집(data/monster-pack.json). 같은 이름이 둘 다 있으면 이 브라우저 것 */
-    pack = []; localPack.forEach(function (m) { seen[key(m)] = 1; pack.push(m); }); site.forEach(function (m) { if (!seen[key(m)]) pack.push(m); });
+    /* 사이트 기본 자료집(data/monster-pack.json) + 이 브라우저에 불러온 자료집. 같은 이름이 둘 다 있으면 사이트 것(새 자료 기준, 2026-11-17 망령 님) */
+    pack = []; site.forEach(function (m) { seen[key(m)] = 1; pack.push(m); }); localPack.forEach(function (m) { if (!seen[key(m)]) pack.push(m); });
     packFrom = localPack.length && site.length ? 'both' : localPack.length ? 'local' : site.length ? 'site' : '';
     pack.forEach(function (m, i) { m.id = m.id || 'pk' + i; m._pack = 1; }); koCache = {}; koN = {}; }
   async function readPackFile(f) { var text = /\.gz$/i.test(f.name) ? await new Response(f.stream().pipeThrough(new DecompressionStream('gzip'))).text() : await f.text(); var a = JSON.parse(text); if (!Array.isArray(a)) throw new Error('몬스터 목록 파일이 아니에요.'); return a; }
