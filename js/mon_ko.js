@@ -103,7 +103,7 @@
     var miss = 0, out = s.split(/\s+/).map(function (w) { var k = w.toLowerCase().replace(/[,.]$/, ''), v = W[k]; if (v == null) { miss++; return w; } return v; }).filter(function (x) { return x !== ''; }).join(' ');
     return out + sfx; }
   var SIZE = { tiny: '초소형', small: '소형', medium: '중형', large: '대형', huge: '초대형', gargantuan: '거대형' };
-  var TYPEW = { aberrant: '변이', elemental: '원소', fey: '요정', immortal: '불멸', natural: '자연', shadow: '그림자', animate: '생동체', beast: '야수', humanoid: '인간형', magical: '마법', aquatic: '수생', undead: '언데드', angel: '천사', fire: '불', cold: '냉기',
+  var TYPEW = { trap: '함정', hazard: '위험 요소', terrain: '지형', object: '사물', 'single-use': '일회성', fantastic: '기묘한', aberrant: '변이', elemental: '원소', fey: '요정', immortal: '불멸', natural: '자연', shadow: '그림자', animate: '생동체', beast: '야수', humanoid: '인간형', magical: '마법', aquatic: '수생', undead: '언데드', angel: '천사', fire: '불', cold: '냉기',
     blind: '눈 없음', reptile: '파충류', plant: '식물', swarm: '무리', mount: '탈것', devil: '데빌', construct: '구조체', demon: '데몬', shapechanger: '변신체', dragon: '용', spider: '거미', eladrin: '엘라드린', earth: '땅', air: '공기', water: '물', giant: '거인',
     homunculus: '호문쿨루스', ooze: '점액체', human: '인간', shifter: '시프터', living: '살아 있는' };
   var KW = { psychic: '정신', charm: '매혹', illusion: '환영', poison: '독', necrotic: '사령', healing: '치유', fear: '공포', weapon: '무기', radiant: '광휘', lightning: '번개', fire: '불', teleportation: '순간이동', cold: '냉기', gaze: '응시', 'see text': '본문 참조',
@@ -391,8 +391,13 @@
   /* 몬스터 한 마리를 번역한 사본으로 */
   function mon(m) { var o = {}; Object.keys(m).forEach(function (k) { o[k] = m[k]; });
     o.n = nm(m.n); o.n_en = m.n; o.type = typeKo(m.type); o.senses = sensesKo(m.senses); o.speed = speedKo(m.speed); o.align = ALIGN[m.align] || m.align; o.lang = listKo(m.lang, LANG); o.skills = listKo(m.skills, SKILL);
-    o.immune = resKo(m.immune); o.resist = resKo(m.resist); o.vuln = resKo(m.vuln); o.hpnote = m.hpnote ? '빗나간 공격은 졸개에게 피해를 주지 못한다.' : '';
-    o.pw = (m.pw || []).map(function (p) { return { n: p.nk || nm(p.n), k: p.k, act: p.ak || actKo(p.act), use: p.uk || useKo(p.use), kw: p.kk || kwKo(p.kw), t: p.tk || body(p.t) }; });
+    o.immune = resKo(m.immune); o.resist = resKo(m.resist); o.vuln = resKo(m.vuln); o.hpnote = !m.hpnote ? '' : /missed attack never damages/i.test(m.hpnote) ? '빗나간 공격은 졸개에게 피해를 주지 못한다.' : body(m.hpnote);
+    if (m.trap) { o.flavor = m.flk || m.flavor || ''; }
+    o.pw = (m.pw || []).map(function (p) { return { n: p.nk || (m.trap && !p.k ? secKo(p.n) : nm(p.n)), k: p.k, act: p.ak || actKo(p.act), use: p.uk || useKo(p.use), kw: p.kk || kwKo(p.kw), t: p.tk || body(p.t) }; });
     /* 손으로 옮긴 칸(자료집의 fk) */ if (m.fk) Object.keys(m.fk).forEach(function (k) { o[k] = m.fk[k]; }); o._ko = 1; return o; }
-  window.D4E_MONKO = { name: nm, mon: mon, body: body };
+  /* 함정 · 위험 요소의 덩어리 이름 */
+  var TRAPSEC = { Perception: '지각(발견)', Countermeasures: '대응책', Countermeasure: '대응책', Trigger: '발동', 'Trigger 1': '발동 1', 'Trigger 2': '발동 2', Attack: '공격', 'Secondary Attack': '2차 공격', 'Primary Attack': '1차 공격', Special: '특수', Effect: '효과', Hazard: '위험 요소', Trap: '함정', Terrain: '지형', 'Single-Use Terrain': '일회성 지형', 'Fantastic Terrain': '기묘한 지형', 'Terrain Power': '지형 파워', Object: '사물', Initiative: '우선권', Upgrade: '강화', Note: '메모', Usage: '쓰임',
+    Arcana: '비전학', Nature: '자연', Religion: '종교', Dungeoneering: '던전 탐험', Insight: '통찰', Thievery: '도둑질', Athletics: '운동', Acrobatics: '곡예', History: '역사', Heal: '치료', Endurance: '지구력', Stealth: '은신', Bluff: '허세', Diplomacy: '교섭', Intimidate: '위협', Streetwise: '뒷골목' };
+  function secKo(n) { n = String(n || '').trim(); if (TRAPSEC[n]) return TRAPSEC[n]; var m = /^(Attack|Secondary Attack|Primary Attack)\s*[•*✦]\s*(.*)$/.exec(n); if (m) return TRAPSEC[m[1]] + ' ✦ ' + kwKo(m[2]); return n.replace(/\b(Perception|Arcana|Nature|Religion|Dungeoneering|Insight|Thievery|Athletics|Acrobatics|History|Heal|Endurance|Stealth)\b/g, function (w) { return TRAPSEC[w]; }).replace(/\(trained only\)/, '(숙련자만)').replace(/\bor\b/g, '또는'); }
+  window.D4E_MONKO = { name: nm, mon: mon, body: body, type: typeKo, sec: secKo };
 })();
