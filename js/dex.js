@@ -56,7 +56,7 @@
   function db() { return A() && A().db(); }
   function C() { return CATS.filter(function (c) { return c.id === cat; })[0] || CATS[0]; }
   var showEmpty = localStorage.getItem('d4e_dexempty') === '1';
-  function blank(e) { if (e.body || e.fl) return false; var s = e.sp || {}, calc = /^Tivaan/.test((e.src || [])[0] || ''); /* 팬 자료의 계산용 조각은 짧은 설명만 있어도 글 없는 것으로 */ for (var k in s) { if (k.charAt(0) !== '_' && (k !== 'Short Description' || !calc) && k !== 'Level' && k !== 'type' && k !== 'Type' && String(s[k]).trim()) return false; } return true; }
+  function blank(e) { if (e.body || e.fl) return false; var s = e.sp || {}, calc = /^Tivaan/.test((e.src || [])[0] || '') || /^ID_TIV_/.test(e.id) || /unselectable/i.test(e.pre || '') || String(s['Short Description'] || '').trim() === e.n; /* 팬 자료의 계산용 조각은 짧은 설명만 있어도 글 없는 것으로 */ for (var k in s) { if (k.charAt(0) !== '_' && (k !== 'Short Description' || !calc) && k !== 'Level' && k !== 'type' && k !== 'Type' && String(s[k]).trim()) return false; } return true; }
   function pool(c) { if (cache[c.id]) return cache[c.id]; var d = db(), out = []; c.t.forEach(function (t) { (d.byType[t] || []).forEach(function (e) { if ((e.sp || {})['InternalOnly']) return; if (t === 'Power' && !(e.sp || {})['Power Usage']) return; out.push(e); }); });
     out.forEach(function (e) { e._lv = +String((e.sp || {})['Level'] || '').replace(/\D.*$/, '') || 0; });
     out.sort(function (a, b) { return (c.lv ? a._lv - b._lv : 0) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); }); return (cache[c.id] = out); }
