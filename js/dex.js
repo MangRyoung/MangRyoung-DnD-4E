@@ -55,6 +55,8 @@
   function A() { return window.D4EApp; }
   function db() { return A() && A().db(); }
   function C() { return CATS.filter(function (c) { return c.id === cat; })[0] || CATS[0]; }
+  var showEmpty = localStorage.getItem('d4e_dexempty') === '1';
+  function blank(e) { if (e.body || e.fl) return false; var s = e.sp || {}, calc = /^Tivaan/.test((e.src || [])[0] || ''); /* 팬 자료의 계산용 조각은 짧은 설명만 있어도 글 없는 것으로 */ for (var k in s) { if (k.charAt(0) !== '_' && (k !== 'Short Description' || !calc) && k !== 'Level' && k !== 'type' && k !== 'Type' && String(s[k]).trim()) return false; } return true; }
   function pool(c) { if (cache[c.id]) return cache[c.id]; var d = db(), out = []; c.t.forEach(function (t) { (d.byType[t] || []).forEach(function (e) { if ((e.sp || {})['InternalOnly']) return; if (t === 'Power' && !(e.sp || {})['Power Usage']) return; out.push(e); }); });
     out.forEach(function (e) { e._lv = +String((e.sp || {})['Level'] || '').replace(/\D.*$/, '') || 0; });
     out.sort(function (a, b) { return (c.lv ? a._lv - b._lv : 0) || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); }); return (cache[c.id] = out); }
@@ -62,6 +64,7 @@
   function list() { var c = C(), ql = lc(q.trim()); return pool(c).filter(function (e) {
       if (c.lv && lo && e._lv < +lo) return false; if (c.lv && hi && e._lv > +hi) return false;
       for (var i = 0; i < c.f.length; i++) { var v = fv[c.id + ':' + i]; if (v) { var g = c.f[i][1](e); if (Array.isArray(g) ? g.indexOf(v) < 0 : g !== v) return false; } }
+      if (!showEmpty && blank(e)) return false;
       if (src && (e.src || []).indexOf(src) < 0) return false;
       if (ql && lc(e.n).indexOf(ql) < 0 && lc(name(e)).indexOf(ql) < 0 && lc((e.sp || {})['Display']).indexOf(ql) < 0 && lc((e.sp || {})['Keywords']).indexOf(ql) < 0) return false; return true; }); }
   function opts(c, i) { var m = {}; pool(c).forEach(function (e) { var v = c.f[i][1](e); (Array.isArray(v) ? v : [v]).forEach(function (x) { if (x) m[x] = (m[x] || 0) + 1; }); }); var ks = Object.keys(m).sort(function (a, b) { return m[b] - m[a] || (a < b ? -1 : 1); }).slice(0, 300); if (ks.length > 40) ks.sort(function (a, b) { return a === '그 밖' ? 1 : b === '그 밖' ? -1 : a.localeCompare(b, 'ko'); }); return ks.map(function (k) { return [k, m[k]]; }); }
@@ -69,12 +72,13 @@
     else if (e.t === 'Weapon') a.push((s['Damage'] || '') + ' ' + (s['Group'] || '')); else if (e.t === 'Ritual') a.push((s['Level'] || '') + '레벨 ' + (s['Category'] || '')); else if (FT[e.t]) { var ow = owners()[e.id]; a.push(ow ? onm(ow[0]) + (ow.length > 1 ? ' 외 ' + (ow.length - 1) : '') : (e.src || [])[0] || ''); } else if (s['Level']) a.push(s['Level'] + '레벨'); else a.push((e.src || [])[0] || '');
     return a.filter(Boolean).join(' · '); }
   function renderBar() { var c = C(), bar = $('dexFilter'); if (!bar) return;
-    $('dexCats').innerHTML = CATS.map(function (x) { var n = pool(x).length; return n ? '<button class="tchip' + (x.id === cat ? ' on' : '') + '" data-dcat="' + x.id + '">' + x.n + ' <small>' + n.toLocaleString() + '</small></button>' : ''; }).join('');
+    $('dexCats').innerHTML = CATS.map(function (x) { var n = pool(x).length, nv = showEmpty ? n : n - pool(x).filter(blank).length; return n ? '<button class="tchip' + (x.id === cat ? ' on' : '') + '" data-dcat="' + x.id + '">' + x.n + ' <small>' + nv.toLocaleString() + '</small></button>' : ''; }).join('');
     var h = '<input type="text" id="dexQ" placeholder="이름 · 키워드 검색 (영어 · 한글)" value="' + esc(q) + '">';
     if (c.lv) h += '<label>레벨 <input type="number" id="dexLo" min="0" max="30" placeholder="부터" value="' + esc(lo) + '"> ~ <input type="number" id="dexHi" min="0" max="30" placeholder="까지" value="' + esc(hi) + '"></label>';
     c.f.forEach(function (f, i) { var cur = fv[c.id + ':' + i] || ''; h += '<select data-dfi="' + i + '"><option value="">' + f[0] + ' 전체</option>' + opts(c, i).map(function (o) { return '<option value="' + esc(o[0]) + '"' + (cur === o[0] ? ' selected' : '') + '>' + esc(o[0]) + ' (' + o[1] + ')</option>'; }).join('') + '</select>'; });
     var sm = {}; pool(c).forEach(function (e) { (e.src || []).forEach(function (s) { sm[s] = (sm[s] || 0) + 1; }); });
     h += '<select id="dexSrc"><option value="">출처 전체</option>' + Object.keys(sm).sort().map(function (s) { return '<option value="' + esc(s) + '"' + (src === s ? ' selected' : '') + '>' + esc(s) + ' (' + sm[s] + ')</option>'; }).join('') + '</select>';
+    var nb = pool(c).filter(blank).length; if (nb) h += '<label class="dexempty"><input type="checkbox" id="dexEmpty"' + (showEmpty ? ' checked' : '') + '> 글 없는 것도 보기 <small>(' + nb.toLocaleString() + ')</small></label>';
     bar.innerHTML = h; }
   var MAX = 300;
   function renderList() { var box = $('dexList'); if (!box) return; var L = list();
@@ -91,7 +95,7 @@
       if (c) { cat = c.getAttribute('data-dcat'); localStorage.setItem('d4e_dexcat', cat); sel = null; lo = hi = ''; src = ''; renderBar(); renderList(); renderView(); }
       else if (r) { sel = r.getAttribute('data-did'); root.querySelectorAll('.drow.on').forEach(function (x) { x.classList.remove('on'); }); r.classList.add('on'); renderView(); if (window.innerWidth < 820) $('dexView').scrollIntoView({ behavior: 'smooth', block: 'start' }); } });
     root.addEventListener('input', function (ev) { var t = ev.target; if (t.id === 'dexQ') { q = t.value; renderList(); } else if (t.id === 'dexLo') { lo = t.value; renderList(); } else if (t.id === 'dexHi') { hi = t.value; renderList(); } });
-    root.addEventListener('change', function (ev) { var t = ev.target, i = t.getAttribute && t.getAttribute('data-dfi'); if (i != null) { fv[C().id + ':' + i] = t.value; renderList(); } else if (t.id === 'dexSrc') { src = t.value; renderList(); } }); }
+    root.addEventListener('change', function (ev) { var t = ev.target, i = t.getAttribute && t.getAttribute('data-dfi'); if (i != null) { fv[C().id + ':' + i] = t.value; renderList(); } else if (t.id === 'dexSrc') { src = t.value; renderList(); } else if (t.id === 'dexEmpty') { showEmpty = t.checked; localStorage.setItem('d4e_dexempty', showEmpty ? '1' : '0'); renderList(); } }); }
   /* 카드 안에서 번역을 쓰거나 탭을 바꾼 뒤: 고른 요소를 다시 그리되, 펼쳐 둔 것은 그대로 */
   function redraw() { var box = $('dexView'); if (!box) return; var open = Array.prototype.map.call(box.querySelectorAll('details'), function (d) { return d.open; }); renderView(); Array.prototype.forEach.call(box.querySelectorAll('details'), function (d, i) { if (open[i]) d.open = true; }); renderList(); }
   window.D4EDex = { redraw: redraw, render: function () { wire(); render(); }, reset: function () { cache = {}; ownMap = null; } };

@@ -460,7 +460,7 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .drow{display:flex;align-items:center;gap:8px;padding:5px 10px;border-bottom:1px solid var(--line);cursor:pointer;font-size:13px;border-left:4px solid var(--line)}.drow:hover,.drow.on{background:var(--acc2)}
 .drow i{font-style:normal;font-weight:700;min-width:20px;text-align:right;color:var(--sub)}.drow b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drow b small{font-weight:400;color:var(--sub);font-size:11px}.drow span{color:var(--sub);font-size:11.5px;white-space:nowrap;max-width:45%;overflow:hidden;text-overflow:ellipsis}
 .drow.u-at{border-left-color:var(--at)}.drow.u-enc{border-left-color:var(--enc)}.drow.u-day{border-left-color:var(--day)}.drow.t-heroic{border-left-color:#8a5a2b}.drow.t-paragon{border-left-color:#3d6a8a}.drow.t-epic{border-left-color:#7a2b6b}
-.dexview .pc,.dexview .gc{max-width:640px}.dexid{font-size:11px;margin-top:6px;word-break:break-all}
+.dexview .pc,.dexview .gc{max-width:640px}.dexempty{font-size:12.5px;color:var(--sub);white-space:nowrap}.dexid{font-size:11px;margin-top:6px;word-break:break-all}
 .shtag{font-size:11px;font-weight:700;color:#3d6a8a;border:1px solid #3d6a8a;border-radius:999px;padding:0 7px;margin-right:6px;white-space:nowrap}
 .shtag.pk{color:#6a5a2a;border-color:#a08a4a}
 /* ---------- 조우 판 ---------- */
