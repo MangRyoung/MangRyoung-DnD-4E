@@ -130,7 +130,15 @@
    * 보관하는 것은 레벨 · 능력치 · 고르기 · 장비 · 고친 파워 · 홈브류 · 패시브 · 세팅. 이름 · 포트 · 설정 · 번역 · 팀은 모든 버전이 같이 쓴다. */
   var VKEYS = ['level', 'abilities', 'abMode', 'choices', 'eq', 'equip', 'grants', 'ed', 'hb', 'hbx', 'pg', 'set', 'setInit'];
   function snapOf(ch) { var o = {}; VKEYS.forEach(function (k) { if (ch[k] != null) o[k] = JSON.parse(JSON.stringify(ch[k])); }); return o; }
-  function sameSnap(a, b) { return JSON.stringify(a) === JSON.stringify(b); }
+  /* 같은지 비교: 열쇠 순서(공유 DB 를 거치면 바뀜) · 빈 값 차이는 무시한다 */
+  function stab(o) { if (Array.isArray(o)) return o.map(stab); if (o && typeof o === 'object') { var r = {}; Object.keys(o).sort().forEach(function (k) { var v = stab(o[k]); if (v == null || v === '' || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) || (Array.isArray(v) && !v.length)) return; r[k] = v; }); return r; } return o; }
+  function sameSnap(a, b) { return JSON.stringify(stab(a || {})) === JSON.stringify(stab(b || {})); }
+  var AUTOV = /^불러오기 전 /;
+  function isAuto(v) { return v.auto || AUTOV.test(v.label); }
+  /* 자동 보관본 정리: 이름 붙인 버전과 같은 것은 지우고, 자동 보관본은 가장 새 것 하나만 남긴다 */
+  function tidyVers() { var vs = cur.vers || [], named = vs.filter(function (v) { return !isAuto(v); }), autos = vs.filter(isAuto).sort(function (a, b) { return b.at - a.at; }), keep = [];
+    autos.forEach(function (a) { if (keep.length) return; if (named.some(function (v) { return sameSnap(v.snap, a.snap); })) return; keep.push(a); });
+    var before = vs.length; cur.vers = named.concat(keep); return before - cur.vers.length; }
   function verKeep(label, replace) {
     var vs = cur.vers = cur.vers || [], sm = res ? summary(cur, res) : {}, v = { label: label, at: Date.now(), level: cur.level, cls: sm.cls || '', race: sm.race || '', snap: snapOf(cur) };
     var i = vs.findIndex(function (x) { return x.label === label; }); if (i >= 0) vs[i] = v; else vs.push(v); return v;
@@ -145,7 +153,7 @@
       return '<div class="vrow' + (same ? ' on' : '') + '"><div class="vinfo"><b>' + esc(v.label) + '</b>' + (same ? ' <span class="vnow">지금 시트</span>' : '') + '<small>' + v.level + '레벨' + (v.race || v.cls ? ' · ' + esc([v.race, v.cls].filter(Boolean).map(function (x) { return gloss(x) || x; }).join(' ')) : '') + ' · ' + verWhen(v.at) + '</small></div>' +
         '<button data-vload="' + esc(v.label) + '"' + (same ? ' disabled' : '') + '>불러오기</button><button class="ghost" data-vover="' + esc(v.label) + '"' + (same ? ' disabled' : '') + ' title="지금 시트로 이 버전을 덮어써요">덮어쓰기</button><button class="ghost" data-vdel="' + esc(v.label) + '">지우기</button></div>'; }).join('') : '<p class="hint">아직 보관한 버전이 없어요. 위에서 이름을 붙여 저장해 보세요.</p>';
   }
-  function openVers() { if (cur.foreign) { toast('남의 시트는 버전을 만들 수 없어요', true); return; } renderVers(); $('verBox').hidden = false; }
+  function openVers() { if (cur.foreign) { toast('남의 시트는 버전을 만들 수 없어요', true); return; } var gone = tidyVers(); if (gone) { saveChars(); toast('겹친 자동 보관본 ' + gone + '개를 정리했어요'); } renderVers(); $('verBox').hidden = false; }
   function wireVers() {
     $('chVer').onclick = openVers; $('verClose').onclick = function () { $('verBox').hidden = true; };
     $('verBox').onclick = function (ev) { if (ev.target === $('verBox')) $('verBox').hidden = true; };
@@ -157,7 +165,7 @@
       if (b.hasAttribute('data-vdel')) { if (!confirm('「' + l + '」 버전을 지울까요?')) return; cur.vers = vs.filter(function (x) { return x !== v; }); saveChars(); renderVers(); return; }
       if (b.hasAttribute('data-vover')) { if (!confirm('「' + l + '」 버전을 지금 시트로 덮어쓸까요?')) return; verKeep(l); saveChars(); renderVers(); toast('「' + l + '」 버전을 덮어썼어요'); return; }
       var now = snapOf(cur), kept = vs.some(function (x) { return sameSnap(x.snap, now); }), auto = '';
-      if (!kept) { auto = '불러오기 전 ' + verWhen(Date.now()); verKeep(auto); }
+      if (!kept) { auto = '불러오기 전 ' + verWhen(Date.now()); cur.vers = vs.filter(function (x) { return !isAuto(x); }); verKeep(auto).auto = true; }
       VKEYS.forEach(function (k) { delete cur[k]; }); Object.assign(cur, JSON.parse(JSON.stringify(v.snap)));
       saveChars(); renderEdit(); renderVers(); toast('「' + l + '」 버전을 불러왔어요' + (auto ? ' · 하던 시트는 「' + auto + '」로 보관했어요' : '')); };
   }
