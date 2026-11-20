@@ -40,22 +40,37 @@
       ['어려움 1', [[3, ['Skirmisher'], 7]]], ['어려움 2', [[4, ['Skirmisher'], 5]]], ['어려움 3', [[6, ['Skirmisher'], 2]]]] }];
   var RK = { Skirmisher: '척후', Brute: '맹수', Soldier: '병사', Lurker: '잠복', Controller: '제어', Artillery: '포격', Minion: '졸개', Elite: '정예', Solo: '단독' };
   function tplCur() { var p = String(enc.tpl || '').split(':'), t = TPLS.filter(function (x) { return x.k === p[0]; })[0]; return t ? { t: t, i: Math.min(t.v.length - 1, +p[1] || 0) } : null; }
+  /* 조우마다 틀을 사본으로 들고 있어 마리 · 역할 · 레벨을 고칠 수 있다(enc.tsl). 옛 조우는 틀 그대로 */
+  function tplSlots() { var c = tplCur(); if (Array.isArray(enc.tsl)) return enc.tsl; return c ? c.t.v[c.i][1] : []; }
+  function tplCopy() { var c = tplCur(); enc.tsl = c ? JSON.parse(JSON.stringify(c.t.v[c.i][1])) : null; }
+  function tplEdited() { var c = tplCur(); return !!(c && Array.isArray(enc.tsl) && JSON.stringify(enc.tsl) !== JSON.stringify(c.t.v[c.i][1])); }
+  var ROLEOPT = [['Skirmisher'], ['Brute'], ['Soldier'], ['Lurker'], ['Controller'], ['Artillery'], FRONT, REAR, CMD, ['Artillery', 'Lurker'], ['Skirmisher', 'Lurker'], ['Elite'], ['Solo'], ['Minion']];
+  function rname(rs) { return rs.map(function (r) { return RK[r] || r; }).join(' · '); }
   function monFits(m, roles) { return roles.some(function (r) { return r === 'Solo' || r === 'Elite' ? m.tier === r : r === 'Minion' ? (m.tier === 'Minion' || m.role === 'Minion') : (m.role === r && m.tier !== 'Solo' && m.tier !== 'Elite' && m.tier !== 'Minion'); }); }
   function drawTpl() { var box = $('encTpl'); if (!box) return; var c = tplCur(), n = +enc.plv || 1, pn = +enc.pn || 5, XP = M().XP || {};
     var h = '<div class="tplhead"><b>조우 틀</b><select id="encTplSel"><option value="">고르지 않음</option>' + TPLS.map(function (t) { return '<optgroup label="' + t.n + '">' + t.v.map(function (v, i) { var key = t.k + ':' + i; return '<option value="' + key + '"' + (enc.tpl === key ? ' selected' : '') + '>' + t.n + ' · ' + v[0] + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select></div>';
-    if (c) { var v = c.t.v[c.i], xp = 0, low = false;
-      h += '<p class="hint tpld">' + esc(c.t.d) + '</p><div class="tplslots">' + v[1].map(function (sl, si) { var lv = n + sl[2], cl = Math.max(1, Math.min(35, lv)); if (lv < 1) low = true;
-          var mul = sl[1][0] === 'Solo' ? 5 : sl[1][0] === 'Elite' ? 2 : 1; xp += (XP[Math.min(30, cl)] || 0) * mul * sl[0];
-          var put = enc.toks.filter(function (t) { var m = enc.mons[t.m] || {}; return monFits(m, sl[1]) && +m.lv === cl; }).length;
-          return '<button class="tplslot' + (put >= sl[0] ? ' full' : '') + '" data-tplslot="' + si + '" title="눌러서 이 칸에 맞는 몬스터(역할 · 레벨)만 아래 목록에 보여요"><b>' + sl[0] + '</b>' + esc(sl[3] || sl[1].map(function (r) { return RK[r] || r; }).join(' · ')) + (sl[3] ? ' <small>' + sl[1].map(function (r) { return RK[r] || r; }).join(' · ') + '</small>' : '') + ' <i>' + cl + '레벨</i> <em>' + put + '/' + sl[0] + '</em></button>'; }).join('') + '</div>';
-      h += '<p class="hint">틀 XP 약 ' + xp.toLocaleString() + ' · 기준 ' + ((XP[Math.min(30, n)] || 0) * 5).toLocaleString() + ' (5명)' + (low ? ' · 1레벨 아래로 내려간 칸은 1레벨로 셌어요' : '') + '</p>';
-      if (pn <= 4) h += '<p class="hint">틀은 5명 기준이에요. 일행이 ' + pn + '명이면 쉬움 틀을 보통으로, 보통 틀을 어려움으로 쓰면 맞아요.</p>';
-      else if (pn >= 6) h += '<p class="hint">틀은 5명 기준이에요. 일행이 ' + pn + '명이면 보통 틀을 쉬움으로, 어려움 틀을 보통으로 쓰면 맞아요.</p>'; }
-    else h += '<p class="hint">고르면 일행 레벨(n = ' + n + ')에 맞춰 역할 · 마리 · 레벨이 나와요. 칸을 누르면 아래 목록이 그 칸에 맞는 몬스터로 좁혀져요.</p>';
+    if (c) { var sl = tplSlots(), xp = 0, low = false, ed = tplEdited();
+      h += '<p class="hint tpld">' + esc(c.t.d) + '</p><div class="tplslots">' + sl.map(function (x, si) { var lv = n + (+x[2] || 0), cl = Math.max(1, Math.min(35, lv)); if (lv < 1) low = true;
+          var mul = x[1][0] === 'Solo' ? 5 : x[1][0] === 'Elite' ? 2 : x[1][0] === 'Minion' ? 0.25 : 1; xp += (XP[Math.min(30, cl)] || 0) * mul * (+x[0] || 0);
+          var key = x[1].join('|'), opts = ROLEOPT.slice(); if (!opts.some(function (o) { return o.join('|') === key; })) opts.push(x[1]);
+          var put = enc.toks.filter(function (t) { var m = enc.mons[t.m] || {}; return monFits(m, x[1]) && +m.lv === cl; }).length;
+          return '<div class="tplslot' + (put >= (+x[0] || 0) && x[0] > 0 ? ' full' : '') + '" data-tplslot="' + si + '" title="빈 곳을 누르면 이 칸에 맞는 몬스터(역할 · 레벨)만 아래 목록에 보여요">' +
+            '<input type="number" min="0" max="30" value="' + (+x[0] || 0) + '" data-tsf="' + si + ':0" title="마리 수">' +
+            '<select data-tsf="' + si + ':1" title="역할">' + opts.map(function (o) { var k = o.join('|'); return '<option value="' + k + '"' + (k === key ? ' selected' : '') + '>' + rname(o) + '</option>'; }).join('') + '</select>' +
+            '<label title="일행 레벨에서 더하거나 뺄 레벨">n<input type="number" min="-10" max="15" value="' + (+x[2] || 0) + '" data-tsf="' + si + ':2"></label>' +
+            '<button class="tplgo" data-tplgo="' + si + '" title="이 칸에 맞는 몬스터(역할 · 레벨)만 아래 목록에 보여요">' + cl + '레벨 찾기</button><em>' + put + '/' + (+x[0] || 0) + '</em><button class="tplx" data-tsdel="' + si + '" title="이 칸 지우기">×</button></div>'; }).join('') + '</div>';
+      h += '<div class="tplbtn"><button class="mini ghost" id="encTsAdd">+ 칸</button>' + (ed ? '<button class="mini ghost" id="encTsReset" title="고친 마리 · 역할 · 레벨을 책의 틀대로 되돌려요">틀대로 되돌리기</button><span class="tpled">고친 틀</span>' : '') + '</div>';
+      h += '<p class="hint">틀 XP 약 ' + Math.round(xp).toLocaleString() + ' · 기준 ' + ((XP[Math.min(30, n)] || 0) * pn).toLocaleString() + ' (' + pn + '명)' + (low ? ' · 1레벨 아래로 내려간 칸은 1레벨로 셌어요' : '') + '</p>';
+      if (pn <= 4) h += '<p class="hint">책의 틀은 5명 기준이에요. 일행이 ' + pn + '명이면 쉬움 틀을 보통으로, 보통 틀을 어려움으로 쓰면 맞아요. 마리 수를 줄여 맞춰도 돼요.</p>';
+      else if (pn >= 6) h += '<p class="hint">책의 틀은 5명 기준이에요. 일행이 ' + pn + '명이면 보통 틀을 쉬움으로, 어려움 틀을 보통으로 쓰면 맞아요. 마리 수를 늘려 맞춰도 돼요.</p>'; }
+    else h += '<p class="hint">고르면 일행 레벨(n = ' + n + ')에 맞춰 역할 · 마리 · 레벨이 나와요. 마리 · 역할 · 레벨은 이 조우에서만 고칠 수 있고, 「찾기」를 누르면 아래 목록이 그 칸에 맞게 좁혀져요.</p>';
     box.innerHTML = h; }
-  function tplPick(si) { var c = tplCur(); if (!c) return; var sl = c.t.v[c.i][1][si], lv = Math.max(1, Math.min(35, (+enc.plv || 1) + sl[2]));
+  function tplSet(si, f, val) { if (!Array.isArray(enc.tsl)) tplCopy(); var x = enc.tsl[si]; if (!x) return;
+    if (f === 0) x[0] = Math.max(0, Math.min(30, Math.round(+val) || 0)); else if (f === 2) x[2] = Math.max(-10, Math.min(15, Math.round(+val) || 0)); else if (f === 1) { x[1] = String(val).split('|'); x[3] = ''; }
+    touch(); drawTpl(); }
+  function tplPick(si) { var sl = tplSlots()[si]; if (!sl) return; var lv = Math.max(1, Math.min(35, (+enc.plv || 1) + (+sl[2] || 0)));
     pickRole = sl[1].join('|'); pickLo = pickHi = String(lv); pickAuto = false; pickQ = '';
-    var r = $('encRole'); if (r) { if (!Array.prototype.some.call(r.options, function (o) { return o.value === pickRole; })) { var o = document.createElement('option'); o.value = pickRole; o.textContent = sl[1].map(function (x) { return RK[x] || x; }).join(' · '); r.appendChild(o); } r.value = pickRole; }
+    var r = $('encRole'); if (r) { if (!Array.prototype.some.call(r.options, function (o) { return o.value === pickRole; })) { var o = document.createElement('option'); o.value = pickRole; o.textContent = rname(sl[1]); r.appendChild(o); } r.value = pickRole; }
     if ($('encLo')) $('encLo').value = pickLo; if ($('encHi')) $('encHi').value = pickHi; if ($('encQ')) $('encQ').value = ''; drawPick(); }
   function touch() { dirty = true; var b = $('encSave'); if (b) b.classList.add('need'); }
 
@@ -176,7 +191,11 @@
     root.addEventListener('click', async function (ev) { var t = ev.target, mv = t.closest('[data-mview]');
       if (mv) { view = mv.getAttribute('data-mview'); localStorage.setItem('d4e_monview', view); sync(); return; }
       if (!t.closest('#encWrap')) return;
-      var ts = t.closest('[data-tplslot]'); if (ts) { tplPick(+ts.getAttribute('data-tplslot')); return; }
+      var tdel = t.closest('[data-tsdel]'); if (tdel) { if (!Array.isArray(enc.tsl)) tplCopy(); enc.tsl.splice(+tdel.getAttribute('data-tsdel'), 1); touch(); drawTpl(); return; }
+      if (t.id === 'encTsAdd') { if (!Array.isArray(enc.tsl)) tplCopy(); (enc.tsl = enc.tsl || []).push([1, ['Soldier'], 0]); touch(); drawTpl(); return; }
+      if (t.id === 'encTsReset') { tplCopy(); touch(); drawTpl(); return; }
+      var tg = t.closest('[data-tplgo]'); if (tg) { tplPick(+tg.getAttribute('data-tplgo')); return; }
+      var ts = t.closest('[data-tplslot]'); if (ts && !t.closest('input,select,label')) { tplPick(+ts.getAttribute('data-tplslot')); return; } if (ts) return;
       var row = t.closest('[data-eid]'), am = t.closest('[data-addm]'), more = t.closest('[data-more]');
       if (t.id === 'encMapIn') { $('encMapInFile').click(); return; }
       if (t.id === 'encTokIn') { $('encTokInFile').click(); return; }
@@ -217,7 +236,7 @@
     root.addEventListener('change', function (ev) { var t = ev.target; if (!enc && t.id !== 'encMapInFile') return;
       if (t.id === 'encMapInFile') { var mf = t.files && t.files[0]; t.value = ''; importMt([mf]); }
       else if (t.id === 'encTokInFile') { var fl = Array.prototype.slice.call(t.files || []); t.value = ''; importMt(fl); }
-      else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encTplSel') { enc.tpl = t.value; touch(); drawTpl(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
+      else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encTplSel') { enc.tpl = t.value; tplCopy(); touch(); drawTpl(); } else if (t.getAttribute && t.getAttribute('data-tsf')) { var tf = t.getAttribute('data-tsf').split(':'); tplSet(+tf[0], +tf[1], t.value); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
     /* 맵 그림을 판 위로 끌어다 놓기 */
     var overBoard = function (ev) { return enc && ev.target.closest && ev.target.closest('.encboardwrap'); }, hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
     /* 그림을 토큰 위나 고른 몬스터 칸에 놓으면 그 몬스터 그림, 판의 빈 곳에 놓으면 맵 */
