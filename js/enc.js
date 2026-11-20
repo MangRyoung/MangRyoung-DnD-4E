@@ -7,6 +7,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   var M = function () { return window.D4EMon; };
+  var TPLKIND = 'dnd4e_enctpl', myTpl = [], tplForm = null; /* 내 틀: 팀 공유 DB 에 둔다 */
   var list = [], enc = null, mapUrl = '', mapDirty = false, selTok = -1, zoom = 1, loaded = false, view = localStorage.getItem('d4e_monview') || 'list', pickQ = '', pickLo = '', pickHi = '', pickRole = '', pickSrc = '', pickAuto = true, wide = false, monEdit = false, dirty = false;
   function blank() { return { id: '', name: '새 조우', plv: 10, pn: 4, cell: 50, ox: 0, oy: 0, w: 1000, h: 700, mons: [], toks: [], note: '', hasMap: false }; }
   function sizeOf(m) { var t = String((m && m.type) || ''); return /Gargantuan|거대형/i.test(t) ? 4 : /Huge|초대형/i.test(t) ? 3 : /Large|대형/i.test(t) ? 2 : 1; }
@@ -39,7 +40,9 @@
       ['쉬움', [[7, ['Skirmisher'], -4]]], ['보통 1', [[7, ['Skirmisher'], -2]]], ['보통 2', [[5, ['Skirmisher'], 0]]],
       ['어려움 1', [[3, ['Skirmisher'], 7]]], ['어려움 2', [[4, ['Skirmisher'], 5]]], ['어려움 3', [[6, ['Skirmisher'], 2]]]] }];
   var RK = { Skirmisher: '척후', Brute: '맹수', Soldier: '병사', Lurker: '잠복', Controller: '제어', Artillery: '포격', Minion: '졸개', Elite: '정예', Solo: '단독' };
-  function tplCur() { var p = String(enc.tpl || '').split(':'), t = TPLS.filter(function (x) { return x.k === p[0]; })[0]; return t ? { t: t, i: Math.min(t.v.length - 1, +p[1] || 0) } : null; }
+  function tplCur() { var key = String(enc.tpl || '');
+    if (key.indexOf('my:') === 0) { var my = myTpl.filter(function (x) { return x.id === key.slice(3); })[0]; return my ? { t: { k: key, n: my.n, d: my.d || '', v: [['내 틀', my.slots || []]] }, i: 0, my: my } : Array.isArray(enc.tsl) ? { t: { k: key, n: '지워진 내 틀', d: '이 틀은 목록에서 지워졌어요. 이 조우의 칸은 남아 있으니 「새 틀로 저장」으로 다시 살릴 수 있어요.', v: [['', enc.tsl]] }, i: 0, gone: true } : null; }
+    var p = key.split(':'), t = TPLS.filter(function (x) { return x.k === p[0]; })[0]; return t ? { t: t, i: Math.min(t.v.length - 1, +p[1] || 0) } : null; }
   /* 조우마다 틀을 사본으로 들고 있어 마리 · 역할 · 레벨을 고칠 수 있다(enc.tsl). 옛 조우는 틀 그대로 */
   function tplSlots() { var c = tplCur(); if (Array.isArray(enc.tsl)) return enc.tsl; return c ? c.t.v[c.i][1] : []; }
   function tplCopy() { var c = tplCur(); enc.tsl = c ? JSON.parse(JSON.stringify(c.t.v[c.i][1])) : null; }
@@ -48,7 +51,7 @@
   function rname(rs) { return rs.map(function (r) { return RK[r] || r; }).join(' · '); }
   function monFits(m, roles) { return roles.some(function (r) { return r === 'Solo' || r === 'Elite' ? m.tier === r : r === 'Minion' ? (m.tier === 'Minion' || m.role === 'Minion') : (m.role === r && m.tier !== 'Solo' && m.tier !== 'Elite' && m.tier !== 'Minion'); }); }
   function drawTpl() { var box = $('encTpl'); if (!box) return; var c = tplCur(), n = +enc.plv || 1, pn = +enc.pn || 5, XP = M().XP || {};
-    var h = '<div class="tplhead"><b>조우 틀</b><select id="encTplSel"><option value="">고르지 않음</option>' + TPLS.map(function (t) { return '<optgroup label="' + t.n + '">' + t.v.map(function (v, i) { var key = t.k + ':' + i; return '<option value="' + key + '"' + (enc.tpl === key ? ' selected' : '') + '>' + t.n + ' · ' + v[0] + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select></div>';
+    var h = '<div class="tplhead"><b>조우 틀</b><select id="encTplSel"><option value="">고르지 않음</option>' + TPLS.map(function (t) { return '<optgroup label="' + t.n + '">' + t.v.map(function (v, i) { var key = t.k + ':' + i; return '<option value="' + key + '"' + (enc.tpl === key ? ' selected' : '') + '>' + t.n + ' · ' + v[0] + '</option>'; }).join('') + '</optgroup>'; }).join('') + (myTpl.length ? '<optgroup label="내 틀 (팀 공유)">' + myTpl.map(function (x) { var k = 'my:' + x.id; return '<option value="' + esc(k) + '"' + (enc.tpl === k ? ' selected' : '') + '>' + esc(x.n) + '</option>'; }).join('') + '</optgroup>' : '') + (c && c.gone ? '<option selected value="' + esc(enc.tpl) + '">(지워진 내 틀)</option>' : '') + '</select><button class="mini ghost" id="encTplNew" title="빈 틀을 새로 만들어요">+ 새 틀</button></div>';
     if (c) { var sl = tplSlots(), xp = 0, low = false, ed = tplEdited();
       h += '<p class="hint tpld">' + esc(c.t.d) + '</p><div class="tplslots">' + sl.map(function (x, si) { var lv = n + (+x[2] || 0), cl = Math.max(1, Math.min(35, lv)); if (lv < 1) low = true;
           var mul = x[1][0] === 'Solo' ? 5 : x[1][0] === 'Elite' ? 2 : x[1][0] === 'Minion' ? 0.25 : 1; xp += (XP[Math.min(30, cl)] || 0) * mul * (+x[0] || 0);
@@ -59,12 +62,23 @@
             '<select data-tsf="' + si + ':1" title="역할">' + opts.map(function (o) { var k = o.join('|'); return '<option value="' + k + '"' + (k === key ? ' selected' : '') + '>' + rname(o) + '</option>'; }).join('') + '</select>' +
             '<label title="일행 레벨에서 더하거나 뺄 레벨">n<input type="number" min="-10" max="15" value="' + (+x[2] || 0) + '" data-tsf="' + si + ':2"></label>' +
             '<button class="tplgo" data-tplgo="' + si + '" title="이 칸에 맞는 몬스터(역할 · 레벨)만 아래 목록에 보여요">' + cl + '레벨 찾기</button><em>' + put + '/' + (+x[0] || 0) + '</em><button class="tplx" data-tsdel="' + si + '" title="이 칸 지우기">×</button></div>'; }).join('') + '</div>';
-      h += '<div class="tplbtn"><button class="mini ghost" id="encTsAdd">+ 칸</button>' + (ed ? '<button class="mini ghost" id="encTsReset" title="고친 마리 · 역할 · 레벨을 책의 틀대로 되돌려요">틀대로 되돌리기</button><span class="tpled">고친 틀</span>' : '') + '</div>';
+      h += '<div class="tplbtn"><button class="mini ghost" id="encTsAdd">+ 칸</button>' + (ed ? '<button class="mini ghost" id="encTsReset" title="고친 마리 · 역할 · 레벨을 저장된 틀대로 되돌려요">틀대로 되돌리기</button><span class="tpled">고친 틀</span>' : '') +
+        '<span class="sp"></span><button class="mini ghost" id="encTplSaveAs" title="지금 칸들을 새 「내 틀」로 저장해요. 다른 조우에서도 고를 수 있어요">새 틀로 저장</button>' +
+        (c.my ? (ed ? '<button class="mini" id="encTplOver" title="고친 칸들로 이 내 틀을 덮어써요">이 틀에 저장</button>' : '') + '<button class="mini ghost" id="encTplRen">이름 · 설명</button><button class="mini ghost" id="encTplDel">틀 지우기</button>' : '') + '</div>';
       h += '<p class="hint">틀 XP 약 ' + Math.round(xp).toLocaleString() + ' · 기준 ' + ((XP[Math.min(30, n)] || 0) * pn).toLocaleString() + ' (' + pn + '명)' + (low ? ' · 1레벨 아래로 내려간 칸은 1레벨로 셌어요' : '') + '</p>';
       if (pn <= 4) h += '<p class="hint">책의 틀은 5명 기준이에요. 일행이 ' + pn + '명이면 쉬움 틀을 보통으로, 보통 틀을 어려움으로 쓰면 맞아요. 마리 수를 줄여 맞춰도 돼요.</p>';
       else if (pn >= 6) h += '<p class="hint">책의 틀은 5명 기준이에요. 일행이 ' + pn + '명이면 보통 틀을 쉬움으로, 어려움 틀을 보통으로 쓰면 맞아요. 마리 수를 늘려 맞춰도 돼요.</p>'; }
     else h += '<p class="hint">고르면 일행 레벨(n = ' + n + ')에 맞춰 역할 · 마리 · 레벨이 나와요. 마리 · 역할 · 레벨은 이 조우에서만 고칠 수 있고, 「찾기」를 누르면 아래 목록이 그 칸에 맞게 좁혀져요.</p>';
+    if (tplForm) h += '<div class="tplform"><b>' + (tplForm.mode === 'ren' ? '틀 이름 · 설명 고치기' : tplForm.mode === 'new' ? '새 틀 만들기' : '새 틀로 저장') + '</b><input type="text" id="encTfN" placeholder="틀 이름 (예: 고블린 매복)" value="' + esc(tplForm.n || '') + '"><input type="text" id="encTfD" placeholder="설명 (어떻게 싸우는지 한 줄, 비워도 돼요)" value="' + esc(tplForm.d || '') + '"><div class="tplbtn"><button class="mini" id="encTfOk">저장</button><button class="mini ghost" id="encTfNo">그만두기</button></div></div>';
     box.innerHTML = h; }
+  async function tplPut(x) { var d = JSON.parse(JSON.stringify(x)); delete d.id; await D4EShare.put(x.id, d, TPLKIND); }
+  async function tplSaveForm() { var nm = ($('encTfN') || {}).value || '', ds = ($('encTfD') || {}).value || ''; nm = nm.trim(); if (!nm) { msg('틀 이름을 적어 주세요'); return; }
+    var me = (window.D4EApp && D4EApp.me()) || {}, f = tplForm, x;
+    if (f.mode === 'ren') { x = tplCur().my; x.n = nm; x.d = ds.trim(); }
+    else { x = { id: 't' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), n: nm, d: ds.trim(), by: me.name || '', slots: f.mode === 'new' ? [[1, ['Soldier'], 0]] : JSON.parse(JSON.stringify(tplSlots())) }; myTpl.push(x); }
+    x.at = Date.now();
+    try { await tplPut(x); } catch (e) { msg('틀을 저장하지 못했어요: ' + e.message); return; }
+    myTpl.sort(function (a, b) { return (a.n || '') < (b.n || '') ? -1 : 1; }); enc.tpl = 'my:' + x.id; if (f.mode !== 'ren') tplCopy(); tplForm = null; touch(); drawTpl(); msg('「' + x.n + '」 틀을 저장했어요 · 팀 모두가 골라 쓸 수 있어요'); }
   function tplSet(si, f, val) { if (!Array.isArray(enc.tsl)) tplCopy(); var x = enc.tsl[si]; if (!x) return;
     if (f === 0) x[0] = Math.max(0, Math.min(30, Math.round(+val) || 0)); else if (f === 2) x[2] = Math.max(-10, Math.min(15, Math.round(+val) || 0)); else if (f === 1) { x[1] = String(val).split('|'); x[3] = ''; }
     touch(); drawTpl(); }
@@ -75,7 +89,8 @@
   function touch() { dirty = true; var b = $('encSave'); if (b) b.classList.add('need'); }
 
   /* ---------- 읽기 · 쓰기 ---------- */
-  async function load() { try { list = (await D4EShare.list(KIND)).map(function (r) { var d = r.data || {}; d.id = r.id; return d; }); } catch (e) { list = []; msg('조우 목록을 읽지 못했어요: ' + e.message); } loaded = true; }
+  async function loadTpl() { try { myTpl = (await D4EShare.list(TPLKIND)).map(function (r) { var d = r.data || {}; d.id = r.id; return d; }).sort(function (a, b) { return (a.n || '') < (b.n || '') ? -1 : 1; }); } catch (e) { myTpl = []; } }
+  async function load() { loadTpl().then(function () { if (enc) drawTpl(); }); try { list = (await D4EShare.list(KIND)).map(function (r) { var d = r.data || {}; d.id = r.id; return d; }); } catch (e) { list = []; msg('조우 목록을 읽지 못했어요: ' + e.message); } loaded = true; }
   function msg(t) { var n = $('encMsg'); if (n) n.textContent = t || ''; }
   async function open(id) { var e = list.filter(function (x) { return x.id === id; })[0]; if (!e) return; enc = JSON.parse(JSON.stringify(e)); mapUrl = ''; mapDirty = false; selTok = -1; dirty = false; pickDefault(); render();
     if (enc.hasMap) { try { var r = await D4EShare.get(id, MAPKIND); if (r && r.data && r.data.img && enc && enc.id === id) { mapUrl = r.data.img; drawBoard(); fit(false); } } catch (er) { msg('맵 그림을 읽지 못했어요: ' + er.message); } } }
@@ -194,6 +209,13 @@
       var tdel = t.closest('[data-tsdel]'); if (tdel) { if (!Array.isArray(enc.tsl)) tplCopy(); enc.tsl.splice(+tdel.getAttribute('data-tsdel'), 1); touch(); drawTpl(); return; }
       if (t.id === 'encTsAdd') { if (!Array.isArray(enc.tsl)) tplCopy(); (enc.tsl = enc.tsl || []).push([1, ['Soldier'], 0]); touch(); drawTpl(); return; }
       if (t.id === 'encTsReset') { tplCopy(); touch(); drawTpl(); return; }
+      if (t.id === 'encTplNew') { tplForm = { mode: 'new', n: '', d: '' }; drawTpl(); var fn = $('encTfN'); if (fn) fn.focus(); return; }
+      if (t.id === 'encTplSaveAs') { var cc = tplCur(); tplForm = { mode: 'as', n: cc ? (cc.gone ? '' : cc.my ? cc.t.n + ' (고침)' : cc.t.n + ' · ' + cc.t.v[cc.i][0] + ' (고침)') : '', d: cc ? cc.t.d : '' }; drawTpl(); var fn2 = $('encTfN'); if (fn2) { fn2.focus(); fn2.select(); } return; }
+      if (t.id === 'encTplRen') { var cr = tplCur(); if (cr && cr.my) { tplForm = { mode: 'ren', n: cr.my.n, d: cr.my.d || '' }; drawTpl(); } return; }
+      if (t.id === 'encTfNo') { tplForm = null; drawTpl(); return; }
+      if (t.id === 'encTfOk') { tplSaveForm(); return; }
+      if (t.id === 'encTplOver') { var co = tplCur(); if (co && co.my) { co.my.slots = JSON.parse(JSON.stringify(tplSlots())); co.my.at = Date.now(); tplPut(co.my).then(function () { tplCopy(); drawTpl(); msg('「' + co.my.n + '」 틀에 저장했어요'); }); } return; }
+      if (t.id === 'encTplDel') { var cd = tplCur(); if (cd && cd.my && confirm('「' + cd.my.n + '」 틀을 지울까요? 팀 모두의 목록에서 사라져요. 이 틀로 짠 조우의 칸은 그대로 남아요.')) { D4EShare.del(cd.my.id, TPLKIND).catch(function () {}); myTpl = myTpl.filter(function (x) { return x !== cd.my; }); drawTpl(); msg('틀을 지웠어요'); } return; }
       var tg = t.closest('[data-tplgo]'); if (tg) { tplPick(+tg.getAttribute('data-tplgo')); return; }
       var ts = t.closest('[data-tplslot]'); if (ts && !t.closest('input,select,label')) { tplPick(+ts.getAttribute('data-tplslot')); return; } if (ts) return;
       var row = t.closest('[data-eid]'), am = t.closest('[data-addm]'), more = t.closest('[data-more]');
