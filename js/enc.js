@@ -210,7 +210,7 @@
       if (t.id === 'encTsAdd') { if (!Array.isArray(enc.tsl)) tplCopy(); (enc.tsl = enc.tsl || []).push([1, ['Soldier'], 0]); touch(); drawTpl(); return; }
       if (t.id === 'encTsReset') { tplCopy(); touch(); drawTpl(); return; }
       if (t.id === 'encTplNew') { tplForm = { mode: 'new', n: '', d: '' }; drawTpl(); var fn = $('encTfN'); if (fn) fn.focus(); return; }
-      if (t.id === 'encTplSaveAs') { var cc = tplCur(); tplForm = { mode: 'as', n: cc ? (cc.gone ? '' : cc.my ? cc.t.n + ' (고침)' : cc.t.n + ' · ' + cc.t.v[cc.i][0] + ' (고침)') : '', d: cc ? cc.t.d : '' }; drawTpl(); var fn2 = $('encTfN'); if (fn2) { fn2.focus(); fn2.select(); } return; }
+      if (t.id === 'encTplSaveAs') { var cc = tplCur(); tplForm = { mode: 'as', n: cc ? (cc.gone ? '' : cc.my ? cc.t.n + ' (고침)' : cc.t.n + ' · ' + cc.t.v[cc.i][0] + ' (고침)') : '', d: cc && !cc.gone ? cc.t.d : '' }; drawTpl(); var fn2 = $('encTfN'); if (fn2) { fn2.focus(); fn2.select(); } return; }
       if (t.id === 'encTplRen') { var cr = tplCur(); if (cr && cr.my) { tplForm = { mode: 'ren', n: cr.my.n, d: cr.my.d || '' }; drawTpl(); } return; }
       if (t.id === 'encTfNo') { tplForm = null; drawTpl(); return; }
       if (t.id === 'encTfOk') { tplSaveForm(); return; }
