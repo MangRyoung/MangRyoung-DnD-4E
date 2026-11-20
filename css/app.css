@@ -519,3 +519,7 @@ i.tchip{font-style:normal;font-size:11px;font-weight:700;color:#fff;border-radiu
 .encmodal-box{background:var(--card);border-radius:12px;width:100%;max-width:1000px;padding:14px 18px 18px;box-shadow:0 12px 40px rgba(0,0,0,.35)}
 @media (max-width:640px){.encmodal{padding:0}.encmodal-box{border-radius:0;min-height:100%;padding:10px 12px}}
 body.noscroll{overflow:hidden}
+
+/* 조우 틀 (11-20) */
+.enctpl{border-bottom:1px dashed var(--line);padding-bottom:8px;margin-bottom:8px}.tplhead{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tplhead select{flex:1;min-width:140px}.enctpl .hint{margin:4px 0;font-size:12px}.tpld{color:var(--sub)}
+.tplslots{display:flex;flex-direction:column;gap:4px;margin:4px 0}.tplslot{display:flex;gap:6px;align-items:baseline;text-align:left;background:var(--bg2,transparent);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:13px;cursor:pointer}.tplslot b{min-width:16px;color:var(--acc)}.tplslot small{color:var(--sub)}.tplslot i{font-style:normal;color:var(--sub);margin-left:auto}.tplslot em{font-style:normal;font-size:12px;color:var(--sub)}.tplslot.full{border-color:#3f7d4e}.tplslot.full em{color:#3f7d4e;font-weight:600}

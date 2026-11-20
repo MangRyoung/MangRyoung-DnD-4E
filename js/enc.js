@@ -23,6 +23,40 @@
     /* 같은 비율로 옮기되, 겹치면 가장 가까운 빈칸으로 */ enc.toks.forEach(function (t) { var z = t.s || 1, mx = Math.max(0, g.x - z), my = Math.max(0, g.y - z), tx = Math.max(0, Math.min(mx, Math.round(t.x * k))), ty = Math.max(0, Math.min(my, Math.round(t.y * k))), best = null;
       for (var r = 0; r <= 30 && !best; r++) for (var dy = -r; dy <= r && !best; dy++) for (var dx = -r; dx <= r; dx++) { if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue; var x = tx + dx, y = ty + dy; if (x < 0 || y < 0 || x > mx || y > my || !free(x, y, z)) continue; best = [x, y]; break; }
       if (best) { tx = best[0]; ty = best[1]; } t.x = tx; t.y = ty; for (var a = 0; a < z; a++) for (var b = 0; b < z; b++) occ[(tx + a) + ',' + (ty + b)] = 1; }); var a = $('encOx'), b = $('encOy'); if (a) a.value = enc.ox; if (b) b.value = enc.oy; touch(); drawBoard(); showN(); fit(false); }
+  /* ---------- 조우 틀 (DMG 4장 「조우 틀」): n = 일행 레벨. 칸 = [마리, 역할들, 레벨 차, 이름] ---------- */
+  var FRONT = ['Brute', 'Soldier'], REAR = ['Artillery', 'Controller'], CMD = ['Controller', 'Soldier'];
+  var TPLS = [
+    { k: 'bc', n: '전장 제어', d: '제어 하나가 적의 움직임을 묶고, 척후 여럿이 그 틈을 휘젓는다. 지형이 제어를 대신해도 된다.', v: [
+      ['쉬움', [[1, ['Controller'], -2], [6, ['Skirmisher'], -4]]], ['보통', [[1, ['Controller'], 1], [6, ['Skirmisher'], -2]]], ['어려움', [[1, ['Controller'], 5], [5, ['Skirmisher'], 1]]]] },
+    { k: 'ct', n: '지휘관과 병사', d: '지휘관(제어 · 병사, 잠복 · 척후도 가능) 하나가 근접 병사들(맹수 · 병사)을 이끈다. 어려우면 포격이 뒤를 받친다.', v: [
+      ['쉬움', [[1, CMD, 0, '지휘관'], [4, FRONT, -3, '병사']]], ['보통', [[1, CMD, 3, '지휘관'], [5, FRONT, -2, '병사']]], ['어려움', [[1, CMD, 6, '지휘관'], [3, FRONT, 1, '병사'], [2, ['Artillery'], 1]]]] },
+    { k: 'dd', n: '용의 둥지', d: '단독 몬스터 하나와 싸운다. 드래곤 · 히드라 같은 큰 적.', v: [
+      ['쉬움', [[1, ['Solo'], -2]]], ['보통', [[1, ['Solo'], 0, '단독 (n 또는 n+1)']]], ['어려움 1', [[1, ['Solo'], 3]]], ['어려움 2', [[1, ['Solo'], 1], [1, ['Elite'], 0]]]] },
+    { k: 'dl', n: '이중 전열', d: '앞줄(맹수 · 병사)이 뒷줄(포격 · 제어)을 지킨다. 뒷줄 하나를 척후 · 잠복으로 바꿔 뒤로 돌게 해도 된다.', v: [
+      ['쉬움', [[3, FRONT, -4, '앞줄'], [2, REAR, -2, '뒷줄']]], ['보통 1', [[3, FRONT, 0, '앞줄'], [2, REAR, 0, '뒷줄']]], ['보통 2', [[3, FRONT, -2, '앞줄'], [2, REAR, 3, '뒷줄']]],
+      ['어려움 1', [[3, FRONT, 2, '앞줄'], [1, ['Controller'], 4], [1, ['Artillery', 'Lurker'], 4]]], ['어려움 2', [[3, FRONT, 0, '앞줄'], [2, ['Artillery'], 1], [1, ['Controller'], 2], [1, ['Lurker'], 2]]]] },
+    { k: 'wp', n: '늑대 무리', d: '같은 종류가 무리 지어 사냥한다. 대개 척후이고, 몇은 병사처럼 앞줄을 맡다가 지치면 물러난다.', v: [
+      ['쉬움', [[7, ['Skirmisher'], -4]]], ['보통 1', [[7, ['Skirmisher'], -2]]], ['보통 2', [[5, ['Skirmisher'], 0]]],
+      ['어려움 1', [[3, ['Skirmisher'], 7]]], ['어려움 2', [[4, ['Skirmisher'], 5]]], ['어려움 3', [[6, ['Skirmisher'], 2]]]] }];
+  var RK = { Skirmisher: '척후', Brute: '맹수', Soldier: '병사', Lurker: '잠복', Controller: '제어', Artillery: '포격', Minion: '졸개', Elite: '정예', Solo: '단독' };
+  function tplCur() { var p = String(enc.tpl || '').split(':'), t = TPLS.filter(function (x) { return x.k === p[0]; })[0]; return t ? { t: t, i: Math.min(t.v.length - 1, +p[1] || 0) } : null; }
+  function monFits(m, roles) { return roles.some(function (r) { return r === 'Solo' || r === 'Elite' ? m.tier === r : r === 'Minion' ? (m.tier === 'Minion' || m.role === 'Minion') : (m.role === r && m.tier !== 'Solo' && m.tier !== 'Elite' && m.tier !== 'Minion'); }); }
+  function drawTpl() { var box = $('encTpl'); if (!box) return; var c = tplCur(), n = +enc.plv || 1, pn = +enc.pn || 5, XP = M().XP || {};
+    var h = '<div class="tplhead"><b>조우 틀</b><select id="encTplSel"><option value="">고르지 않음</option>' + TPLS.map(function (t) { return '<optgroup label="' + t.n + '">' + t.v.map(function (v, i) { var key = t.k + ':' + i; return '<option value="' + key + '"' + (enc.tpl === key ? ' selected' : '') + '>' + t.n + ' · ' + v[0] + '</option>'; }).join('') + '</optgroup>'; }).join('') + '</select></div>';
+    if (c) { var v = c.t.v[c.i], xp = 0, low = false;
+      h += '<p class="hint tpld">' + esc(c.t.d) + '</p><div class="tplslots">' + v[1].map(function (sl, si) { var lv = n + sl[2], cl = Math.max(1, Math.min(35, lv)); if (lv < 1) low = true;
+          var mul = sl[1][0] === 'Solo' ? 5 : sl[1][0] === 'Elite' ? 2 : 1; xp += (XP[Math.min(30, cl)] || 0) * mul * sl[0];
+          var put = enc.toks.filter(function (t) { var m = enc.mons[t.m] || {}; return monFits(m, sl[1]) && +m.lv === cl; }).length;
+          return '<button class="tplslot' + (put >= sl[0] ? ' full' : '') + '" data-tplslot="' + si + '" title="눌러서 이 칸에 맞는 몬스터(역할 · 레벨)만 아래 목록에 보여요"><b>' + sl[0] + '</b>' + esc(sl[3] || sl[1].map(function (r) { return RK[r] || r; }).join(' · ')) + (sl[3] ? ' <small>' + sl[1].map(function (r) { return RK[r] || r; }).join(' · ') + '</small>' : '') + ' <i>' + cl + '레벨</i> <em>' + put + '/' + sl[0] + '</em></button>'; }).join('') + '</div>';
+      h += '<p class="hint">틀 XP 약 ' + xp.toLocaleString() + ' · 기준 ' + ((XP[Math.min(30, n)] || 0) * 5).toLocaleString() + ' (5명)' + (low ? ' · 1레벨 아래로 내려간 칸은 1레벨로 셌어요' : '') + '</p>';
+      if (pn <= 4) h += '<p class="hint">틀은 5명 기준이에요. 일행이 ' + pn + '명이면 쉬움 틀을 보통으로, 보통 틀을 어려움으로 쓰면 맞아요.</p>';
+      else if (pn >= 6) h += '<p class="hint">틀은 5명 기준이에요. 일행이 ' + pn + '명이면 보통 틀을 쉬움으로, 어려움 틀을 보통으로 쓰면 맞아요.</p>'; }
+    else h += '<p class="hint">고르면 일행 레벨(n = ' + n + ')에 맞춰 역할 · 마리 · 레벨이 나와요. 칸을 누르면 아래 목록이 그 칸에 맞는 몬스터로 좁혀져요.</p>';
+    box.innerHTML = h; }
+  function tplPick(si) { var c = tplCur(); if (!c) return; var sl = c.t.v[c.i][1][si], lv = Math.max(1, Math.min(35, (+enc.plv || 1) + sl[2]));
+    pickRole = sl[1].join('|'); pickLo = pickHi = String(lv); pickAuto = false; pickQ = '';
+    var r = $('encRole'); if (r) { if (!Array.prototype.some.call(r.options, function (o) { return o.value === pickRole; })) { var o = document.createElement('option'); o.value = pickRole; o.textContent = sl[1].map(function (x) { return RK[x] || x; }).join(' · '); r.appendChild(o); } r.value = pickRole; }
+    if ($('encLo')) $('encLo').value = pickLo; if ($('encHi')) $('encHi').value = pickHi; if ($('encQ')) $('encQ').value = ''; drawPick(); }
   function touch() { dirty = true; var b = $('encSave'); if (b) b.classList.add('need'); }
 
   /* ---------- 읽기 · 쓰기 ---------- */
@@ -51,19 +85,19 @@
       '<label>한 칸 <input type="number" id="encCell" min="8" max="400" value="' + esc(enc.cell) + '">px</label><label>가로 밀기 <input type="number" id="encOx" value="' + esc(enc.ox) + '"></label><label>세로 밀기 <input type="number" id="encOy" value="' + esc(enc.oy) + '"></label>' +
       '<label title="맵 그림만 줄이거나 키워요. 한 칸 크기는 그대로라 칸 수가 바뀌고, 놓은 몬스터도 같은 비율로 따라 움직여요">맵 크기 <input type="number" id="encMs" min="10" max="400" step="5" value="' + Math.round((+enc.ms || 1) * 100) + '">%</label><label title="가로 칸 수를 적으면 맵 크기를 거기에 맞춰요">가로 <input type="number" id="encCols" min="2" max="300" value="' + gridN().x + '">칸</label><span class="hint" id="encNv">× 세로 ' + gridN().y + '칸</span>' +
       '</div>' +
-      '<div class="encadd"><b>몬스터 올리기</b> <span class="hint" id="encPickN"></span><input type="text" id="encQ" placeholder="이름 검색 (비워 두면 목록)" value="' + esc(pickQ) + '">' +
+      '<div class="encadd"><div id="encTpl" class="enctpl"></div><b>몬스터 올리기</b> <span class="hint" id="encPickN"></span><input type="text" id="encQ" placeholder="이름 검색 (비워 두면 목록)" value="' + esc(pickQ) + '">' +
       '<div class="encfil"><label>레벨 <input type="number" id="encLo" min="1" max="35" placeholder="부터" value="' + esc(pickLo) + '">~<input type="number" id="encHi" min="1" max="35" placeholder="까지" value="' + esc(pickHi) + '"></label>' +
-      '<select id="encRole">' + [['', '역할 전체'], ['Skirmisher', '척후'], ['Brute', '맹수'], ['Soldier', '병사'], ['Lurker', '잠복'], ['Controller', '제어'], ['Artillery', '포격'], ['Minion', '졸개'], ['Elite', '정예'], ['Solo', '단독']].map(function (o) { return '<option value="' + o[0] + '"' + (pickRole === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
+      '<select id="encRole">' + [['', '역할 전체'], ['Skirmisher', '척후'], ['Brute', '맹수'], ['Soldier', '병사'], ['Lurker', '잠복'], ['Controller', '제어'], ['Artillery', '포격'], ['Minion', '졸개'], ['Elite', '정예'], ['Solo', '단독']].concat(pickRole.indexOf('|') >= 0 ? [[pickRole, pickRole.split('|').map(function (x) { return RK[x] || x; }).join(' · ')]] : []).map(function (o) { return '<option value="' + o[0] + '"' + (pickRole === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>' +
       '<select id="encSrc">' + [['', '전체'], ['mine', '만든 것'], ['pack', '자료집']].map(function (o) { return '<option value="' + o[0] + '"' + (pickSrc === o[0] ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select></div><div id="encPick" class="encpick"></div></div><div id="encRoster" class="encroster"></div><div id="encSel"></div></div>' +
       '<div class="encmain"><div class="enczoom"><button class="mini ghost" id="encWide" title="판 아래 칸(맵 설정 · 몬스터 올리기 · 올린 몬스터)을 접거나 펴요">' + (wide ? '아래 칸 펴기' : '아래 칸 접기') + '</button><span class="sp"></span><button class="mini ghost" id="encZo" title="작게">−</button><input type="range" id="encZoom" min="0.1" max="3" step="0.05" value="' + zoom + '"><button class="mini ghost" id="encZi" title="크게">+</button><b id="encZv"></b><button class="mini ghost" id="encFit" title="판 너비에 맞추기">너비 맞춤</button><button class="mini ghost" id="encFitAll" title="맵 전체가 한눈에 보이게">전체 보기</button><button class="mini ghost" id="encZ1" title="원래 크기">100%</button></div>' +
       '<div class="encboardwrap"><div id="encBoard" class="encboard"></div></div><p class="hint">판 위에서 휠을 굴리면 마우스 자리를 기준으로 커지고 작아져요. 빈 곳을 잡고 끌면 보는 곳이 움직여요. Shift + 휠은 페이지 스크롤이에요.</p></div></div>';
-    box.innerHTML = h; var gr = box.querySelector('.encgrid'); if (gr) gr.classList.toggle('wide', wide); drawXp(); drawPick(); drawRoster(); drawBoard(); drawSel(); }
+    box.innerHTML = h; var gr = box.querySelector('.encgrid'); if (gr) gr.classList.toggle('wide', wide); drawXp(); drawTpl(); drawPick(); drawRoster(); drawBoard(); drawSel(); }
   function drawXp() { var b = budget(), box = $('encXp'); if (!box) return; box.innerHTML = '<span><small>XP 합계</small><b>' + b.tot.toLocaleString() + '</b></span><span><small>기준 (일행 레벨 × 인원)</small><b>' + b.target.toLocaleString() + '</b></span><span><small>조우 레벨</small><b>' + (b.lv || '-') + '</b></span>' +
       (b.lab ? '<span class="d' + (b.diff <= -2 ? ' easy' : b.diff <= 1 ? ' std' : b.diff <= 3 ? ' hard' : ' dead') + '"><small>난이도</small><b>' + b.lab + ' (' + (b.diff >= 0 ? '+' : '') + b.diff + ')</b></span>' : '') + '<span><small>몬스터</small><b>' + enc.toks.length + '마리</b></span>'; }
   function drawPick() { var box = $('encPick'); if (!box) return; var q = pickQ.trim().toLowerCase(), all = M().all(), L = [], MAXP = 150;
     for (var i = 0; i < all.length; i++) { var m = all[i]; if (pickSrc === 'mine' && m._pack) continue; if (pickSrc === 'pack' && !m._pack) continue;
       if (!q) { if (pickLo && +m.lv < +pickLo) continue; if (pickHi && +m.lv > +pickHi) continue; } /* 이름으로 찾을 때는 레벨 범위를 보지 않는다 */
-      if (pickRole) { if (pickRole === 'Elite' || pickRole === 'Solo') { if (m.tier !== pickRole) continue; } else if (pickRole === 'Minion') { if (m.tier !== 'Minion' && m.role !== 'Minion') continue; } else if (m.role !== pickRole) continue; }
+      if (pickRole) { if (pickRole.indexOf('|') >= 0) { if (!monFits(m, pickRole.split('|'))) continue; } else if (pickRole === 'Elite' || pickRole === 'Solo') { if (m.tier !== pickRole) continue; } else if (pickRole === 'Minion') { if (m.tier !== 'Minion' && m.role !== 'Minion') continue; } else if (m.role !== pickRole) continue; }
       var s = M().shown(m); if (q && (m.n + ' ' + s.n).toLowerCase().indexOf(q) < 0) continue; L.push([m, s]); }
     L.sort(function (a, b) { return (+a[0].lv - +b[0].lv) || (a[1].n < b[1].n ? -1 : 1); });
     var nn = $('encPickN'); if (nn) nn.textContent = L.length + '마리' + (L.length > MAXP ? ' · 앞의 ' + MAXP + '마리만' : '') + (q && (pickLo || pickHi) ? ' · 이름 검색은 모든 레벨에서' : '');
@@ -114,7 +148,7 @@
     enc.toks.forEach(function (t) { for (var a = 0; a < (t.s || 1); a++) for (var b = 0; b < (t.s || 1); b++) occ[(t.x + a) + ',' + (t.y + b)] = 1; });
     var free = function (x, y) { for (var a = 0; a < s; a++) for (var b = 0; b < s; b++) if (occ[(x + a) + ',' + (y + b)]) return false; return true; }, px = 1, py = 1, found = false;
     for (var y = 1; y < rows - s && !found; y++) for (var x = 1; x < cols - s && !found; x++) if (free(x, y)) { px = x; py = y; found = true; }
-    enc.toks.push({ m: mi, x: px, y: py, s: s }); selTok = enc.toks.length - 1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); }
+    enc.toks.push({ m: mi, x: px, y: py, s: s }); selTok = enc.toks.length - 1; touch(); drawXp(); drawTpl(); drawRoster(); drawBoard(); drawSel(); }
   /* 맵툴 파일 불러오기: .rpmap → 조우(맵 · 격자 · 몬스터 · 자리), .rptok → 지금 조우에 몬스터 한 마리. at 은 판 위 떨어뜨린 칸 */
   async function importMt(files, at) { var I = window.D4EMonIn, L = (files || []).filter(function (f) { return f && I && (I.isTok(f) || I.isMap(f)); }); if (!L.length) return false;
     if (monEdit) { alert('몬스터를 고치는 중에는 불러올 수 없어요.'); return true; }
@@ -142,6 +176,7 @@
     root.addEventListener('click', async function (ev) { var t = ev.target, mv = t.closest('[data-mview]');
       if (mv) { view = mv.getAttribute('data-mview'); localStorage.setItem('d4e_monview', view); sync(); return; }
       if (!t.closest('#encWrap')) return;
+      var ts = t.closest('[data-tplslot]'); if (ts) { tplPick(+ts.getAttribute('data-tplslot')); return; }
       var row = t.closest('[data-eid]'), am = t.closest('[data-addm]'), more = t.closest('[data-more]');
       if (t.id === 'encMapIn') { $('encMapInFile').click(); return; }
       if (t.id === 'encTokIn') { $('encTokInFile').click(); return; }
@@ -156,11 +191,11 @@
       else if (t.closest('[data-less]') || t.closest('[data-rdel]')) { if (monEdit) return; var all = !!t.closest('[data-rdel]'), lk = (t.closest('[data-rdel]') || t.closest('[data-less]')).getAttribute(all ? 'data-rdel' : 'data-less'), n = enc.toks.filter(function (x) { return String(x.m) === lk; }).length;
         if (all && n > 1 && !confirm('「' + enc.mons[lk].n + '」 ' + n + '마리를 모두 뺄까요?')) return;
         for (var i = enc.toks.length - 1; i >= 0; i--) if (String(enc.toks[i].m) === lk) { enc.toks.splice(i, 1); if (!all) break; }
-        selTok = -1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); }
+        selTok = -1; touch(); drawXp(); drawTpl(); drawRoster(); drawBoard(); drawSel(); }
       else if (t.closest('[data-tclose]')) { var ct = enc.toks[+t.closest('[data-tclose]').getAttribute('data-tclose')]; pinned = pinned.filter(function (x) { return x !== ct; }); if (enc.toks[selTok] === ct) selTok = -1; drawBoard(); drawRoster(); drawSel(); }
       else if (t.closest('[data-tedit]')) { var tk = enc.toks[+t.closest('[data-tedit]').getAttribute('data-tedit')]; if (!tk) return; var mi = tk.m;
-        openModal(); if (M().editIn('encEditBox', enc.mons[mi], function (res) { monEdit = false; closeModal(); if (res) { enc.mons[mi] = res; touch(); drawXp(); drawRoster(); drawBoard(); msg('「' + res.n + '」을(를) 고쳤어요. 「저장」을 눌러야 조우에 남아요.'); } drawSel(); })) monEdit = true; else closeModal(); }
-      else if (t.closest('[data-tdel]')) { var di = +t.closest('[data-tdel]').getAttribute('data-tdel'); if (enc.toks[di]) { var dt = enc.toks[di], st = enc.toks[selTok]; enc.toks.splice(di, 1); selTok = st && st !== dt ? enc.toks.indexOf(st) : -1; touch(); drawXp(); drawRoster(); drawBoard(); drawSel(); } }
+        openModal(); if (M().editIn('encEditBox', enc.mons[mi], function (res) { monEdit = false; closeModal(); if (res) { enc.mons[mi] = res; touch(); drawXp(); drawTpl(); drawRoster(); drawBoard(); msg('「' + res.n + '」을(를) 고쳤어요. 「저장」을 눌러야 조우에 남아요.'); } drawSel(); })) monEdit = true; else closeModal(); }
+      else if (t.closest('[data-tdel]')) { var di = +t.closest('[data-tdel]').getAttribute('data-tdel'); if (enc.toks[di]) { var dt = enc.toks[di], st = enc.toks[selTok]; enc.toks.splice(di, 1); selTok = st && st !== dt ? enc.toks.indexOf(st) : -1; touch(); drawXp(); drawTpl(); drawRoster(); drawBoard(); drawSel(); } }
       else if (t.id === 'encMapPick') $('encMapFile').click();
       else if (t.id === 'encZi') setZoom(zoom * 1.2); else if (t.id === 'encZo') setZoom(zoom / 1.2); else if (t.id === 'encZ1') setZoom(1); else if (t.id === 'encFit') fit(false); else if (t.id === 'encFitAll') fit(true)
       else if (t.id === 'encWide') { wide = !wide; render(); fit(false); }
@@ -174,7 +209,7 @@
           M().download(await zip.generateAsync({ type: 'blob' }), M().fileName(enc.name || 'encounter') + '_tokens.zip'); msg('토큰 ' + enc.toks.length + '개를 묶어서 받았어요. 압축을 풀어 맵 위로 끌어다 놓으면 돼요.'); } catch (e) { msg('만들지 못했어요: ' + e.message); } t.disabled = false; } });
     root.addEventListener('change', function (ev) { var t = ev.target; if (!enc || !t.closest || !t.closest('#encWrap')) return; if (t.id === 'encMs') setMs((+t.value || 100) / 100); else if (t.id === 'encCols') { var n = Math.max(2, Math.round(+t.value || 0)), c = Math.max(8, +enc.cell || 50); if (n) setMs((n * c + 1) / Math.max(50, (enc.w || 1000) - (enc.ox || 0) / (+enc.ms || 1))); } });
     root.addEventListener('input', function (ev) { var t = ev.target; if (!enc || !t.closest('#encWrap')) return;
-      if (t.id === 'encName') { enc.name = t.value; touch(); } else if (t.id === 'encPn') { enc.pn = +t.value || 4; touch(); drawXp(); } else if (t.id === 'encPlv') { enc.plv = +t.value || 1; touch(); drawXp(); if (pickAuto) { pickDefault(); if ($('encLo')) $('encLo').value = pickLo; if ($('encHi')) $('encHi').value = pickHi; drawPick(); } }
+      if (t.id === 'encName') { enc.name = t.value; touch(); } else if (t.id === 'encPn') { enc.pn = +t.value || 4; touch(); drawXp(); drawTpl(); } else if (t.id === 'encPlv') { enc.plv = +t.value || 1; touch(); drawXp(); drawTpl(); if (pickAuto) { pickDefault(); if ($('encLo')) $('encLo').value = pickLo; if ($('encHi')) $('encHi').value = pickHi; drawPick(); } }
       else if (t.id === 'encCell') { enc.cell = Math.max(8, +t.value || 50); touch(); drawBoard(); showN(); } else if (t.id === 'encOx') { enc.ox = +t.value || 0; touch(); drawBoard(); showN(); } else if (t.id === 'encOy') { enc.oy = +t.value || 0; touch(); drawBoard(); showN(); }
       else if (t.id === 'encZoom') { setZoom(+t.value || 1); } else if (t.id === 'encQ') { pickQ = t.value; drawPick(); } else if (t.id === 'encLo') { pickLo = t.value; pickAuto = false; drawPick(); } else if (t.id === 'encHi') { pickHi = t.value; pickAuto = false; drawPick(); } });
     var useMap = function (f) { if (!f || !enc) return; if (!/^image\//.test(f.type || '') && !/\.(png|jpe?g|webp|gif|bmp)$/i.test(f.name || '')) { msg('그림 파일만 올릴 수 있어요.'); return; } msg('그림을 읽는 중…');
@@ -182,7 +217,7 @@
     root.addEventListener('change', function (ev) { var t = ev.target; if (!enc && t.id !== 'encMapInFile') return;
       if (t.id === 'encMapInFile') { var mf = t.files && t.files[0]; t.value = ''; importMt([mf]); }
       else if (t.id === 'encTokInFile') { var fl = Array.prototype.slice.call(t.files || []); t.value = ''; importMt(fl); }
-      else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
+      else if (t.id === 'encMapFile') { useMap(t.files && t.files[0]); t.value = ''; } else if (t.id === 'encRole') { pickRole = t.value; drawPick(); } else if (t.id === 'encTplSel') { enc.tpl = t.value; touch(); drawTpl(); } else if (t.id === 'encSrc') { pickSrc = t.value; drawPick(); } });
     /* 맵 그림을 판 위로 끌어다 놓기 */
     var overBoard = function (ev) { return enc && ev.target.closest && ev.target.closest('.encboardwrap'); }, hasFile = function (ev) { var dt = ev.dataTransfer; return dt && Array.prototype.indexOf.call(dt.types || [], 'Files') >= 0; };
     /* 그림을 토큰 위나 고른 몬스터 칸에 놓으면 그 몬스터 그림, 판의 빈 곳에 놓으면 맵 */
