@@ -75,10 +75,10 @@
     return { data: w, macro: { label: a.pname, group: p.group || act[0], color: pas ? 'silver' : u[2], font: pas ? 'black' : 'white', sort: u[1], command: '[macro("pw_use@Lib:4E"): ' + i + ']', tip: tip } };
   }
   function newPack(d) {
-    var pw = [], macros = []; chosen(d).forEach(function (p, i) { var x = newPower(p, i); pw.push(x.data); macros.push(x.macro); });
+    var pw = [], macros = []; chosen(d).forEach(function (p, i) { var x = newPower(p, i); pw.push(x.data); if (!/^패시브/.test(x.macro.label)) macros.push(x.macro); });
     var sk = d.skills.slice().sort(function (x, y) { return x.sort - y.sort; }).map(function (s) { var n = String(s.name).replace(/[",|#]/g, ' '); return [n, s.total, n + ' ' + (s.total >= 0 ? '+' : '') + s.total + (s.trained ? ' ●' : '')]; });
-    macros.push({ label: '기능 판정', group: '', color: 'blue', font: 'white', sort: '', command: '[macro("skill_menu@Lib:4E"): ""]', tip: '기능을 골라 d20 판정 (● = 숙련)' });
-    macros.push({ label: '행동판', group: '', color: 'black', font: 'yellow', sort: '', command: '[h, macro("sheet@Lib:4E"): currentToken()]', tip: 'HP · 방어 · 파워를 한 창에서' });
+    [['행동판', 'power', 'black', 'yellow', 'HP · 방어 · 파워를 한 창에서'], ['기능', 'skill', 'blue', 'white', '기능 · 능력 판정'], ['상태', 'state', 'maroon', 'white', '피해 · 회복 · 치유 서지 · 내성 · 행동점 · 걸린 효과'], ['패시브', 'passive', 'gray25', 'white', '패시브 모음']].forEach(function (b) {
+      macros.push({ label: b[0], group: '0. 행동판', color: b[2], font: b[3], sort: '', command: '[h, macro("sheet@Lib:4E"): currentToken() + "|' + b[1] + '"]', tip: b[4] }); });
     var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]'; props.sk4e = JSON.stringify(sk);
     return { props: props, macros: macros };
   }
@@ -105,7 +105,7 @@
     var idx = t.nextIndex, macros = (isNew ? pack.macros : allMacros(d)).map(function (m) { var i = idx++;
       return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
         .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
-    var base = t.token; if (isNew) { base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
+    var base = t.token; if (isNew) { base = base.replace(/<entry>\s*<int>\d+<\/int>\s*<net\.rptools\.maptool\.model\.MacroButtonProperties>[\s\S]*?<\/net\.rptools\.maptool\.model\.MacroButtonProperties>\s*<\/entry>\s*/g, function (m) { var g = /<group>([^<]*)<\/group>/.exec(m); return g && (g[1] === '0. 상태' || g[1] === '0. 자원') ? '' : m; }); base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
