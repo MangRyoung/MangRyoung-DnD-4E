@@ -60,18 +60,26 @@
   var FMTS = [['old', '4th-2026-11-17 캠페인 (기존)'], ['new', 'Test : 망령 뉴 캠페인']];
   function fmt() { var v = localStorage.getItem('d4e_mtfmt'); return v === 'new' ? 'new' : 'old'; }
   var USE_N = { '#407040': [0, '1', 'teal'], '#704040': [1, '2', 'red'], '#404040': [2, '3', 'gray25'] };
+  function newTip(w) {
+    var clean = function (x) { return String(x).replace(/<br\s*\/?>/g, ' ').replace(/<[^>]*>/g, '').replace(/&#(\d+);/g, function (m, c) { return String.fromCharCode(+c); }).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/[\[{]/g, '(').replace(/[\]}]/g, ')'); };
+    var L = ['<b>' + clean([['상시', '조우', '일일'][w.u], w.act, w.rng, w.vs ? 'vs ' + w.vs : ''].filter(Boolean).join(' / ')) + '</b>'];
+    [['trg', '유발'], ['tgt', '대상'], ['hit', '명중'], ['miss', '빗나감'], ['eff', '효과'], ['spc', '특수']].forEach(function (k) { if (w[k[0]]) L.push('<b>' + k[1] + '</b>: ' + clean(w[k[0]])); });
+    return "<html><div style='width:340px'>" + L.join('<br>') + '</div></html>';
+  }
   function newPower(p, i) {
     var a = p.args, u = USE_N[a.usage] || USE_N['#407040'], act = ACT[a.action] || ACT['-'], tgt = a.Target === '-' ? '' : (a.Target || ''), rng = a.range === '-' ? '' : (a.range || '');
     var w = { n: a.pname, k: a.pkind || '', u: u[0], kw: a.keyword || '', act: act[1], rng: rng, trg: a.Trigger || '', tgt: tgt, eff: a.Effect || '', spc: a.Special || '', hit: a.Description || '', miss: a.Miss || '', vs: '', dm: 0, half: 0, dty: '' };
     if (!p.nonatk && a.Attack && a.Attack !== '-') { w.vs = a.Attack; w.am = parseInt(a.Amod, 10) || 0; w.ah = a.AHit || 'Hit'; if (!tgt) w.tgt = '한 개체';
       var m = /^(\d+)(.*)$/.exec(a.Damage || ''); if (m) { w.dt = +m[1]; w.dd = m[2]; } w.dm = parseInt(a.ADM, 10) || 0; if (/절반/.test(a.Miss || '')) w.half = 1; }
-    var pas = !!p.group && u[0] === 0, tip = [act[1], rng, w.vs ? 'vs ' + w.vs : '', w.tgt].filter(Boolean).join(' / ');
+    var pas = !!p.group && u[0] === 0, tip = newTip(w);
     return { data: w, macro: { label: a.pname, group: p.group || act[0], color: pas ? 'silver' : u[2], font: pas ? 'black' : 'white', sort: u[1], command: '[macro("pw_use@Lib:4E"): ' + i + ']', tip: tip } };
   }
   function newPack(d) {
     var pw = [], macros = []; chosen(d).forEach(function (p, i) { var x = newPower(p, i); pw.push(x.data); macros.push(x.macro); });
-    d.skills.forEach(function (s) { macros.push({ label: s.name + ' (' + (s.total >= 0 ? '+' : '') + s.total + ')', group: 'Skills', color: s.trained ? 'blue' : 'gray', font: 'white', sort: String(s.sort), command: '[macro("skill@Lib:4E"): "' + String(s.name).replace(/["|]/g, ' ') + '|' + s.total + '"]', tip: '' }); });
-    var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]';
+    var sk = d.skills.slice().sort(function (x, y) { return x.sort - y.sort; }).map(function (s) { var n = String(s.name).replace(/[",|#]/g, ' '); return [n, s.total, n + ' ' + (s.total >= 0 ? '+' : '') + s.total + (s.trained ? ' ●' : '')]; });
+    macros.push({ label: '기능 판정', group: '', color: 'blue', font: 'white', sort: '', command: '[macro("skill_menu@Lib:4E"): ""]', tip: '기능을 골라 d20 판정 (● = 숙련)' });
+    macros.push({ label: '행동판', group: '', color: 'black', font: 'yellow', sort: '', command: '[h, macro("sheet@Lib:4E"): currentToken()]', tip: 'HP · 방어 · 파워를 한 창에서' });
+    var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]'; props.sk4e = JSON.stringify(sk);
     return { props: props, macros: macros };
   }
   function baseCmd(tok, label, cmd) { var re = new RegExp('<command>((?:(?!</command>)[\\s\\S])*?)</command>(\\s*)<label>' + xe(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</label>'); return tok.replace(re, function (m, c, sp) { return '<command>' + xe(cmd) + '</command>' + sp + '<label>' + xe(label) + '</label>'; }); }
