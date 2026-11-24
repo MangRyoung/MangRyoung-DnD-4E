@@ -848,12 +848,25 @@
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
     var hbEvery = D4EHouse.custom(db), hbAll = (ME.gm || !D4EHouse.gm().hashes.length) ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
     tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length + (cur.hbx || []).length });
+    tabs.push({ key: 'img', label: '초상 · 스탠딩 · 컷신', left: 0, n: (cur.tok ? 1 : 0) + (cur.stand ? 1 : 0) + (cur.cut ? 1 : 0) });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
     tabs.forEach(function (t) { var b = document.createElement('button'); b.className = t.key === buildTab ? 'on' : ''; b.setAttribute('data-btab', t.label);
-      b.innerHTML = esc(t.label) + (t.left ? '<i>' + t.left + '</i>' : '') + ((t.key === 'eq' || t.key === 'hb') && t.n ? '<em>' + t.n + '</em>' : '');
+      b.innerHTML = esc(t.label) + (t.left ? '<i>' + t.left + '</i>' : '') + ((t.key === 'eq' || t.key === 'hb' || t.key === 'img') && t.n ? '<em>' + t.n + '</em>' : '');
       b.onclick = function () { buildTab = t.key; localStorage.setItem('d4e_btab', buildTab); renderSelects(); }; bar.appendChild(b); });
     box.appendChild(bar); $('equip').hidden = buildTab !== 'eq';
+    if (buildTab === 'img') { var ibx = document.createElement('div'); ibx.className = 'hbpick';
+      ibx.innerHTML = '<p class="hint">맵툴 토큰 파일 안에 같이 들어가는 그림이에요. 초상은 맵 위 토큰으로, 스탠딩은 채팅 대사와 컷인에, 컷신은 치명타 연출에 쓰여요. 셋 다 자르지 않고 통째로 보관해요(초상은 긴 쪽 512, 나머지는 1024).</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:16px">' + [['tok', '초상 (토큰 그림)', '맵 위 토큰으로 나가는 그림'], ['stand', '스탠딩', '배경을 지운 전신 그림'], ['cut', '컷신', '치명타 때 띄울 그림']].map(function (k) { var v = cur[k[0]] || '';
+          return '<div style="flex:1 1 240px;max-width:340px;padding:12px;border:1px solid #8884;border-radius:12px"><b>' + k[1] + '</b> <span class="hint">' + k[2] + '</span>' +
+            '<div data-imgpick="' + k[0] + '" title="눌러서 고르기" style="margin:8px 0;height:260px;display:flex;align-items:center;justify-content:center;border:1px dashed #8886;border-radius:10px;cursor:pointer;background:repeating-conic-gradient(#8882 0% 25%, transparent 0% 50%) 50% / 16px 16px">' +
+            (v ? '<img src="' + esc(v) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span class="hint">눌러서 그림 고르기</span>') + '</div>' +
+            '<button class="mini" data-imgpick="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button class="mini ghost" data-imgdel="' + k[0] + '">지우기</button>' : '') + '</div>'; }).join('') + '</div>';
+      ibx.onclick = function (ev) { var dl = ev.target.closest('[data-imgdel]'), pk = ev.target.closest('[data-imgpick]');
+        if (dl) { var dk = dl.getAttribute('data-imgdel'); if (dk === 'tok') { if (cur.tok) { delete cur.tok; rebuild(); } } else window.D4EImg.del(dk, function () { saveChars(); }); return; }
+        if (pk && pk.getAttribute('data-imgpick') === 'tok') { $('tokFile').click(); return; }
+        if (pk) { var kind = pk.getAttribute('data-imgpick'), f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = function () { window.D4EImg.set(kind, f.files[0], function () { saveChars(); }); }; f.click(); } };
+      box.appendChild(ibx); }
     if (buildTab === 'hb') { var hbx = document.createElement('div'); hbx.className = 'hbpick'; var gmNow = isGM();
       var own = (cur.hbx || []).slice().sort(function (a, b) { var x = HB_ORDER.indexOf(a.cat), y = HB_ORDER.indexOf(b.cat); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y) || String(a.step || '').localeCompare(String(b.step || ''), 'ko', { numeric: true }); });
       hbx.innerHTML = '<div class="hbcat">이 캐릭터의 홈브류 <span class="hint">' + own.length + '</span></div>' + (own.length ? '<div class="hbgrid">' + own.map(function (x) {
