@@ -861,8 +861,9 @@
           return '<div style="flex:1 1 200px;max-width:300px;padding:12px;border:1px solid #8884;border-radius:12px"><b>' + k[1] + '</b> <span class="hint">' + k[2] + '</span>' +
             '<div data-imgpick="' + k[0] + '" title="눌러서 고르기" style="margin:8px 0;height:260px;display:flex;align-items:center;justify-content:center;border:1px dashed #8886;border-radius:10px;cursor:pointer;background:repeating-conic-gradient(#8882 0% 25%, transparent 0% 50%) 50% / 16px 16px">' +
             (v ? '<img src="' + esc(v) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span class="hint">눌러서 그림 고르기</span>') + '</div>' +
-            '<button class="mini" data-imgpick="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button class="mini ghost" data-imgdel="' + k[0] + '">지우기</button>' : '') + '</div>'; }).join('') + '</div>';
-      ibx.onclick = function (ev) { var dl = ev.target.closest('[data-imgdel]'), pk = ev.target.closest('[data-imgpick]');
+            '<button class="mini" data-imgpick="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button class="mini ghost" data-imgdel="' + k[0] + '">지우기</button>' : '') + (k[0] === 'stand' && !v && cur.tok ? ' <button class="mini ghost" data-imgcopy="stand">토큰 그림 그대로 쓰기</button><div class="hint" style="margin-top:6px">비워 두면 내보낼 때 토큰 그림이 스탠딩으로 나가요.</div>' : '') + '</div>'; }).join('') + '</div>';
+      ibx.onclick = function (ev) { var dl = ev.target.closest('[data-imgdel]'), pk = ev.target.closest('[data-imgpick]'), cp = ev.target.closest('[data-imgcopy]');
+        if (cp) { if (cur.tok) { cur.stand = cur.tok; rebuild(); saveChars(); } return; }
         if (dl) { var dk = dl.getAttribute('data-imgdel'); if (dk === 'tok') { if (cur.tok) { delete cur.tok; rebuild(); } } else window.D4EImg.del(dk, function () { saveChars(); }); return; }
         if (pk && pk.getAttribute('data-imgpick') === 'tok') { $('tokFile').click(); return; }
         if (pk) { var kind = pk.getAttribute('data-imgpick'), f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = function () { window.D4EImg.set(kind, f.files[0], function () { saveChars(); }); }; f.click(); } };

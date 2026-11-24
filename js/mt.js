@@ -118,7 +118,7 @@
   async function saveToken() {
     var d = A().mtData(); await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), zip = new window.JSZip();
     var extra = {}, kinds = ['face', 'stand', 'cut'];
-    for (var ki = 0; ki < kinds.length; ki++) { var by = await pngOf(d[kinds[ki]]); if (!by) continue; var h2 = md5(by); extra[kinds[ki]] = h2;
+    for (var ki = 0; ki < kinds.length; ki++) { var by = await pngOf(d[kinds[ki]] || (kinds[ki] === 'stand' ? d.tok : '')); /* 스탠딩이 비면 토큰 그림(2026-11-24) */ if (!by) continue; var h2 = md5(by); extra[kinds[ki]] = h2;
       zip.file('assets/' + h2, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + h2 + '</id>\n  </id>\n  <name>' + xe(d.name + ' ' + kinds[ki]) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>'); zip.file('assets/' + h2 + '.png', by); }
     if (extra.cut) { d.props = Object.assign({}, d.props); d.props.cut_img = 'asset://' + extra.cut; }
     zip.file('content.xml', tokenXml(d, img, hash, extra));
