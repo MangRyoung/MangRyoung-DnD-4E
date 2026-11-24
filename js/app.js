@@ -625,7 +625,7 @@
     var race = ownedOf(r, 'Race')[0], cls = ownedOf(r, 'Class')[0];
     var st = function (k, label) { return '<div data-why="' + esc(k) + '"><small>' + label + '</small><b>' + (s[k] || 0) + '</b></div>'; };
     var pmine = ch === cur, h = '<div class="shead">' + (ch.port || pmine ? '<div class="pslot' + (ch.port ? '' : ' empty') + '"' + (pmine ? ' data-port="1" title="그림을 끌어다 놓거나 눌러서 고르기"' : '') + '>' + (ch.port ? '<img src="' + esc(ch.port) + '" alt="">' + (pmine ? '<button class="px" data-portdel="1" title="포트 빼기">×</button><span class="pchg">바꾸기</span>' : '') : '<span class="pnone">포트<small>끌어다 놓기<br>또는 눌러서 고르기</small></span>') +
-      (ch.tok || pmine ? '<span class="ptok' + (ch.tok ? '' : ' empty') + '"' + (pmine ? ' data-tok="1" title="토큰 그림(동그란 초상) — 끌어다 놓거나 눌러서 고르기. 맵툴 토큰은 이 그림으로 나가요"' : ' title="토큰 그림"') + '>' + (ch.tok ? '<img src="' + esc(ch.tok) + '" alt="">' + (pmine ? '<button class="tx" data-tokdel="1" title="토큰 그림 빼기">×</button>' : '') : '<small>토큰</small>') + '</span>' : '') + '</div>' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
+      (ch.tok || pmine ? '<span class="ptok' + (ch.tok ? '' : ' empty') + '"' + (pmine ? ' data-tok="1" title="토큰 그림 — 끌어다 놓거나 눌러서 고르기. 자르지 않고 통째로 보관하고, 맵툴 토큰은 이 그림으로 나가요"' : ' title="토큰 그림"') + '>' + (ch.tok ? '<img src="' + esc(ch.tok) + '" alt="">' + (pmine ? '<button class="tx" data-tokdel="1" title="토큰 그림 빼기">×</button>' : '') : '<small>토큰</small>') + '</span>' : '') + '</div>' : '') + '<div class="sh2"><h2>' + esc(ch.name || '이름 없음') + ' <span class="hint">' + esc(race ? nm(race) : '종족 미정') + ' ' + esc(cls ? nm(cls) : '클래스 미정') + ' · ' + ch.level + '레벨' + (who ? ' · ' + esc(who) : '') + '</span></h2>';
     var hsv = Math.floor(hp / 4) + (s['healing surge value'] || 0);
     h += '<div class="hpbar" data-why="hit points" title="눌러서 HP 내역 보기"><div class="hpfill"></div><div class="hpmid"></div><span class="hpl"><small>HP</small><b>' + hp + '</b></span><span class="hpb"><small>반죽음</small><b>' + Math.floor(hp / 2) + '</b></span></div>';
     h += '<div class="vrow"><div class="surge"><span class="sgt">원기 <small>Healing Surge</small></span><span data-why="healing surge value"><small>회복량</small><b>' + hsv + '</b></span><span data-why="healing surges"><small>횟수</small><b>' + (s['healing surges'] || 0) + '<i>회</i></b></span></div>' +
@@ -1672,12 +1672,12 @@
       img.onerror = function () { URL.revokeObjectURL(url); alert('그림 파일을 읽지 못했어요.'); };
       img.src = url;
     };
-    /* 토큰 그림: 가운데(세로로 길면 위쪽) 정사각형으로 잘라 256 으로 줄여 보관. 화면에서는 동그랗게 보이고 맵툴 토큰으로 나간다. */
+    /* 토큰 그림: 자르지 않고 통째로, 긴 쪽 512 까지 줄여 보관(2026-11-24: 전에는 정사각형 256 으로 잘랐음). 화면에서는 동그랗게 보이고 맵툴 토큰으로 나간다. */
     var setTok = function (f) {
       if (!f || !/^image\//.test(f.type)) { alert('그림 파일을 놓아 주세요.'); return; }
       var img = new Image(), url = URL.createObjectURL(f);
-      img.onload = function () { var sd = Math.min(img.width, img.height), sx = (img.width - sd) / 2, sy = img.height > img.width ? 0 : (img.height - sd) / 2, c = document.createElement('canvas'); c.width = c.height = Math.min(256, sd);
-        c.getContext('2d').drawImage(img, sx, sy, sd, sd, 0, 0, c.width, c.height);
+      img.onload = function () { var k = Math.min(1, 512 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         var out = c.toDataURL('image/webp', 0.86); if (out.indexOf('data:image/webp') !== 0) out = c.toDataURL('image/png');
         URL.revokeObjectURL(url); cur.tok = out; $('tokFile').value = ''; rebuild(); };
       img.onerror = function () { URL.revokeObjectURL(url); alert('그림 파일을 읽지 못했어요.'); };

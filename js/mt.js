@@ -77,8 +77,10 @@
   function newPack(d) {
     var pw = [], macros = []; chosen(d).forEach(function (p, i) { var x = newPower(p, i); pw.push(x.data); if (!/^패시브/.test(x.macro.label)) macros.push(x.macro); });
     var sk = d.skills.slice().sort(function (x, y) { return x.sort - y.sort; }).map(function (s) { var n = String(s.name).replace(/[",|#]/g, ' '); return [n, s.total, n + ' ' + (s.total >= 0 ? '+' : '') + s.total + (s.trained ? ' ●' : '')]; });
-    [['행동판', 'power', 'black', 'yellow', 'HP · 방어 · 파워를 한 창에서'], ['기능', 'skill', 'blue', 'white', '기능 · 능력 판정'], ['상태', 'state', 'maroon', 'white', '피해 · 회복 · 치유 서지 · 내성 · 행동점 · 걸린 효과'], ['패시브', 'passive', 'gray25', 'white', '패시브 모음']].forEach(function (b) {
+    [['행동판', 'power', 'black', 'yellow', 'HP · 방어 · 파워를 한 창에서'], ['기능', 'skill', 'blue', 'white', '기능 · 능력 판정'], ['상태', 'state', 'maroon', 'white', '피해 · 회복 · 치유 서지 · 내성 · 행동점 · 걸린 효과'], ['패시브', 'passive', 'gray25', 'white', '패시브 모음'], ['설정', 'cfg', 'gray', 'white', '수치 · 이름 · 연출 고치기']].forEach(function (b) {
       macros.push({ label: b[0], group: '0. 행동판', color: b[2], font: b[3], sort: '', command: '[h, macro("sheet@Lib:4E"): currentToken() + "|' + b[1] + '"]', tip: b[4] }); });
+    macros.push({ label: '채팅 열기', group: '0. 채팅', color: 'yellow', font: 'black', sort: '', command: '[h, macro("input_coco@Lib:Coco"): ""]', tip: '코코챗 입력창' });
+    macros.push({ label: '컷인', group: '0. 채팅', color: 'red', font: 'white', sort: '', command: '[h, macro("coco_cutin@Lib:Coco"): currentToken()]', tip: '이 토큰의 컷인' });
     var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]'; props.sk4e = JSON.stringify(sk);
     return { props: props, macros: macros };
   }
@@ -92,7 +94,9 @@
       var cv = document.createElement('canvas'), done = function () { cv.toBlob(function (b) { b.arrayBuffer().then(function (ab) { ok({ bytes: new Uint8Array(ab), w: cv.width, h: cv.height }); }); }, 'image/png'); };
       var blank = function () { cv.width = cv.height = 256; var x = cv.getContext('2d'); x.fillStyle = '#5b7aa8'; x.beginPath(); x.arc(128, 128, 124, 0, 7); x.fill(); x.fillStyle = '#fff'; x.font = 'bold 130px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText((d.name || '?').charAt(0), 128, 138); done(); };
       var src = d.tok || d.port; if (!src) return blank();
-      var im = new Image(); im.onload = function () { var k = Math.min(1, 512 / Math.max(im.width, im.height)); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); var x = cv.getContext('2d'); if (d.tok) { var sd = Math.min(im.width, im.height); cv.width = cv.height = Math.min(256, sd); x.beginPath(); x.arc(cv.width / 2, cv.width / 2, cv.width / 2, 0, 7); x.clip(); x.drawImage(im, (im.width - sd) / 2, (im.height - sd) / 2, sd, sd, 0, 0, cv.width, cv.width); } else x.drawImage(im, 0, 0, cv.width, cv.height); done(); };
+      var im = new Image(); im.onload = function () { var k = Math.min(1, 512 / Math.max(im.width, im.height)); cv.width = Math.max(1, Math.round(im.width * k)); cv.height = Math.max(1, Math.round(im.height * k)); var x = cv.getContext('2d'); if (d.tok) { var side = Math.max(cv.width, cv.height), w = cv.width, h = cv.height, t = document.createElement('canvas'); t.width = w; t.height = h; var tx = t.getContext('2d'); tx.drawImage(im, 0, 0, w, h);
+          var opaque = false; try { opaque = w === h && tx.getImageData(0, 0, 1, 1).data[3] === 255 && tx.getImageData(w - 1, h - 1, 1, 1).data[3] === 255; } catch (e) { }
+          cv.width = cv.height = side; x = cv.getContext('2d'); if (opaque) { x.beginPath(); x.arc(side / 2, side / 2, side / 2, 0, 7); x.clip(); } x.drawImage(t, (side - w) / 2, (side - h) / 2); } else x.drawImage(im, 0, 0, cv.width, cv.height); done(); };
       im.onerror = blank; im.src = src;
     });
   }
@@ -105,7 +109,7 @@
     var idx = t.nextIndex, macros = (isNew ? pack.macros : allMacros(d)).map(function (m) { var i = idx++;
       return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
         .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
-    var base = t.token; if (isNew) { base = base.replace(/<entry>\s*<int>\d+<\/int>\s*<net\.rptools\.maptool\.model\.MacroButtonProperties>[\s\S]*?<\/net\.rptools\.maptool\.model\.MacroButtonProperties>\s*<\/entry>\s*/g, function (m) { var g = /<group>([^<]*)<\/group>/.exec(m); return g && (g[1] === '0. 상태' || g[1] === '0. 자원') ? '' : m; }); base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
+    var base = t.token; if (isNew) { base = base.replace(/<entry>\s*<int>\d+<\/int>\s*<net\.rptools\.maptool\.model\.MacroButtonProperties>[\s\S]*?<\/net\.rptools\.maptool\.model\.MacroButtonProperties>\s*<\/entry>\s*/g, function (m) { var g = /<group>([^<]*)<\/group>/.exec(m); return g && (g[1] === '0. 상태' || g[1] === '0. 자원' || g[1] === 'zzz. PC 제작') ? '' : m; }); base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
     return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
