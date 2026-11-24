@@ -56,6 +56,25 @@
   }
   var want = { item: true, pas: true };
   try { Object.assign(want, JSON.parse(localStorage.getItem('d4e_mtwant') || '{}')); } catch (e) {}
+  /* ----- 맞출 캠페인(토큰 꼴). old = 4th-2026-11-17 캠페인(매크로 글이 토큰에 통째로), new = 「Test : 망령 뉴 캠페인」(자료 pw4e + Lib:4E 한 줄 호출) ----- */
+  var FMTS = [['old', '4th-2026-11-17 캠페인 (기존)'], ['new', 'Test : 망령 뉴 캠페인']];
+  function fmt() { var v = localStorage.getItem('d4e_mtfmt'); return v === 'new' ? 'new' : 'old'; }
+  var USE_N = { '#407040': [0, '1', 'teal'], '#704040': [1, '2', 'red'], '#404040': [2, '3', 'gray25'] };
+  function newPower(p, i) {
+    var a = p.args, u = USE_N[a.usage] || USE_N['#407040'], act = ACT[a.action] || ACT['-'], tgt = a.Target === '-' ? '' : (a.Target || ''), rng = a.range === '-' ? '' : (a.range || '');
+    var w = { n: a.pname, k: a.pkind || '', u: u[0], kw: a.keyword || '', act: act[1], rng: rng, trg: a.Trigger || '', tgt: tgt, eff: a.Effect || '', spc: a.Special || '', hit: a.Description || '', miss: a.Miss || '', vs: '', dm: 0, half: 0, dty: '' };
+    if (!p.nonatk && a.Attack && a.Attack !== '-') { w.vs = a.Attack; w.am = parseInt(a.Amod, 10) || 0; w.ah = a.AHit || 'Hit'; if (!tgt) w.tgt = '한 개체';
+      var m = /^(\d+)(.*)$/.exec(a.Damage || ''); if (m) { w.dt = +m[1]; w.dd = m[2]; } w.dm = parseInt(a.ADM, 10) || 0; if (/절반/.test(a.Miss || '')) w.half = 1; }
+    var pas = !!p.group && u[0] === 0, tip = [act[1], rng, w.vs ? 'vs ' + w.vs : '', w.tgt].filter(Boolean).join(' / ');
+    return { data: w, macro: { label: a.pname, group: p.group || act[0], color: pas ? 'silver' : u[2], font: pas ? 'black' : 'white', sort: u[1], command: '[macro("pw_use@Lib:4E"): ' + i + ']', tip: tip } };
+  }
+  function newPack(d) {
+    var pw = [], macros = []; chosen(d).forEach(function (p, i) { var x = newPower(p, i); pw.push(x.data); macros.push(x.macro); });
+    d.skills.forEach(function (s) { macros.push({ label: s.name + ' (' + (s.total >= 0 ? '+' : '') + s.total + ')', group: 'Skills', color: s.trained ? 'blue' : 'gray', font: 'white', sort: String(s.sort), command: '[macro("skill@Lib:4E"): "' + String(s.name).replace(/["|]/g, ' ') + '|' + s.total + '"]', tip: '' }); });
+    var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]';
+    return { props: props, macros: macros };
+  }
+  function baseCmd(tok, label, cmd) { var re = new RegExp('<command>((?:(?!</command>)[\\s\\S])*?)</command>(\\s*)<label>' + xe(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '</label>'); return tok.replace(re, function (m, c, sp) { return '<command>' + xe(cmd) + '</command>' + sp + '<label>' + xe(label) + '</label>'; }); }
   function chosen(d) { return d.powers.filter(function (p) { return p.src === 'power' || want[p.src]; }); }
   function allMacros(d) { return chosen(d).map(powerMacro).concat(d.skills.map(skillMacro)); }
 
@@ -72,12 +91,14 @@
   function loadZip() { return window.JSZip ? Promise.resolve() : new Promise(function (ok, no) { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; s.onload = ok; s.onerror = function () { no(new Error('압축 도구를 불러오지 못했어요')); }; document.head.appendChild(s); }); }
 
   function tokenXml(d, img, hash) {
+    var isNew = fmt() === 'new', pack = isNew ? newPack(d) : null; if (isNew) d = Object.assign({}, d, { props: pack.props });
     var t = T(), props = '<propertyMapCI>\n<store>\n' + Object.keys(d.props).map(function (k) {
       return '<entry>\n<string>' + xe(k.toLowerCase()) + '</string>\n<net.rptools.CaseInsensitiveHashMap_-KeyValue>\n<key>' + xe(k) + '</key>\n<value class="string">' + xe(d.props[k]) + '</value>\n</net.rptools.CaseInsensitiveHashMap_-KeyValue>\n</entry>'; }).join('\n') + '\n</store>\n</propertyMapCI>';
-    var idx = t.nextIndex, macros = allMacros(d).map(function (m) { var i = idx++;
+    var idx = t.nextIndex, macros = (isNew ? pack.macros : allMacros(d)).map(function (m) { var i = idx++;
       return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
         .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + t.token.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
+    var base = t.token; if (isNew) { base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
   }
@@ -132,6 +153,7 @@
     var atk = d.powers.filter(function (p) { return !p.nonatk; }).length, cnt = function (k) { return d.powers.filter(function (p) { return p.src === k; }).length; }, nItem = cnt('item'), nPas = cnt('pas');
     box.innerHTML = '<div class="mtin"><button class="mtx" data-mt="close" title="닫기">×</button><h3>맵툴로 내보내기</h3>' +
       '<p class="hint">' + he(d.name) + ' · 파워 ' + cnt('power') + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
+      '<div class="mtwant"><b>맞출 캠페인</b><select data-mtfmt>' + FMTS.map(function (f) { return '<option value="' + f[0] + '"' + (fmt() === f[0] ? ' selected' : '') + '>' + he(f[1]) + '</option>'; }).join('') + '</select><span class="hint">' + (fmt() === 'new' ? '토큰에는 자료와 한 줄 호출만 들어가요. Lib:4E 가 있는 새 캠페인에서만 돌아요. 몬스터 · 조우 내보내기도 이 선택을 따라요.' : '매크로 글이 토큰에 통째로 들어가는 예전 꼴이에요. 몬스터 · 조우 내보내기도 이 선택을 따라요.') + '</span></div>' +
       '<div class="mtwant"><b>버튼으로 더 넣을 것</b>' + [['item', '장비 파워', nItem], ['pas', '패시브 묶음 (재주 · 특성 · 장비 속성 · 홈브류 …)', nPas]].map(function (w) { return '<label><input type="checkbox" data-mtw="' + w[0] + '"' + (want[w[0]] ? ' checked' : '') + '> ' + w[1] + ' <span class="hint">' + w[2] + '개</span></label>'; }).join('') + '<span class="hint">패시브 묶음은 시트의 「패시브 효과」에서 편집해요. 클래스 · 종족 특성이 주는 파워는 파워에 이미 들어 있어요</span></div>' +
       '<div class="mtrow"><div><b>가) 토큰 파일</b><p class="hint">.rptok 을 받아 맵 위로 끌어다 놓으면 돼요. 「PC 기본」 토큰의 매크로가 그대로 들어 있어요.</p><button data-mt="tok">토큰 파일 받기</button></div>' +
       '<div><b>나) 있는 토큰에 덮어쓰기</b><p class="hint">캠페인에 「시트 불러오기」 매크로를 한 번 넣어 두고, 토큰을 고른 뒤 그 매크로에 글을 붙여 넣어요. 수치와 능력 버튼만 바뀌어요.</p><button data-mt="copy">시트 글 복사</button> <button data-mt="loader">불러오기 매크로 복사</button></div></div>' +
@@ -140,13 +162,14 @@
       '<p class="hint" id="mtMsg"></p></div>';
     box.style.display = 'flex';
     var msg = function (t) { document.getElementById('mtMsg').textContent = t; }, copy = function (t, okMsg) { navigator.clipboard.writeText(t).then(function () { msg(okMsg); }, function () { var ta = document.createElement('textarea'); ta.value = t; box.firstChild.appendChild(ta); ta.select(); msg('자동 복사가 막혀서 글을 아래에 띄웠어요. 직접 복사해 주세요.'); }); };
-    box.onchange = function (e) { var w = e.target.getAttribute && e.target.getAttribute('data-mtw'); if (w) { want[w] = e.target.checked; localStorage.setItem('d4e_mtwant', JSON.stringify(want)); } };
+    box.onchange = function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-mtfmt')) { localStorage.setItem('d4e_mtfmt', e.target.value); open(); return; } var w = e.target.getAttribute && e.target.getAttribute('data-mtw'); if (w) { want[w] = e.target.checked; localStorage.setItem('d4e_mtwant', JSON.stringify(want)); } };
     box.onclick = function (e) { var k = e.target.getAttribute && e.target.getAttribute('data-mt');
       if (e.target === box || k === 'close') box.style.display = 'none';
       else if (k === 'tok') { msg('만드는 중…'); saveToken().then(function () { msg('토큰 파일을 받았어요. 맵툴 맵 위로 끌어다 놓아 보세요.'); }, function (er) { msg('만들지 못했어요: ' + er.message); }); }
+      else if ((k === 'copy' || k === 'loader') && fmt() === 'new') msg('「Test : 망령 뉴 캠페인」 꼴은 토큰 파일로만 내보낼 수 있어요. (있는 토큰에 덮어쓰기는 기존 캠페인 꼴에서만)');
       else if (k === 'copy') copy(pasteText(), '시트 글을 복사했어요. 맵툴에서 토큰을 고르고 「시트 불러오기」에 붙여 넣으세요.');
       else if (k === 'loader') copy(LOADER, '매크로를 복사했어요. 캠페인 매크로 창에서 새 매크로를 만들고 붙여 넣으세요(이름은 「시트 불러오기」).'); };
   }
-  window.D4EMt = { open: open, guid: guid, uuid: uuid, loadZip: loadZip, xe: xe, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
+  window.D4EMt = { open: open, fmt: fmt, fmts: FMTS, newPack: newPack, guid: guid, uuid: uuid, loadZip: loadZip, xe: xe, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
   document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; var o = document.getElementById('chOne'); if (o) o.onclick = function () { window.D4EApp && window.D4EApp.onePage(); }; });
 })();
