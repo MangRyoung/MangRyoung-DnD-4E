@@ -536,3 +536,6 @@ body.noscroll{overflow:hidden}
 .fx-h{margin-bottom:4px}.fx-src{font-size:12.5px;line-height:1.5;opacity:.85}.fx-src b{display:inline-block;min-width:44px;color:var(--mute,#888)}
 .fx-card textarea{width:100%;box-sizing:border-box;margin:6px 0 4px;font-family:inherit;font-size:13.5px}.fx-err{color:#c0392b;font-size:12.5px;margin-bottom:4px}
 .fx-sug{font-size:12.5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}.fx-sug code,.hbpick p code{padding:1px 6px;border-radius:6px;background:#8882;font-size:12px}
+
+/* 조우 판의 일행(PC) 토큰 */
+.etok.epc{border:3px solid #7fd0ff;border-radius:24%;z-index:4;box-shadow:0 0 0 2px rgba(47,106,163,.55),0 1px 4px rgba(0,0,0,.45)}

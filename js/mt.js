@@ -117,6 +117,13 @@
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
   }
+  /* 조우 맵 파일에 넣을 PC 토큰 한 장: { id, name, xml, assets:[{hash,bytes,name}] } */
+  async function pcPart(d, o) { await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), assets = [{ hash: hash, bytes: img.bytes, name: d.name }], extra = {}, kinds = ['face', 'stand', 'cut'];
+    for (var ki = 0; ki < kinds.length; ki++) { var by = await pngOf(d[kinds[ki]] || (kinds[ki] === 'stand' ? d.tok : '')); if (!by) continue; var h2 = md5(by); extra[kinds[ki]] = h2; assets.push({ hash: h2, bytes: by, name: d.name + ' ' + kinds[ki] }); }
+    if (extra.cut) { d.props = Object.assign({}, d.props); d.props.cut_img = 'asset://' + extra.cut; }
+    var xml = tokenXml(d, img, hash, extra).replace(/^<\?xml[^>]*\?>\s*/, ''), id = (/<baGUID>([^<]+)<\/baGUID>/.exec(xml) || [])[1];
+    xml = xml.replace(/<x>-?\d+<\/x>(\s*)<y>-?\d+<\/y>(\s*)<z>-?\d+<\/z>(\s*)<lastX>-?\d+<\/lastX>(\s*)<lastY>-?\d+<\/lastY>/, '<x>' + o.x + '</x>$1<y>' + o.y + '</y>$2<z>' + o.z + '</z>$3<lastX>' + o.x + '</lastX>$4<lastY>' + o.y + '</lastY>');
+    return { id: id, name: d.name, xml: xml, assets: assets }; }
   async function saveToken() {
     var d = A().mtData(); await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), zip = new window.JSZip();
     var extra = {}, kinds = ['face', 'stand', 'cut'];
@@ -202,6 +209,6 @@
       else if (k === 'copy') copy(pasteText(), '시트 글을 복사했어요. 맵툴에서 토큰을 고르고 「시트 불러오기」에 붙여 넣으세요.');
       else if (k === 'loader') copy(LOADER, '매크로를 복사했어요. 캠페인 매크로 창에서 새 매크로를 만들고 붙여 넣으세요(이름은 「시트 불러오기」).'); };
   }
-  window.D4EMt = { open: open, fmt: fmt, fmts: FMTS, newPack: newPack, guid: guid, uuid: uuid, loadZip: loadZip, xe: xe, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
+  window.D4EMt = { pcPart: pcPart, open: open, fmt: fmt, fmts: FMTS, newPack: newPack, guid: guid, uuid: uuid, loadZip: loadZip, xe: xe, md5: md5, powerMacro: powerMacro, skillMacro: skillMacro, tokenXml: tokenXml, pasteText: pasteText, loader: LOADER };
   document.addEventListener('DOMContentLoaded', function () { var b = document.getElementById('chMt'); if (b) b.onclick = open; var o = document.getElementById('chOne'); if (o) o.onclick = function () { window.D4EApp && window.D4EApp.onePage(); }; });
 })();

@@ -472,8 +472,8 @@
     'Endurance': ['인내', 'Con', 1], 'Heal': ['치료', 'Wis', 0], 'History': ['역사학', 'Int', 0], 'Insight': ['통찰', 'Wis', 0], 'Intimidate': ['위협', 'Cha', 0], 'Nature': ['자연학', 'Wis', 0], 'Perception': ['지각', 'Wis', 0],
     'Religion': ['종교학', 'Int', 0], 'Stealth': ['은밀', 'Dex', 1], 'Streetwise': ['길거리 지식', 'Cha', 0], 'Thievery': ['도둑기술', 'Dex', 1] };
   var MT_ACT = { 'standard action': '일반', 'move action': '이동', 'minor action': '간략', 'immediate reaction': '즉각 반응', 'immediate interrupt': '즉각 개입', 'opportunity action': '기회 행동', 'free action': '자유 행동', 'no action': '-' };
-  function mtData() {
-    var ch = cur, r = res, st = r.stats, q = ch.eq || {}, ctx = { r: r, ch: ch }, T = ch.tr || {};
+  function mtData(ch0, r0) {
+    var ch = ch0 || cur, r = r0 || res, st = r.stats, q = ch.eq || {}, ctx = { r: r, ch: ch }, T = ch.tr || {};
     var mod = function (a) { return Math.floor(((st[lc(a)] || 10) - 10) / 2); }, half = st['half-level'] || 0, hp = st['hit points'] || 0, inh = st['inherent attack'] || 0;
     var W = db.byId[q.main], Wm = db.byId[q.mainM], I = db.byId[q.implM] || db.byId[q.impl], O = db.byId[q.off], Om = db.byId[q.offM];
     var itemCrit = function (m) { var c = /(\d+d\d+)/.exec((m && m.sp && m.sp['Critical']) || ''); return c ? c[1] : '0'; };
@@ -1799,7 +1799,12 @@
       try { var size = await D4EData.exportPack(); $('dataExportMsg').textContent = '내보냈어요 (' + (size / 1048576).toFixed(1) + 'MB).'; }
       catch (e) { $('dataExportMsg').textContent = e.message; }
     };
-    window.D4EApp = { onePage: function () { if (db && cur && res) openOnePage(cur, res, ME.name); }, mtData: mtData, hasChar: function () { return !!(db && cur && res); }, charNames: function () { return Object.keys(chars).map(function (k) { return chars[k].name; }).filter(Boolean); }, gsub: gsub, vocab: function (key, n) {
+    /* 조우의 일행 배치용(2026-11-24): 팀 시트 목록과, 시트 하나의 맵툴 자료 */
+    var teamPcs = async function () { var tv = localStorage.getItem('d4e_team') || '', rows = await D4EShare.list(); return rows.filter(function (r) { var d = r.data || {}; return d.name && d.abilities && (!tv || d.team === tv); }).map(function (r) { return { id: r.id, name: r.data.name, tok: r.data.tok || r.data.port || '' }; }); };
+    var mtDataOf = async function (id) { var row = await D4EShare.get(id), d = row && row.data; if (!d || !db) throw new Error('시트를 읽지 못했어요.'); if (d.set) D4EHouse.apply(db, d.set);
+      var ch = { id: id, name: d.name, port: d.port || '', tok: d.tok || '', face: d.face || '', stand: d.stand || '', cut: d.cut || '', hidePw: d.hidePw || [], fx: d.fx || {}, level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: shTr(d.tr || {}), ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {};
+      var out = mtData(ch, r); if (cur && cur.set !== d.set) D4EHouse.apply(db, cur.set || ''); return out; };
+    window.D4EApp = { teamPcs: teamPcs, mtDataOf: mtDataOf, onePage: function () { if (db && cur && res) openOnePage(cur, res, ME.name); }, mtData: mtData, hasChar: function () { return !!(db && cur && res); }, charNames: function () { return Object.keys(chars).map(function (k) { return chars[k].name; }).filter(Boolean); }, gsub: gsub, vocab: function (key, n) {
         var V = vocabCache[key]; if (!V) { var c = {}; (db.byType['Power'] || []).forEach(function (p) { var v = (p.sp || {})[key]; if (!v) return; (key === 'Keywords' ? String(v).split(',') : [String(v)]).forEach(function (x) { x = x.trim(); if (x && x.length < 60) c[x] = (c[x] || 0) + 1; }); });
           V = vocabCache[key] = Object.keys(c).sort(function (a, b) { return c[b] - c[a]; }); }
         return V.slice(0, n || 30); }, canGM: canGM, isGM: isGM, me: function () { return ME; }, curName: function () { return cur ? cur.name : ''; }, card: function (e) { return fields(e); }, shName: function (id) { var t = SHTR[id]; return (t && t.n) || ''; }, cardIn: function (e) { trCtx = { map: SHTR, edit: !!ME.hash, shared: true }; var kc = calcCtx; calcCtx = null; try { return fields(e); } finally { calcCtx = kc; } }, db: function () { return db; }, esc: esc, nm: nm, typeKo: typeKo, openSearch: openSearch, status: status,
