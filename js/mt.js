@@ -71,7 +71,7 @@
     var w = { n: a.pname, k: a.pkind || '', u: u[0], kw: a.keyword || '', act: act[1], rng: rng, trg: a.Trigger || '', tgt: tgt, eff: a.Effect || '', spc: a.Special || '', hit: a.Description || '', miss: a.Miss || '', vs: '', dm: 0, half: 0, dty: '' };
     if (!p.nonatk && a.Attack && a.Attack !== '-') { w.vs = a.Attack; w.am = parseInt(a.Amod, 10) || 0; w.ah = a.AHit || 'Hit'; if (!tgt) w.tgt = '한 개체';
       var m = /^(\d+)(.*)$/.exec(a.Damage || ''); if (m) { w.dt = +m[1]; w.dd = m[2]; } w.dm = parseInt(a.ADM, 10) || 0; if (/절반/.test(a.Miss || '')) w.half = 1; }
-    if (a.fx && a.fx.length) { w.fx = a.fx; if (a.fx.some(function (x) { return x.k === 'half'; })) w.half = 1; }
+    if (a.fx && a.fx.length) { w.fx = a.fx; if (a.fx.some(function (x) { return x.k === 'half'; })) w.half = 1; if (!w.vs && a.fx.some(function (x) { return x.to === 't'; })) w.ft = 1; }
     var pas = !!p.group && u[0] === 0, tip = newTip(w);
     return { data: w, macro: { label: a.pname, group: p.group || act[0], color: pas ? 'silver' : u[2], font: pas ? 'black' : 'white', sort: u[1], command: '[macro("pw_use@Lib:4E"): ' + i + ']', tip: tip } };
   }
