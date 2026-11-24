@@ -39,10 +39,10 @@
     var tk = line.split(/\s+/), head = tk.shift(), op = { w: w, k: '', to: 't' }, err = function (t) { return { err: t, raw: raw }; };
     if (head === '메모') { op.k = 'note'; op.t = tk.join(' '); return op.t ? op : err('메모 뒤에 글이 없어요'); }
     /* 뒤에서부터 대상 · 지속 낱말을 떼어 낸다 */
-    var dur = null, to = null; for (var guard = 0; guard < 2 && tk.length; guard++) { var last = tk[tk.length - 1], d = DUR_ALIAS[last] || last; if (DUR[d] && !dur) { dur = d; tk.pop(); } else if (TO[last] && !to) { to = TO[last]; tk.pop(); } else break; }
+    var dur = null, to = null, cnd = ''; for (var guard = 0; guard < 3 && tk.length; guard++) { var last = tk[tk.length - 1], d = DUR_ALIAS[last] || last; if (DUR[d] && !dur) { dur = d; tk.pop(); } else if (TO[last] && !to) { to = TO[last]; tk.pop(); } else if (head === '보정' && (last === '근접' || last === '원거리') && !cnd) { cnd = last === '근접' ? 'm' : 'r'; tk.pop(); } else break; }
     if (head === '기타') { if (!tk.length) return err('기타 뒤에 글이 없어요'); op.k = 'etc'; op.t = tk.join(' '); op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
     if (head === '내성굴림') { var sb = tk.join(''); if (sb && !/^[+\-]\d+$/.test(sb)) return err('내성굴림 뒤에는 +2 같은 보정만 와요'); op.k = 'sv'; op.b = sb ? parseInt(sb, 10) : 0; op.to = to || 's'; return op; }
-    if (head === '보정') { var pm = parseMods(tk.join('')); if (pm.bad || !pm.list.length) return err('보정을 못 읽었어요' + (pm.bad ? ': ' + pm.bad : '') + ' (명중 피해 AC 인내 반사 의지 모든방어 내명중 내피해 뒤에 +2 같은 수)'); op.k = 'mod'; op.m = pm.list; op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
+    if (head === '보정') { var pm = parseMods(tk.join('')); if (pm.bad || !pm.list.length) return err('보정을 못 읽었어요' + (pm.bad ? ': ' + pm.bad : '') + ' (명중 피해 AC 인내 반사 의지 모든방어 내명중 내피해 뒤에 +2 같은 수)'); op.k = 'mod'; op.m = pm.list; if (cnd) op.c = cnd; op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
     if (head === '반감') { if (tk.length) return err('반감 뒤에는 아무것도 안 붙어요'); op.w = 'm'; op.k = 'half'; return op; }
     if (head === '넘어뜨리기') { head = '상태'; tk = ['넘어짐']; dur = dur || '_man'; }
     if (head === '상태') { if (!tk.length) return err('상태 이름이 없어요'); var names = tk.join('').split(/[,，]/).filter(Boolean), bad = [];
@@ -60,7 +60,7 @@
     if (o.k === 'st') { if (o.d === '_man' && o.s.length === 1 && o.s[0] === '넘어짐') return pre + '넘어뜨리기' + (o.to === 's' ? ' 자신' : ''); t = '상태 ' + o.s.join(',') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : ''); }
     else if (o.k === 'etc') t = '기타 ' + o.t + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'sv') t = '내성굴림' + (o.b ? ' ' + (o.b > 0 ? '+' : '') + o.b : '') + (o.to === 't' ? ' 대상' : '');
-    else if (o.k === 'mod') t = '보정 ' + o.m.map(function (x) { return x[0] + (x[1] >= 0 ? '+' : '') + x[1]; }).join(',') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
+    else if (o.k === 'mod') t = '보정 ' + o.m.map(function (x) { return x[0] + (x[1] >= 0 ? '+' : '') + x[1]; }).join(',') + (o.c ? (o.c === 'm' ? ' 근접' : ' 원거리') : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'og') t = '지속피해 ' + o.n + (o.ty ? ' ' + o.ty : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내성' ? ' ' + o.d : '');
     else if (o.k === 'thp') t = '임시HP ' + o.v + (o.to === 't' ? ' 대상' : '');
     else if (o.k === 'heal') t = '회복 ' + (o.sg ? '서지' + (o.v ? '+' + o.v : '') : o.v) + (o.to === 't' ? ' 대상' : '');
@@ -76,7 +76,7 @@
       else if (o.k === 'st') o.s.forEach(function (n) { out.push(D(Object.assign({}, b, { k: 'fx', lab: n === '전투불리' ? '전투 불리' : n, st: ST_KEY[n], og: 0, ogt: '' }))); });
       else if (o.k === 'etc') out.push(D(Object.assign(b, { k: 'fx', lab: o.t, st: '', og: 0, ogt: '' })));
       else if (o.k === 'sv') out.push(Object.assign(b, { k: 'sv', b: o.b || 0 }));
-      else if (o.k === 'mod') { var md = { hit: 0, dmg: 0, AC: 0, Fort: 0, Reflex: 0, Will: 0, ahit: 0, admg: 0 }, lab = []; o.m.forEach(function (x) { var k = MODK[x[0]]; if (k === 'all') ['AC', 'Fort', 'Reflex', 'Will'].forEach(function (q) { md[q] += x[1]; }); else md[k] += x[1]; lab.push(MODL[k] + ' ' + (x[1] >= 0 ? '+' : '') + x[1]); }); out.push(D(Object.assign(b, { k: 'fx', lab: lab.join(' · '), st: '', og: 0, ogt: '', mod: md }))); }
+      else if (o.k === 'mod') { var md = { hit: 0, dmg: 0, AC: 0, Fort: 0, Reflex: 0, Will: 0, ahit: 0, admg: 0 }, lab = []; o.m.forEach(function (x) { var k = MODK[x[0]]; if (k === 'all') ['AC', 'Fort', 'Reflex', 'Will'].forEach(function (q) { md[q] += x[1]; }); else md[k] += x[1]; lab.push(MODL[k] + ' ' + (x[1] >= 0 ? '+' : '') + x[1]); }); if (o.c) md.c = o.c; out.push(D(Object.assign(b, { k: 'fx', lab: (o.c ? (o.c === 'm' ? '근접 ' : '원거리 ') : '') + lab.join(' · '), st: '', og: 0, ogt: '', mod: md }))); }
       else if (o.k === 'og') out.push(D(Object.assign(b, { k: 'fx', lab: '', st: '', og: o.n, ogt: o.ty || '' })));
       else if (o.k === 'thp') out.push(Object.assign(b, { k: 'thp', v: calc(o.v, ctx) }));
       else if (o.k === 'heal') out.push(Object.assign(b, { k: 'heal', v: o.v ? calc(o.v, ctx) : '0', sg: o.sg ? 1 : 0 }));
@@ -112,8 +112,8 @@
       if (mv) { var n = /^\d+$/.test(mv[2]) ? mv[2] : enExpr(mv[2].replace(/a number of squares equal to/, '')); if (n) push({ push: '밀기', pull: '당기기', slide: '미끄러뜨리기' }[mv[1]] + ' ' + n); }
       /* 글 효과: 저항 · 보정 · 벌점. 「against … / when … / while …」 같은 꼬리가 붙으면 추천하지 않는다 */
       var rs = /\b(you|the target) gains? resist (\d+) to all damage\b/.exec(sen); if (rs) push('기타 저항 ' + rs[2] + (rs[1] === 'you' ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : ''));
-      var bn = /\b(you gain|the target gains|the target takes|each target takes|it takes) an? ([+\-–]\d+) (?:power |racial |feat |item |untyped )?(bonus|penalty) to (?:melee |ranged |weapon )?(attack rolls|damage rolls|all defenses|ac|fortitude|reflex|will|speed|saving throws)(?: defense)?(.*)$/.exec(sen);
-      if (bn && !/\b(against|when|whenever|while)\b/.test(bn[5]) && !/^\s*(with|of|for|on)\b/.test(bn[5])) { var what = { 'attack rolls': '명중', 'damage rolls': '피해', 'all defenses': '모든 방어', ac: 'AC', fortitude: '인내', reflex: '반사', will: '의지', speed: '속도', 'saving throws': '내성 굴림' }[bn[4]]; var mk = { '명중': '명중', '피해': '피해', 'AC': 'AC', '인내': '인내', '반사': '반사', '의지': '의지', '모든 방어': '모든방어' }[what], tail = (/^you/.test(bn[1]) ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : ''); push(mk ? '보정 ' + mk + bn[2].replace('–', '-') + tail : '기타 ' + what + ' ' + bn[2].replace('–', '-') + tail); }
+      var bn = /\b(you gain|the target gains|the target takes|each target takes|it takes) an? ([+\-–]\d+) (?:power |racial |feat |item |untyped )?(bonus|penalty) to (melee |ranged |weapon )?(attack rolls|damage rolls|all defenses|ac|fortitude|reflex|will|speed|saving throws)(?: defense)?(.*)$/.exec(sen);
+      if (bn && !/\b(against|when|whenever|while)\b/.test(bn[6]) && !/^\s*(with|of|for|on)\b/.test(bn[6])) { var what = { 'attack rolls': '명중', 'damage rolls': '피해', 'all defenses': '모든 방어', ac: 'AC', fortitude: '인내', reflex: '반사', will: '의지', speed: '속도', 'saving throws': '내성 굴림' }[bn[5]], mr = bn[4] === 'melee ' ? ' 근접' : bn[4] === 'ranged ' ? ' 원거리' : ''; var mk = { '명중': '명중', '피해': '피해', 'AC': 'AC', '인내': '인내', '반사': '반사', '의지': '의지', '모든 방어': '모든방어' }[what], tail = (/^you/.test(bn[1]) ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : ''); push(mk ? '보정 ' + mk + bn[2].replace('–', '-') + mr + tail : '기타 ' + what + ' ' + bn[2].replace('–', '-') + tail); }
       var th = /\b(you|the target) gains? (\d+|temporary hit points equal to [^.,;]+?(?:modifier|level))( temporary hit points)?/.exec(sen); if (th && /temporary hit points/.test(sen)) { var e = /^\d+$/.test(th[2]) ? th[2] : enExpr(th[2].replace(/temporary hit points equal to/, '')); if (e) push('임시HP ' + e + (th[1] === 'you' ? '' : ' 대상')); }
       var shf = /^you (?:can |may )?shift (\d+) squares?/.exec(sen); if (shf) push('시프트 ' + shf[1] + ' 자신');
       var sv = /\b(you|the target|each target|that ally|the ally)(?: can| may)? makes? a saving throw(?: with a ([+\-–]\d+) (?:power |racial |feat )?bonus)?/.exec(sen); if (sv) push('내성굴림' + (sv[2] ? ' ' + sv[2].replace('–', '-') : '') + (sv[1] === 'you' ? '' : ' 대상'));
