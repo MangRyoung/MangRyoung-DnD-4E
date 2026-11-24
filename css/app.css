@@ -526,3 +526,7 @@ body.noscroll{overflow:hidden}
 .tplslot input[type=number]{width:44px;margin:0 !important;padding:2px 4px}.tplslot select{flex:1;min-width:0;padding:2px 4px;margin:0}.tplslot label{display:flex;align-items:center;gap:2px;color:var(--sub);font-size:12px}.tplslot label input{width:44px}.tplslot i{min-width:42px;text-align:right}.tplx{background:none;border:0;color:var(--sub);padding:0 2px;font-size:15px;cursor:pointer}.tplx:hover{color:var(--acc)}.tplbtn{display:flex;gap:6px;align-items:center;flex-wrap:wrap}.tpled{font-size:12px;color:#a8661c}
 .tplgo{margin-left:auto;background:none;border:1px solid var(--line);border-radius:6px;color:var(--acc);font-size:12px;padding:2px 6px;white-space:nowrap;cursor:pointer}.tplgo:hover{background:var(--acc2)}
 .tplbtn .sp{flex:1}.tplhead #encTplNew{white-space:nowrap}.tplform{border:1px solid var(--acc);border-radius:8px;padding:8px;margin:6px 0;display:flex;flex-direction:column;gap:5px}.tplform input{width:100%;box-sizing:border-box;margin:0 !important}
+
+/* 패시브 순서 옮기기(2026-11-24) */
+.pas-grip{cursor:grab;user-select:none;padding:2px 5px;border-radius:6px;color:var(--mute,#888);font-size:15px;line-height:1}.pas-grip:hover{background:#8882}.pas-grip:active{cursor:grabbing}.pas-mv{padding:1px 6px;font-size:11px;flex:none}.pasl-t .pas-mv,.pasg-h .pas-mv{min-width:0}
+.pas-over{box-shadow:0 -3px 0 0 #e9a93b}.pas-over-b{box-shadow:0 3px 0 0 #e9a93b}

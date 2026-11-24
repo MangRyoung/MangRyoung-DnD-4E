@@ -675,7 +675,28 @@
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
   }
+  /* 패시브 순서 옮기기. kind = 'g' 묶음 | 'i' 효과. to = {g:묶음, i:효과키, after:bool} 로 놓거나 step(±1) 으로 한 칸 */
+  function pasMove(kind, id, to, step) {
+    if (!cur || !res) return; var pg = cur.pg = cur.pg || {}, P = passiveGroups(cur, res), gids = P.groups.map(function (g) { return g.id; });
+    if (kind === 'g') { var shown = P.groups.filter(function (g) { return g.items.length || g.custom; }).map(function (g) { return g.id; }), from = gids.indexOf(id); if (from < 0) return; var tgt;
+      if (to) { if (!to.g || to.g === id) return; tgt = to.g; gids.splice(from, 1); gids.splice(gids.indexOf(tgt) + (to.after ? 1 : 0), 0, id); }
+      else { var si = shown.indexOf(id), ti = si + step; if (si < 0 || ti < 0 || ti >= shown.length) return; tgt = shown[ti]; gids.splice(from, 1); gids.splice(gids.indexOf(tgt) + (step > 0 ? 1 : 0), 0, id); }
+      pg.go = gids; }
+    else { var srcG = null; P.groups.forEach(function (g) { if (g.items.some(function (it) { return it.key === id; })) srcG = g; }); if (!srcG) return; var dstG = srcG, ref = null, after = false;
+      if (to) { dstG = P.groups.filter(function (g) { return g.id === to.g; })[0]; if (!dstG) return; ref = to.i && to.i !== id ? to.i : null; after = !!to.after; if (to.i === id) return; }
+      else { var k = srcG.items.map(function (it) { return it.key; }), ci = k.indexOf(id), ni = ci + step; if (ni < 0 || ni >= k.length) return; ref = k[ni]; after = step > 0; }
+      var flat = []; P.groups.forEach(function (g) { var keys = g.items.map(function (it) { return it.key; }).filter(function (x) { return x !== id; }); if (g === dstG) { var at2 = ref ? keys.indexOf(ref) : -1; if (at2 < 0) keys.push(id); else keys.splice(at2 + (after ? 1 : 0), 0, id); } flat = flat.concat(keys); });
+      pg.io = flat;
+      if (dstG !== srcG) { if (id.indexOf('u:') === 0) (pg.cu || []).forEach(function (c) { if ('u:' + c.id === id) c.g = dstG.id; }); else (pg.at = pg.at || {})[id] = dstG.id; } }
+    saveChars(); rebuild(); }
   function wireSheet(box, r) {
+    var pasDrag = null, pasClear = function () { box.querySelectorAll('.pas-over,.pas-over-b').forEach(function (x) { x.classList.remove('pas-over', 'pas-over-b'); }); };
+    var pasTarget = function (ev) { if (!pasDrag) return null; var it = ev.target.closest('[data-pasit]'), gp = ev.target.closest('[data-pasg]'); if (!gp) return null; var el = pasDrag.kind === 'i' && it ? it : gp, rc = el.getBoundingClientRect();
+      return { el: el, g: gp.getAttribute('data-pasg'), i: pasDrag.kind === 'i' && it ? it.getAttribute('data-pasit') : null, after: ev.clientY > rc.top + rc.height / 2 }; };
+    box.ondragstart = function (ev) { var h = ev.target.closest && ev.target.closest('[data-pasdrag]'); if (!h) return; var v = h.getAttribute('data-pasdrag'); pasDrag = { kind: v.slice(0, 1), id: v.slice(2) }; try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', v); var holder = h.closest(pasDrag.kind === 'g' ? '[data-pasg]' : '[data-pasit]'); if (holder && ev.dataTransfer.setDragImage) ev.dataTransfer.setDragImage(holder, 12, 12); } catch (e) {} };
+    box.ondragover = function (ev) { var t = pasTarget(ev); if (!t) return; ev.preventDefault(); pasClear(); t.el.classList.add(t.after ? 'pas-over-b' : 'pas-over'); };
+    box.ondragend = function () { pasDrag = null; pasClear(); };
+    box.ondrop = function (ev) { var t = pasTarget(ev); if (!t) return; ev.preventDefault(); var d = pasDrag; pasDrag = null; pasClear(); pasMove(d.kind, d.id, { g: t.g, i: t.i, after: d.kind === 'g' || t.i ? t.after : true }); };
     box.onchange = function (ev) { var t = ev.target; if (!t.getAttribute || box.id !== 'sheet') return;
       if (t.hasAttribute('data-pwhide')) { var hid = t.getAttribute('data-pwhide'), hl = (cur.hidePw || []).filter(function (x) { return x !== hid; }); if (t.checked) hl.push(hid); cur.hidePw = hl; saveChars(); rebuild(); return; }
       var pg = cur.pg = cur.pg || {}, hit = true;
@@ -695,6 +716,7 @@
       if (ev.target.closest('[data-tok]')) { ev.stopPropagation(); $('tokFile').click(); return; }
       if (ev.target.closest('[data-portdel]')) { if (cur.port) { delete cur.port; rebuild(); } return; }
       if (ev.target.closest('[data-port]')) { $('portFile').click(); return; }
+      var mvb = ev.target.closest('[data-pasmv]'); if (mvb) { var mp = mvb.getAttribute('data-pasmv'), mi = mp.lastIndexOf(':'); pasMove(mp.slice(0, 1), mp.slice(2, mi), null, +mp.slice(mi + 1)); return; }
       var pb = ev.target.closest('[data-pasedit],[data-pasgadd],[data-pasgdel],[data-pasadd],[data-pascdel],[data-pasreset],[data-passhow]');
       if (pb) { var pg = cur.pg = cur.pg || {}, A = function (k) { return pb.getAttribute('data-' + k); };
         if (pb.hasAttribute('data-pasedit')) pasEdit = !pasEdit;
@@ -1412,17 +1434,20 @@
     var by = {}; groups.forEach(function (x) { by[x.id] = x; }); var hidden = [];
     passiveList(ch, r).forEach(function (it) { if (tx[it.key] != null) { it.orig = it.text; it.text = tx[it.key]; } if (hide[it.key]) { hidden.push(it); return; } (by[at[it.key]] || by[it.g]).items.push(it); });
     (pg.cu || []).forEach(function (c) { (by[c.g] || groups[0]).items.push({ key: 'u:' + c.id, n: c.n, text: c.text, cu: c.id }); });
+    /* 끌어서 정한 순서(2026-11-24): go = 묶음 순서, io = 효과 순서. 목록에 없는 것은 원래 차례대로 뒤에 */
+    var ord = function (arr, list, keyOf) { if (!list || !list.length) return arr; var ix = {}; list.forEach(function (k, i) { ix[k] = i; }); return arr.map(function (x, i) { return [x, ix[keyOf(x)] != null ? ix[keyOf(x)] : 1e6 + i]; }).sort(function (p, q) { return p[1] - q[1]; }).map(function (p) { return p[0]; }); };
+    groups = ord(groups, pg.go, function (x) { return x.id; }); groups.forEach(function (x) { x.items = ord(x.items, pg.io, function (it) { return it.key; }); });
     return { groups: groups, hidden: hidden };
   }
   function passiveHtml(ch, r) {
     var mine = ch === cur, ed = mine && pasEdit, P = passiveGroups(ch, r), total = 0, opts = function (cur0) { return P.groups.map(function (g) { return '<option value="' + esc(g.id) + '"' + (g.id === cur0 ? ' selected' : '') + '>' + esc(g.n) + '</option>'; }).join('') + '<option value="_hide">숨기기</option>'; };
     var h = P.groups.map(function (g) { if (!g.items.length && !(ed && g.custom)) return ''; total += g.items.length;
-      return '<div class="pasg"><div class="pasg-h">' + (ed ? '<input type="text" data-pasname="' + esc(g.id) + '" value="' + esc(g.n) + '">' + (g.custom ? '<button class="mini ghost" data-pasgdel="' + esc(g.id) + '" title="이 묶음 없애기">×</button>' : '') : '<b>' + esc(g.n) + '</b> <span class="hint">' + g.items.length + '</span>') + '</div>' +
-        g.items.map(function (it) { return ed ? '<div class="pasl ed"><div class="pasl-t">' + (it.cu ? '<input type="text" data-pascn="' + esc(it.cu) + '" value="' + esc(it.n) + '" placeholder="이름">' : '<b>' + esc(it.n) + '</b>') + '<select data-pasat="' + esc(it.key) + '">' + opts(g.id) + '</select>' + (it.cu ? '<button class="mini ghost" data-pascdel="' + esc(it.cu) + '">×</button>' : it.orig != null ? '<button class="mini ghost" data-pasreset="' + esc(it.key) + '" title="원래 글로">되돌리기</button>' : '') + '</div><textarea data-pastx="' + esc(it.key) + '" rows="2">' + esc(it.text) + '</textarea></div>'
+      return '<div class="pasg"' + (ed ? ' data-pasg="' + esc(g.id) + '"' : '') + '><div class="pasg-h">' + (ed ? '<span class="pas-grip" draggable="true" data-pasdrag="g:' + esc(g.id) + '" title="끌어서 묶음 순서 바꾸기">⠿</span><button class="mini ghost pas-mv" data-pasmv="g:' + esc(g.id) + ':-1" title="위로">▲</button><button class="mini ghost pas-mv" data-pasmv="g:' + esc(g.id) + ':1" title="아래로">▼</button><input type="text" data-pasname="' + esc(g.id) + '" value="' + esc(g.n) + '">' + (g.custom ? '<button class="mini ghost" data-pasgdel="' + esc(g.id) + '" title="이 묶음 없애기">×</button>' : '') : '<b>' + esc(g.n) + '</b> <span class="hint">' + g.items.length + '</span>') + '</div>' +
+        g.items.map(function (it) { return ed ? '<div class="pasl ed" data-pasit="' + esc(it.key) + '"><div class="pasl-t"><span class="pas-grip" draggable="true" data-pasdrag="i:' + esc(it.key) + '" title="끌어서 순서 · 묶음 바꾸기">⠿</span><button class="mini ghost pas-mv" data-pasmv="i:' + esc(it.key) + ':-1" title="위로">▲</button><button class="mini ghost pas-mv" data-pasmv="i:' + esc(it.key) + ':1" title="아래로">▼</button>' + (it.cu ? '<input type="text" data-pascn="' + esc(it.cu) + '" value="' + esc(it.n) + '" placeholder="이름">' : '<b>' + esc(it.n) + '</b>') + '<select data-pasat="' + esc(it.key) + '">' + opts(g.id) + '</select>' + (it.cu ? '<button class="mini ghost" data-pascdel="' + esc(it.cu) + '">×</button>' : it.orig != null ? '<button class="mini ghost" data-pasreset="' + esc(it.key) + '" title="원래 글로">되돌리기</button>' : '') + '</div><textarea data-pastx="' + esc(it.key) + '" rows="2">' + esc(it.text) + '</textarea></div>'
           : '<div class="pasl"' + (it.el ? ' data-el="' + esc(it.el) + '"' : '') + '><b>' + esc(it.n) + '</b><span>' + esc(it.text).replace(/\n/g, '<br>') + '</span></div>'; }).join('') +
         (ed ? '<button class="mini ghost" data-pasadd="' + esc(g.id) + '">+ 이 묶음에 직접 적기</button>' : '') + '</div>'; }).join('');
     if (ed && P.hidden.length) h += '<div class="pasg hid"><div class="pasg-h"><b>숨긴 것</b> <span class="hint">' + P.hidden.length + '</span></div>' + P.hidden.map(function (it) { return '<div class="pasl ed"><div class="pasl-t"><b>' + esc(it.n) + '</b><button class="mini ghost" data-passhow="' + esc(it.key) + '">다시 보이기</button></div></div>'; }).join('') + '</div>';
-    var bar = mine ? '<div class="pas-bar"><button class="mini' + (ed ? '' : ' ghost') + '" data-pasedit="1">' + (ed ? '편집 끝내기' : '묶음 편집') + '</button>' + (ed ? '<button class="mini ghost" data-pasgadd="1">+ 새 묶음</button>' : '') + '<span class="hint">' + (ed ? '효과마다 묶음을 옮기거나 글을 고칠 수 있어요. 묶음은 맵툴 토큰에 「패시브」 버튼으로 나가요' : '') + '</span></div>' : '';
+    var bar = mine ? '<div class="pas-bar"><button class="mini' + (ed ? '' : ' ghost') + '" data-pasedit="1">' + (ed ? '편집 끝내기' : '묶음 편집') + '</button>' + (ed ? '<button class="mini ghost" data-pasgadd="1">+ 새 묶음</button>' : '') + '<span class="hint">' + (ed ? '⠿ 를 끌거나 ▲▼ 로 묶음과 효과 순서를 바꾸고, 효과마다 묶음을 옮기거나 글을 고칠 수 있어요. 묶음은 맵툴 토큰에 「패시브」 버튼으로 나가요' : '') + '</span></div>' : '';
     return { html: bar + h, n: total };
   }
   /* GM 이 정하는 권한: gm 문서의 perm = { house, set, team, gloss, hb } — true 면 PL 도 할 수 있다 */
