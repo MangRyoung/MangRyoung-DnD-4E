@@ -102,9 +102,9 @@
   function syncNote(t, bad) { var el = document.getElementById('syncState'); if (el) { el.textContent = t || ''; el.className = 'hint syncst' + (bad ? ' bad' : ''); } }
   function canAuto(ch) { if (!ME.hash || !ch || ch.foreign) return false; if (!REMOTE[ch.id] && ch.name === '새 캐릭터' && !Object.keys(ch.choices || {}).length) return false; /* 아직 손대지 않은 빈 시트는 올리지 않는다 */ var rm = REMOTE[ch.id]; return !(rm && rm.ownerHash && rm.ownerHash !== ME.hash); }
   function queueUp() { clearTimeout(upTimer); if (!canAuto(cur)) { syncNote(ME.hash ? (cur && cur.foreign ? '남의 시트예요 · 「팀에 올리기」를 눌러야 반영돼요' : '') : '서명하면 저절로 저장돼서 다른 기기에서도 이어 할 수 있어요'); return; } syncNote('저장 대기 중…'); upTimer = setTimeout(pushCur, 2500); }
-  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', tok: ch.tok || '', stand: ch.stand || '', cut: ch.cut || '', hidePw: ch.hidePw || [], level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, vers: ch.vers || [], abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
+  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', tok: ch.tok || '', face: ch.face || '', stand: ch.stand || '', cut: ch.cut || '', hidePw: ch.hidePw || [], level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, vers: ch.vers || [], abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
   function applyDoc(n, d) {
-    n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.tok = d.tok || ''; n.stand = d.stand || ''; n.cut = d.cut || ''; n.hidePw = (d.hidePw || []).slice(); n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
+    n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.tok = d.tok || ''; n.face = d.face || ''; n.stand = d.stand || ''; n.cut = d.cut || ''; n.hidePw = (d.hidePw || []).slice(); n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
     n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.vers = JSON.parse(JSON.stringify(d.vers || [])); n.owner = d.owner || ''; return n;
   }
   async function pushCur() {
@@ -522,7 +522,7 @@
     /* 패시브 묶음마다 버튼 하나: 누르면 그 묶음의 효과가 한꺼번에 찍힌다 */
     passiveGroups(ch, r).groups.forEach(function (g) { if (!g.items.length) return; var x = blankArgs('패시브 · ' + g.n, '패시브 효과 ' + g.items.length + '개', '#407040', '-', '-', g.items.map(function (it) { return '<b>' + safe(it.n) + '</b> ' + safe(it.text); }).join('<br>'), '', '0. 패시브'); x.src = 'pas'; powers.push(x); });
     powers.forEach(function (p) { if (!p.src) p.src = /^장비/.test(p.args.pkind) ? 'item' : 'power'; });
-    return { name: ch.name || '이름 없음', port: ch.port || '', tok: ch.tok || '', stand: ch.stand || '', cut: ch.cut || '', props: P, skills: skills, powers: powers };
+    return { name: ch.name || '이름 없음', port: ch.port || '', tok: ch.tok || '', face: ch.face || '', stand: ch.stand || '', cut: ch.cut || '', props: P, skills: skills, powers: powers };
   }
 
   /* ---------- 파워 카드 ---------- */
@@ -848,7 +848,7 @@
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
     var hbEvery = D4EHouse.custom(db), hbAll = (ME.gm || !D4EHouse.gm().hashes.length) ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
     tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length + (cur.hbx || []).length });
-    tabs.push({ key: 'img', label: '초상 · 스탠딩 · 컷신', left: 0, n: (cur.tok ? 1 : 0) + (cur.stand ? 1 : 0) + (cur.cut ? 1 : 0) });
+    tabs.push({ key: 'img', label: '토큰 · 초상 · 스탠딩 · 컷신', left: 0, n: (cur.tok ? 1 : 0) + (cur.face ? 1 : 0) + (cur.stand ? 1 : 0) + (cur.cut ? 1 : 0) });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
     tabs.forEach(function (t) { var b = document.createElement('button'); b.className = t.key === buildTab ? 'on' : ''; b.setAttribute('data-btab', t.label);
@@ -856,9 +856,9 @@
       b.onclick = function () { buildTab = t.key; localStorage.setItem('d4e_btab', buildTab); renderSelects(); }; bar.appendChild(b); });
     box.appendChild(bar); $('equip').hidden = buildTab !== 'eq';
     if (buildTab === 'img') { var ibx = document.createElement('div'); ibx.className = 'hbpick';
-      ibx.innerHTML = '<p class="hint">맵툴 토큰 파일 안에 같이 들어가는 그림이에요. 초상은 맵 위 토큰으로, 스탠딩은 채팅 대사와 컷인에, 컷신은 치명타 연출에 쓰여요. 셋 다 자르지 않고 통째로 보관해요(초상은 긴 쪽 512, 나머지는 1024).</p>' +
-        '<div style="display:flex;flex-wrap:wrap;gap:16px">' + [['tok', '초상 (토큰 그림)', '맵 위 토큰으로 나가는 그림'], ['stand', '스탠딩', '배경을 지운 전신 그림'], ['cut', '컷신', '치명타 때 띄울 그림']].map(function (k) { var v = cur[k[0]] || '';
-          return '<div style="flex:1 1 240px;max-width:340px;padding:12px;border:1px solid #8884;border-radius:12px"><b>' + k[1] + '</b> <span class="hint">' + k[2] + '</span>' +
+      ibx.innerHTML = '<p class="hint">맵툴 토큰 파일 안에 같이 들어가는 그림이에요. 토큰은 맵 위 말로, 초상은 맵툴 초상화(portrait) 칸과 채팅 얼굴로, 스탠딩은 채팅 대사와 컷인에, 컷신은 치명타 연출에 쓰여요. 넷 다 자르지 않고 통째로 보관해요(토큰 · 초상은 긴 쪽 512, 나머지는 1024).</p>' +
+        '<div style="display:flex;flex-wrap:wrap;gap:16px">' + [['tok', '토큰', '맵 위 말로 나가는 그림'], ['face', '초상', '얼굴 위주 상반신 (맵툴 portrait)'], ['stand', '스탠딩', '배경을 지운 전신 그림'], ['cut', '컷신', '치명타 때 띄울 그림']].map(function (k) { var v = cur[k[0]] || '';
+          return '<div style="flex:1 1 200px;max-width:300px;padding:12px;border:1px solid #8884;border-radius:12px"><b>' + k[1] + '</b> <span class="hint">' + k[2] + '</span>' +
             '<div data-imgpick="' + k[0] + '" title="눌러서 고르기" style="margin:8px 0;height:260px;display:flex;align-items:center;justify-content:center;border:1px dashed #8886;border-radius:10px;cursor:pointer;background:repeating-conic-gradient(#8882 0% 25%, transparent 0% 50%) 50% / 16px 16px">' +
             (v ? '<img src="' + esc(v) + '" alt="" style="max-width:100%;max-height:100%;object-fit:contain">' : '<span class="hint">눌러서 그림 고르기</span>') + '</div>' +
             '<button class="mini" data-imgpick="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button class="mini ghost" data-imgdel="' + k[0] + '">지우기</button>' : '') + '</div>'; }).join('') + '</div>';
@@ -1528,7 +1528,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', tok: d.tok || '', stand: d.stand || '', cut: d.cut || '', hidePw: d.hidePw || [], level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', tok: d.tok || '', face: d.face || '', stand: d.stand || '', cut: d.cut || '', hidePw: d.hidePw || [], level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
@@ -1686,11 +1686,11 @@
       img.src = url;
     };
     /* 토큰 그림: 자르지 않고 통째로, 긴 쪽 512 까지 줄여 보관(2026-11-24: 전에는 정사각형 256 으로 잘랐음). 화면에서는 동그랗게 보이고 맵툴 토큰으로 나간다. */
-    /* 스탠딩 · 컷신: 맵툴 토큰 안에 같이 넣는 그림. 자르지 않고 긴 쪽 1024 까지(2026-11-24). kind = 'stand' | 'cut' */
+    /* 스탠딩 · 컷신: 맵툴 토큰 안에 같이 넣는 그림. 자르지 않고 긴 쪽 1024 까지(2026-11-24). kind = 'face' | 'stand' | 'cut'. 초상(face)은 512 */
     window.D4EImg = { set: function (kind, f, cb) {
-        if (!cur || (kind !== 'stand' && kind !== 'cut')) return; if (!f || !/^image\//.test(f.type)) { alert('그림 파일을 골라 주세요.'); return; }
+        if (!cur || (kind !== 'face' && kind !== 'stand' && kind !== 'cut')) return; if (!f || !/^image\//.test(f.type)) { alert('그림 파일을 골라 주세요.'); return; }
         var img = new Image(), url = URL.createObjectURL(f);
-        img.onload = function () { var k = Math.min(1, 1024 / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
+        img.onload = function () { var k = Math.min(1, (kind === 'face' ? 512 : 1024) / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
           c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); var out = c.toDataURL('image/webp', 0.86); if (out.indexOf('data:image/webp') !== 0) out = c.toDataURL('image/png');
           URL.revokeObjectURL(url); cur[kind] = out; rebuild(); if (cb) cb(out); };
         img.onerror = function () { URL.revokeObjectURL(url); alert('그림 파일을 읽지 못했어요.'); }; img.src = url; },

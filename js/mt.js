@@ -111,15 +111,16 @@
       return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
         .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
     var base = t.token; if (isNew) { base = base.replace(/<entry>\s*<int>\d+<\/int>\s*<net\.rptools\.maptool\.model\.MacroButtonProperties>[\s\S]*?<\/net\.rptools\.maptool\.model\.MacroButtonProperties>\s*<\/entry>\s*/g, function (m) { var g = /<group>([^<]*)<\/group>/.exec(m); return g && (g[1] === '0. 상태' || g[1] === '0. 자원' || g[1] === 'zzz. PC 제작') ? '' : m; }); base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); base = baseCmd(base, '행동점 사용', '[h, macro("st_do@Lib:4E"): json.set("{}", "op", "ap")]'); base = baseCmd(base, '일일 아이템 파워 사용', '[h, macro("st_do@Lib:4E"): json.set("{}", "op", "dip")]'); }
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('</imageAssetMap>', '</imageAssetMap>' + (extra && extra.stand ? '\n<portraitImage>\n<id>' + extra.stand + '</id>\n</portraitImage>' : '') + (extra && extra.cut ? '\n<charsheetImage>\n<id>' + extra.cut + '</id>\n</charsheetImage>' : '')).replace('@@NAME@@', function () { return xe(d.name); })
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('</imageAssetMap>', (extra && extra.cut ? '<entry>\n<string>cut</string>\n<net.rptools.lib.MD5Key>\n<id>' + extra.cut + '</id>\n</net.rptools.lib.MD5Key>\n</entry>\n' : '') + '</imageAssetMap>' + (extra && extra.face ? '\n<portraitImage>\n<id>' + extra.face + '</id>\n</portraitImage>' : '') + (extra && extra.stand ? '\n<charsheetImage>\n<id>' + extra.stand + '</id>\n</charsheetImage>' : '')).replace('@@NAME@@', function () { return xe(d.name); })
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
   }
   async function saveToken() {
     var d = A().mtData(); await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), zip = new window.JSZip();
-    var extra = {}, kinds = ['stand', 'cut'];
+    var extra = {}, kinds = ['face', 'stand', 'cut'];
     for (var ki = 0; ki < kinds.length; ki++) { var by = await pngOf(d[kinds[ki]]); if (!by) continue; var h2 = md5(by); extra[kinds[ki]] = h2;
       zip.file('assets/' + h2, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + h2 + '</id>\n  </id>\n  <name>' + xe(d.name + ' ' + kinds[ki]) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>'); zip.file('assets/' + h2 + '.png', by); }
+    if (extra.cut) { d.props = Object.assign({}, d.props); d.props.cut_img = 'asset://' + extra.cut; }
     zip.file('content.xml', tokenXml(d, img, hash, extra));
     zip.file('properties.xml', '<map>\n  <entry>\n    <string>version</string>\n    <string>' + T().version + '</string>\n  </entry>\n</map>');
     zip.file('assets/' + hash, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + hash + '</id>\n  </id>\n  <name>' + xe(d.name) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>');
@@ -164,7 +165,7 @@
 
   function drawImgs() {
     var el = document.getElementById('mtImgs'); if (!el || !window.D4EImg) return;
-    el.innerHTML = [['stand', '스탠딩'], ['cut', '컷신']].map(function (k) { var v = window.D4EImg.get(k[0]);
+    el.innerHTML = [['face', '초상'], ['stand', '스탠딩'], ['cut', '컷신']].map(function (k) { var v = window.D4EImg.get(k[0]);
       return '<span style="display:inline-flex;align-items:center;gap:8px;margin:4px 14px 4px 0">' + (v ? '<img src="' + v + '" alt="" style="width:54px;height:54px;object-fit:contain;border:1px solid #8884;border-radius:8px;background:#8882">' : '<span style="display:inline-block;width:54px;height:54px;line-height:54px;text-align:center;border:1px dashed #8886;border-radius:8px;font-size:11px;opacity:.7">없음</span>') +
         '<span><b>' + k[1] + '</b><br><button type="button" data-mtimg="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button type="button" data-mtimgdel="' + k[0] + '">지우기</button>' : '') + '</span></span>'; }).join('');
     el.onclick = function (ev) { var b = ev.target.closest('[data-mtimg]'), x = ev.target.closest('[data-mtimgdel]');
