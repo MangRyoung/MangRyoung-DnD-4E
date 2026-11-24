@@ -102,7 +102,7 @@
   }
   function loadZip() { return window.JSZip ? Promise.resolve() : new Promise(function (ok, no) { var s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'; s.onload = ok; s.onerror = function () { no(new Error('압축 도구를 불러오지 못했어요')); }; document.head.appendChild(s); }); }
 
-  function tokenXml(d, img, hash) {
+  function tokenXml(d, img, hash, extra) {
     var isNew = fmt() === 'new', pack = isNew ? newPack(d) : null; if (isNew) d = Object.assign({}, d, { props: pack.props });
     var t = T(), props = '<propertyMapCI>\n<store>\n' + Object.keys(d.props).map(function (k) {
       return '<entry>\n<string>' + xe(k.toLowerCase()) + '</string>\n<net.rptools.CaseInsensitiveHashMap_-KeyValue>\n<key>' + xe(k) + '</key>\n<value class="string">' + xe(d.props[k]) + '</value>\n</net.rptools.CaseInsensitiveHashMap_-KeyValue>\n</entry>'; }).join('\n') + '\n</store>\n</propertyMapCI>';
@@ -110,13 +110,16 @@
       return t.entry.replace(/@@INDEX@@/g, i).replace('@@UUID@@', uuid()).replace('@@COLOR@@', m.color).replace('@@FONT@@', m.font).replace('@@SORT@@', xe(m.sort)).replace('@@GROUP@@', function () { return xe(m.group); })
         .replace('@@LABEL@@', function () { return xe(m.label); }).replace('@@TIP@@', function () { return xe(m.tip); }).replace('@@COMMAND@@', function () { return xe(m.command); }); }).join('\n');
     var base = t.token; if (isNew) { base = base.replace(/<entry>\s*<int>\d+<\/int>\s*<net\.rptools\.maptool\.model\.MacroButtonProperties>[\s\S]*?<\/net\.rptools\.maptool\.model\.MacroButtonProperties>\s*<\/entry>\s*/g, function (m) { var g = /<group>([^<]*)<\/group>/.exec(m); return g && (g[1] === '0. 상태' || g[1] === '0. 자원' || g[1] === 'zzz. PC 제작') ? '' : m; }); base = baseCmd(base, '재기의 바람', '[macro("second_wind@Lib:4E"): ""]'); base = baseCmd(base, '턴 종료', '[h, macro("turn_end@Lib:4E"): ""]'); }
-    return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('@@NAME@@', function () { return xe(d.name); })
+    return '<?xml version="1.0" encoding="UTF-8"?>\n' + base.replace('@@ID@@', guid()).replace('@@EXP@@', guid()).replace('@@IMG@@', hash).replace('</imageAssetMap>', '</imageAssetMap>' + (extra && extra.stand ? '\n<portraitImage>\n<id>' + extra.stand + '</id>\n</portraitImage>' : '') + (extra && extra.cut ? '\n<charsheetImage>\n<id>' + extra.cut + '</id>\n</charsheetImage>' : '')).replace('@@NAME@@', function () { return xe(d.name); })
       .replace(/<width>\d+<\/width>\s*<height>\d+<\/height>\s*<isoWidth>\d+<\/isoWidth>\s*<isoHeight>\d+<\/isoHeight>/, '<width>' + img.w + '</width>\n<height>' + img.h + '</height>\n<isoWidth>' + img.w + '</isoWidth>\n<isoHeight>' + img.h + '</isoHeight>')
       .replace('@@PROPS@@', function () { return props; }).replace('@@MACROS@@', function () { return macros + '\n'; });
   }
   async function saveToken() {
     var d = A().mtData(); await loadZip(); var img = await tokenImage(d), hash = md5(img.bytes), zip = new window.JSZip();
-    zip.file('content.xml', tokenXml(d, img, hash));
+    var extra = {}, kinds = ['stand', 'cut'];
+    for (var ki = 0; ki < kinds.length; ki++) { var by = await pngOf(d[kinds[ki]]); if (!by) continue; var h2 = md5(by); extra[kinds[ki]] = h2;
+      zip.file('assets/' + h2, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + h2 + '</id>\n  </id>\n  <name>' + xe(d.name + ' ' + kinds[ki]) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>'); zip.file('assets/' + h2 + '.png', by); }
+    zip.file('content.xml', tokenXml(d, img, hash, extra));
     zip.file('properties.xml', '<map>\n  <entry>\n    <string>version</string>\n    <string>' + T().version + '</string>\n  </entry>\n</map>');
     zip.file('assets/' + hash, '<net.rptools.maptool.model.Asset>\n  <id>\n    <id>' + hash + '</id>\n  </id>\n  <name>' + xe(d.name) + '</name>\n  <extension>png</extension>\n  <type>IMAGE</type>\n</net.rptools.maptool.model.Asset>');
     zip.file('assets/' + hash + '.png', img.bytes); zip.file('thumbnail', img.bytes); zip.file('thumbnail_large', img.bytes);
@@ -158,6 +161,17 @@
     '<b>[r: getName()]</b> — 시트를 불러왔어요. 능력 [r: made]개.'
   ].join('\n');
 
+  function drawImgs() {
+    var el = document.getElementById('mtImgs'); if (!el || !window.D4EImg) return;
+    el.innerHTML = [['stand', '스탠딩'], ['cut', '컷신']].map(function (k) { var v = window.D4EImg.get(k[0]);
+      return '<span style="display:inline-flex;align-items:center;gap:8px;margin:4px 14px 4px 0">' + (v ? '<img src="' + v + '" alt="" style="width:54px;height:54px;object-fit:contain;border:1px solid #8884;border-radius:8px;background:#8882">' : '<span style="display:inline-block;width:54px;height:54px;line-height:54px;text-align:center;border:1px dashed #8886;border-radius:8px;font-size:11px;opacity:.7">없음</span>') +
+        '<span><b>' + k[1] + '</b><br><button type="button" data-mtimg="' + k[0] + '">' + (v ? '바꾸기' : '고르기') + '</button>' + (v ? ' <button type="button" data-mtimgdel="' + k[0] + '">지우기</button>' : '') + '</span></span>'; }).join('');
+    el.onclick = function (ev) { var b = ev.target.closest('[data-mtimg]'), x = ev.target.closest('[data-mtimgdel]');
+      if (x) { window.D4EImg.del(x.getAttribute('data-mtimgdel'), drawImgs); return; }
+      if (b) { var f = document.createElement('input'); f.type = 'file'; f.accept = 'image/*'; f.onchange = function () { window.D4EImg.set(b.getAttribute('data-mtimg'), f.files[0], drawImgs); }; f.click(); } };
+  }
+  function pngOf(src) { return new Promise(function (ok) { if (!src) return ok(null); var im = new Image(); im.onload = function () { var c = document.createElement('canvas'); c.width = im.width; c.height = im.height; c.getContext('2d').drawImage(im, 0, 0);
+      c.toBlob(function (b) { b.arrayBuffer().then(function (ab) { ok(new Uint8Array(ab)); }); }, 'image/png'); }; im.onerror = function () { ok(null); }; im.src = src; }); }
   function open() {
     if (!A() || !A().hasChar()) { alert('먼저 데이터를 불러오고 캐릭터를 골라 주세요.'); return; }
     var d = A().mtData(), box = document.getElementById('mtBox');
@@ -167,11 +181,13 @@
       '<p class="hint">' + he(d.name) + ' · 파워 ' + cnt('power') + '개(공격 ' + atk + ') · 기술 ' + d.skills.length + '개 · 맵툴 ' + he(T().version) + ' 기준. 글은 내 번역 → 용어 자동 번역 → 원문 순으로 들어가요.</p>' +
       '<div class="mtwant"><b>맞출 캠페인</b><select data-mtfmt>' + FMTS.map(function (f) { return '<option value="' + f[0] + '"' + (fmt() === f[0] ? ' selected' : '') + '>' + he(f[1]) + '</option>'; }).join('') + '</select><span class="hint">' + (fmt() === 'new' ? '토큰에는 자료와 한 줄 호출만 들어가요. Lib:4E 가 있는 새 캠페인에서만 돌아요. 몬스터 · 조우 내보내기도 이 선택을 따라요.' : '매크로 글이 토큰에 통째로 들어가는 예전 꼴이에요. 몬스터 · 조우 내보내기도 이 선택을 따라요.') + '</span></div>' +
       '<div class="mtwant"><b>버튼으로 더 넣을 것</b>' + [['item', '장비 파워', nItem], ['pas', '패시브 묶음 (재주 · 특성 · 장비 속성 · 홈브류 …)', nPas]].map(function (w) { return '<label><input type="checkbox" data-mtw="' + w[0] + '"' + (want[w[0]] ? ' checked' : '') + '> ' + w[1] + ' <span class="hint">' + w[2] + '개</span></label>'; }).join('') + '<span class="hint">패시브 묶음은 시트의 「패시브 효과」에서 편집해요. 클래스 · 종족 특성이 주는 파워는 파워에 이미 들어 있어요</span></div>' +
+      '<div class="mtrow"><div><b>스탠딩 · 컷신</b><p class="hint">토큰 파일 안에 같이 들어가요. 스탠딩(배경 없는 그림)은 채팅 대사와 컷인에, 컷신은 치명타 연출에 쓰여요. 토큰 그림(초상)은 시트 위쪽의 토큰 칸에서 따로 넣어요.</p><div id="mtImgs"></div></div></div>' +
       '<div class="mtrow"><div><b>가) 토큰 파일</b><p class="hint">.rptok 을 받아 맵 위로 끌어다 놓으면 돼요. 「PC 기본」 토큰의 매크로가 그대로 들어 있어요.</p><button data-mt="tok">토큰 파일 받기</button></div>' +
       '<div><b>나) 있는 토큰에 덮어쓰기</b><p class="hint">캠페인에 「시트 불러오기」 매크로를 한 번 넣어 두고, 토큰을 고른 뒤 그 매크로에 글을 붙여 넣어요. 수치와 능력 버튼만 바뀌어요.</p><button data-mt="copy">시트 글 복사</button> <button data-mt="loader">불러오기 매크로 복사</button></div></div>' +
       '<details><summary>수치 미리 보기</summary><div class="mtprev">' + Object.keys(d.props).map(function (k) { return '<span>' + he(k) + ' <b>' + he(d.props[k]) + '</b></span>'; }).join('') + '</div>' +
       '<table class="mttab"><tr><th>능력</th><th>공격</th><th>피해</th></tr>' + d.powers.filter(function (p) { return p.src === 'power'; }).map(function (p) { var a = p.args; return '<tr><td>' + he(a.pname) + '</td><td>' + (p.nonatk ? '—' : '1d20 + ' + (+a.Amod + d.props[a.AHit === 'Hit' ? 'hit' : 'Hit2']) + ' vs ' + he(a.Attack)) + '</td><td>' + (p.nonatk || !a.Damage ? '—' : he(a.Damage) + ' + ' + he(a.ADM)) + '</td></tr>'; }).join('') + '</table></details>' +
       '<p class="hint" id="mtMsg"></p></div>';
+    drawImgs();
     box.style.display = 'flex';
     var msg = function (t) { document.getElementById('mtMsg').textContent = t; }, copy = function (t, okMsg) { navigator.clipboard.writeText(t).then(function () { msg(okMsg); }, function () { var ta = document.createElement('textarea'); ta.value = t; box.firstChild.appendChild(ta); ta.select(); msg('자동 복사가 막혀서 글을 아래에 띄웠어요. 직접 복사해 주세요.'); }); };
     box.onchange = function (e) { if (e.target.hasAttribute && e.target.hasAttribute('data-mtfmt')) { localStorage.setItem('d4e_mtfmt', e.target.value); open(); return; } var w = e.target.getAttribute && e.target.getAttribute('data-mtw'); if (w) { want[w] = e.target.checked; localStorage.setItem('d4e_mtwant', JSON.stringify(want)); } };
