@@ -1,5 +1,6 @@
 /* 4판 자동화 구문 (2026-11-24 1단계: 파워의 명중 · 빗나감 · 효과 줄)
  * 한 줄 = 효과 하나.  [때:] 동작 인자 [대상] [지속]
+ *   상시: 보정 명중+1 전투우위  — 패시브 칸에 적으면 늘 켜져 있다가 조건(근접 원거리 전투우위 대상혈흔 대상넘어짐)이 맞을 때만 굴림에 더해진다
  *   때   : 명중 | 빗나감 | 효과 | 치명타   (안 적으면 공격 파워는 명중, 아니면 효과)
  *   동작 : 상태 멍함,감속 | 지속피해 5 화염 | 반감 | 임시HP 식 | 회복 식 · 회복 서지+식
  *          기타 글 (걸어 두고 지속이 끝나면 풀리는 글 효과: 저항 · 보정 등)
@@ -12,7 +13,8 @@
  * 글을 읽는 곳은 여기 한 곳. 내보낼 때 compile() 이 맵툴이 실행할 JSON 으로 풀어 준다. */
 (function (root) {
   'use strict';
-  var WHEN = { '명중': 'h', '빗나감': 'm', '효과': 'e', '치명타': 'c' }, WHEN_KO = { h: '명중', m: '빗나감', e: '효과', c: '치명타' };
+  var WHEN = { '명중': 'h', '빗나감': 'm', '효과': 'e', '치명타': 'c', '상시': 'p' }, WHEN_KO = { h: '명중', m: '빗나감', e: '효과', c: '치명타', p: '상시' };
+  var CND = { '근접': 'm', '원거리': 'r', '전투우위': 'ca', '대상혈흔': 'tb', '대상넘어짐': 'tp' }, CND_KO = { m: '근접', r: '원거리', ca: '전투우위', tb: '대상혈흔', tp: '대상넘어짐' }, CND_L = { m: '근접', r: '원거리', ca: '전투 우위일 때', tb: '혈흔 대상에게', tp: '넘어진 대상에게' };
   /* 맵툴 상태 이름 = Lib:4E fx_add 의 목록 */
   var ST = [['실명', 'Blinded'], ['멍함', 'Dazed'], ['실청', 'Deafened'], ['지배됨', 'Dominated'], ['붙잡힘', 'Grabbed'], ['고정', 'Immobilized'], ['마크', 'Mark'], ['석화', 'PETRIFIED'], ['넘어짐', 'Prone'], ['구속', 'Restrained'], ['감속', 'Slowed'], ['기절', 'Stunned'], ['기습당함', 'Surprised'], ['무의식', 'Unconscious'], ['약화', 'Weakened'], ['전투불리', 'Disadvantage']];
   var ST_ALIAS = { '멍해짐': '멍함', '눈멈': '실명', '귀먹음': '실청', '지배': '지배됨', '잡힘': '붙잡힘', '이동불가': '고정', '표식': '마크', '엎어짐': '넘어짐', '속박': '구속', '둔화': '감속', '놀람': '기습당함', '기습': '기습당함', '전투 불리': '전투불리', '전투우위허용': '전투불리' };
@@ -35,11 +37,11 @@
 
   function parseLine(raw, isAtk) {
     var line = String(raw).trim(); if (!line || line.charAt(0) === '#') return null;
-    var w = isAtk === false ? 'e' : 'h', m = /^(명중|빗나감|효과|치명타)\s*[:：]\s*/.exec(line); if (m) { w = WHEN[m[1]]; line = line.slice(m[0].length); }
+    var w = isAtk === false ? 'e' : 'h', m = /^(명중|빗나감|효과|치명타|상시)\s*[:：]\s*/.exec(line); if (m) { w = WHEN[m[1]]; line = line.slice(m[0].length); }
     var tk = line.split(/\s+/), head = tk.shift(), op = { w: w, k: '', to: 't' }, err = function (t) { return { err: t, raw: raw }; };
     if (head === '메모') { op.k = 'note'; op.t = tk.join(' '); return op.t ? op : err('메모 뒤에 글이 없어요'); }
     /* 뒤에서부터 대상 · 지속 낱말을 떼어 낸다 */
-    var dur = null, to = null, cnd = ''; for (var guard = 0; guard < 3 && tk.length; guard++) { var last = tk[tk.length - 1], d = DUR_ALIAS[last] || last; if (DUR[d] && !dur) { dur = d; tk.pop(); } else if (TO[last] && !to) { to = TO[last]; tk.pop(); } else if (head === '보정' && (last === '근접' || last === '원거리') && !cnd) { cnd = last === '근접' ? 'm' : 'r'; tk.pop(); } else break; }
+    var dur = null, to = null, cnd = ''; for (var guard = 0; guard < 3 && tk.length; guard++) { var last = tk[tk.length - 1], d = DUR_ALIAS[last] || last; if (DUR[d] && !dur) { dur = d; tk.pop(); } else if (TO[last] && !to) { to = TO[last]; tk.pop(); } else if (head === '보정' && CND[last] && !cnd) { cnd = CND[last]; tk.pop(); } else break; }
     if (head === '기타') { if (!tk.length) return err('기타 뒤에 글이 없어요'); op.k = 'etc'; op.t = tk.join(' '); op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
     if (head === '내성굴림') { var sb = tk.join(''); if (sb && !/^[+\-]\d+$/.test(sb)) return err('내성굴림 뒤에는 +2 같은 보정만 와요'); op.k = 'sv'; op.b = sb ? parseInt(sb, 10) : 0; op.to = to || 's'; return op; }
     if (head === '보정') { var pm = parseMods(tk.join('')); if (pm.bad || !pm.list.length) return err('보정을 못 읽었어요' + (pm.bad ? ': ' + pm.bad : '') + ' (명중 피해 AC 인내 반사 의지 모든방어 내명중 내피해 뒤에 +2 같은 수)'); op.k = 'mod'; op.m = pm.list; if (cnd) op.c = cnd; op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
@@ -60,7 +62,7 @@
     if (o.k === 'st') { if (o.d === '_man' && o.s.length === 1 && o.s[0] === '넘어짐') return pre + '넘어뜨리기' + (o.to === 's' ? ' 자신' : ''); t = '상태 ' + o.s.join(',') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : ''); }
     else if (o.k === 'etc') t = '기타 ' + o.t + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'sv') t = '내성굴림' + (o.b ? ' ' + (o.b > 0 ? '+' : '') + o.b : '') + (o.to === 't' ? ' 대상' : '');
-    else if (o.k === 'mod') t = '보정 ' + o.m.map(function (x) { return x[0] + (x[1] >= 0 ? '+' : '') + x[1]; }).join(',') + (o.c ? (o.c === 'm' ? ' 근접' : ' 원거리') : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
+    else if (o.k === 'mod') t = '보정 ' + o.m.map(function (x) { return x[0] + (x[1] >= 0 ? '+' : '') + x[1]; }).join(',') + (o.c ? ' ' + CND_KO[o.c] : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'og') t = '지속피해 ' + o.n + (o.ty ? ' ' + o.ty : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내성' ? ' ' + o.d : '');
     else if (o.k === 'thp') t = '임시HP ' + o.v + (o.to === 't' ? ' 대상' : '');
     else if (o.k === 'heal') t = '회복 ' + (o.sg ? '서지' + (o.v ? '+' + o.v : '') : o.v) + (o.to === 't' ? ' 대상' : '');
@@ -76,7 +78,7 @@
       else if (o.k === 'st') o.s.forEach(function (n) { out.push(D(Object.assign({}, b, { k: 'fx', lab: n === '전투불리' ? '전투 불리' : n, st: ST_KEY[n], og: 0, ogt: '' }))); });
       else if (o.k === 'etc') out.push(D(Object.assign(b, { k: 'fx', lab: o.t, st: '', og: 0, ogt: '' })));
       else if (o.k === 'sv') out.push(Object.assign(b, { k: 'sv', b: o.b || 0 }));
-      else if (o.k === 'mod') { var md = { hit: 0, dmg: 0, AC: 0, Fort: 0, Reflex: 0, Will: 0, ahit: 0, admg: 0 }, lab = []; o.m.forEach(function (x) { var k = MODK[x[0]]; if (k === 'all') ['AC', 'Fort', 'Reflex', 'Will'].forEach(function (q) { md[q] += x[1]; }); else md[k] += x[1]; lab.push(MODL[k] + ' ' + (x[1] >= 0 ? '+' : '') + x[1]); }); if (o.c) md.c = o.c; out.push(D(Object.assign(b, { k: 'fx', lab: (o.c ? (o.c === 'm' ? '근접 ' : '원거리 ') : '') + lab.join(' · '), st: '', og: 0, ogt: '', mod: md }))); }
+      else if (o.k === 'mod') { var md = { hit: 0, dmg: 0, AC: 0, Fort: 0, Reflex: 0, Will: 0, ahit: 0, admg: 0 }, lab = []; o.m.forEach(function (x) { var k = MODK[x[0]]; if (k === 'all') ['AC', 'Fort', 'Reflex', 'Will'].forEach(function (q) { md[q] += x[1]; }); else md[k] += x[1]; lab.push(MODL[k] + ' ' + (x[1] >= 0 ? '+' : '') + x[1]); }); if (o.c) md.c = o.c; if (o.w === 'p') { out.push({ w: 'p', k: 'pm', hit: md.hit, dmg: md.dmg, c: o.c || '', lab: (o.c ? CND_L[o.c] + ' ' : '') + lab.join(' · ') }); return; } out.push(D(Object.assign(b, { k: 'fx', lab: (o.c ? CND_L[o.c] + ' ' : '') + lab.join(' · '), st: '', og: 0, ogt: '', mod: md }))); }
       else if (o.k === 'og') out.push(D(Object.assign(b, { k: 'fx', lab: '', st: '', og: o.n, ogt: o.ty || '' })));
       else if (o.k === 'thp') out.push(Object.assign(b, { k: 'thp', v: calc(o.v, ctx) }));
       else if (o.k === 'heal') out.push(Object.assign(b, { k: 'heal', v: o.v ? calc(o.v, ctx) : '0', sg: o.sg ? 1 : 0 }));
