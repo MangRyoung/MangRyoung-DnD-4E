@@ -102,10 +102,10 @@
   function syncNote(t, bad) { var el = document.getElementById('syncState'); if (el) { el.textContent = t || ''; el.className = 'hint syncst' + (bad ? ' bad' : ''); } }
   function canAuto(ch) { if (!ME.hash || !ch || ch.foreign) return false; if (!REMOTE[ch.id] && ch.name === '새 캐릭터' && !Object.keys(ch.choices || {}).length) return false; /* 아직 손대지 않은 빈 시트는 올리지 않는다 */ var rm = REMOTE[ch.id]; return !(rm && rm.ownerHash && rm.ownerHash !== ME.hash); }
   function queueUp() { clearTimeout(upTimer); if (!canAuto(cur)) { syncNote(ME.hash ? (cur && cur.foreign ? '남의 시트예요 · 「팀에 올리기」를 눌러야 반영돼요' : '') : '서명하면 저절로 저장돼서 다른 기기에서도 이어 할 수 있어요'); return; } syncNote('저장 대기 중…'); upTimer = setTimeout(pushCur, 2500); }
-  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', tok: ch.tok || '', face: ch.face || '', stand: ch.stand || '', cut: ch.cut || '', hidePw: ch.hidePw || [], level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, vers: ch.vers || [], abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
+  function docOf(ch, r) { return { name: ch.name, owner: ME.name, ownerHash: ME.hash, team: ch.team || '', set: ch.set || '', port: ch.port || '', tok: ch.tok || '', face: ch.face || '', stand: ch.stand || '', cut: ch.cut || '', hidePw: ch.hidePw || [], fx: ch.fx || {}, level: ch.level, abilities: ch.abilities, choices: ch.choices, eq: ch.eq || {}, equip: ch.equip || [], grants: ch.grants || [], tr: ch.tr || {}, ed: ch.ed || {}, hb: ch.hb || [], hbx: ch.hbx || [], pg: ch.pg || {}, bio: ch.bio || {}, vers: ch.vers || [], abMode: ch.abMode || '', setInit: ch.setInit || '', sum: summary(ch, r), priv: !ch.pub, at: Date.now() }; }
   function applyDoc(n, d) {
     n.name = d.name || ''; n.level = d.level || 1; n.port = d.port || ''; n.tok = d.tok || ''; n.face = d.face || ''; n.stand = d.stand || ''; n.cut = d.cut || ''; n.hidePw = (d.hidePw || []).slice(); n.abilities = Object.assign({}, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.grants = (d.grants || []).slice();
-    n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.vers = JSON.parse(JSON.stringify(d.vers || [])); n.owner = d.owner || ''; return n;
+    n.set = d.set || ''; n.setInit = d.setInit || n.set; if (d.abMode) n.abMode = d.abMode; n.team = d.team || ''; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.fx = JSON.parse(JSON.stringify(d.fx || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); n.vers = JSON.parse(JSON.stringify(d.vers || [])); n.owner = d.owner || ''; return n;
   }
   async function pushCur() {
     if (!db || !res || !cur || syncing || !canAuto(cur) || !D4EShare.ready()) return; var ch = cur, doc = docOf(ch, res);
@@ -128,7 +128,7 @@
   }
   /* ---------- 버전: 같은 캐릭터의 여러 판(10레벨 · 12레벨 …)을 시트 안에 보관 ----------
    * 보관하는 것은 레벨 · 능력치 · 고르기 · 장비 · 고친 파워 · 홈브류 · 패시브 · 세팅. 이름 · 포트 · 설정 · 번역 · 팀은 모든 버전이 같이 쓴다. */
-  var VKEYS = ['level', 'abilities', 'abMode', 'choices', 'eq', 'equip', 'grants', 'ed', 'hb', 'hbx', 'pg', 'set', 'setInit'];
+  var VKEYS = ['level', 'abilities', 'abMode', 'choices', 'eq', 'equip', 'grants', 'ed', 'hb', 'hbx', 'pg', 'fx', 'set', 'setInit'];
   function snapOf(ch) { var o = {}; VKEYS.forEach(function (k) { if (ch[k] != null) o[k] = JSON.parse(JSON.stringify(ch[k])); }); return o; }
   /* 같은지 비교: 열쇠 순서(공유 DB 를 거치면 바뀜) · 빈 값 차이는 무시한다 */
   function stab(o) { if (Array.isArray(o)) return o.map(stab); if (o && typeof o === 'object') { var r = {}; Object.keys(o).sort().forEach(function (k) { var v = stab(o[k]); if (v == null || v === '' || (typeof v === 'object' && !Array.isArray(v) && !Object.keys(v).length) || (Array.isArray(v) && !v.length)) return; r[k] = v; }); return r; } return o; }
@@ -503,6 +503,7 @@
       var usage = u === 'day' ? '#404040' : u === 'enc' ? '#704040' : (lc(sp['Power Usage']).indexOf('daily') >= 0 ? '#404040' : lc(sp['Power Usage']).indexOf('encounter') >= 0 ? '#704040' : '#407040');
       var a = { group: '', pname: (t.n || p.n).replace(/["';]/g, ''), pkind: safe(sp['Display'] || ''), usage: usage, keyword: safe(t.f && t.f['Keywords'] || (glossAuto ? gsub(sp['Keywords'] || '') : sp['Keywords'] || '')), action: MT_ACT[lc(sp['Action Type'])] || '-',
         range: txt(p, 'Attack Type'), Trigger: txt(p, 'Trigger'), Target: txt(p, 'Target', 'Targets', 'Primary Target') || '-', Effect: txt(p, 'Effect'), Special: [txt(p, 'Special'), txt(p, 'Requirement', 'Requirements') ? '요구 조건: ' + txt(p, 'Requirement', 'Requirements') : '', sp['하우스룰'] ? '하우스룰: ' + safe(sp['하우스룰']) : ''].filter(Boolean).join('<br>'), A_Memo: '', submit: '' };
+      var fxT = (ch.fx || {})[p.id]; if (fxT && window.D4EFx) { var fxO = D4EFx.compile(D4EFx.parse(fxT, !!m).ops, { str: P.strmod, con: P.conmod, dex: P.dexmod, int: P.intmod, wis: P.wismod, cha: P.chamod, lv: P.Level }); if (fxO.length) a.fx = fxO; }
       if (!m) { powers.push({ nonatk: 1, args: a }); return; }
       var set = m.isW ? ['Hit', P.hit] : ['Hit2', P.Hit2], first = m.terms[0], rest = m.terms.slice(1), dmgStr = '', adm = [];
       if (first && first.w && first.w <= 9) dmgStr = first.w + (m.isW ? 'W' : 'W2'); else if (first && !first.w && first.n <= 9) dmgStr = first.n + 'd' + first.d; else if (first) rest = m.terms;
@@ -675,6 +676,26 @@
     if (r.warnings.length) h += '<p class="hint">확인 필요: ' + esc(r.warnings.slice(0, 5).join(' / ')) + '</p>';
     return h;
   }
+  /* ---------- 자동화 구문 탭 (2026-11-24) ----------
+   * ch.fx = { 파워 id: 구문 글 }. 추천은 영어 원문을 읽어 보여 주기만 하고, 「추천 넣기」 를 눌러야 시트에 들어간다. 내보낼 때는 시트 구문만 나간다. */
+  function fxPowers() { var out = []; ownedOf(res, 'Power').filter(function (p) { return p.sp && p.sp['Power Usage'] && p.n !== 'Second Wind'; }).forEach(function (p) { var av = augVersions(p); if (av.length) av.forEach(function (c) { out.push(c); }); else out.push(p); }); return out; }
+  function fxTab() {
+    var F = window.D4EFx, bx = document.createElement('div'); bx.className = 'hbpick'; if (!F) { bx.textContent = '구문 도구를 읽지 못했어요.'; return bx; } cur.fx = cur.fx || {};
+    var list = fxPowers(), T = cur.tr || {}, nSug = 0, nErr = 0, actx = { r: res, ch: cur }, txt = function (p, k) { var t = T[p.id], f = (t && t.f) || {}, sp = p.sp || {}; return String(f[k] || (glossAuto ? gsub(sp[k] || '') : sp[k] || '')); };
+    var cards = list.map(function (p0) { var p = eff(p0, cur), sp = p.sp || {}, isAtk = !!attackInfo(p, actx), have = cur.fx[p.id] || '', sug = F.suggest(p0.sp || {}, isAtk), pr = F.parse(have, isAtk), u = usageClass(p), same = have && sug.join('\n') === F.str(pr.ops, isAtk);
+      if (sug.length && !have) nSug++; if (pr.errs.length) nErr++;
+      var rows = [['명중', 'Hit'], ['빗나감', 'Miss'], ['효과', 'Effect']].map(function (k) { var t = txt(p, k[1]); return t ? '<div class="fx-src"><b>' + k[0] + '</b> ' + esc(t) + '</div>' : ''; }).join('');
+      return '<div class="fx-card' + (pr.errs.length ? ' bad' : have ? ' on' : '') + '"><div class="fx-h"><b>' + esc((T[p.id] && T[p.id].n) || p.n) + '</b> <span class="hint">' + (u === 'day' ? '일일' : u === 'enc' ? '조우' : '상시') + (isAtk ? ' · 공격' : '') + '</span></div>' + rows +
+        '<textarea data-fx="' + esc(p.id) + '" rows="' + Math.max(2, have.split('\n').length) + '" placeholder="' + (isAtk ? '예) 상태 멍함 내성' : '예) 효과: 임시HP 건강') + '">' + esc(have) + '</textarea>' +
+        (pr.errs.length ? '<div class="fx-err">' + pr.errs.map(function (e) { return e.line + '번째 줄: ' + esc(e.msg); }).join('<br>') + '</div>' : '') +
+        (sug.length && !same ? '<div class="fx-sug"><span class="hint">추천</span> <code>' + sug.map(esc).join('</code> <code>') + '</code> <button class="mini" data-fxuse="' + esc(p.id) + '">추천 넣기</button></div>' : (sug.length ? '<div class="fx-sug"><span class="hint">추천과 같아요</span></div>' : '')) + '</div>'; }).join('');
+    bx.innerHTML = '<p class="hint">파워마다 한 줄에 효과 하나씩 적으면 맵툴 토큰에 실려 자동으로 걸려요. <code>상태 멍함 내성</code> · <code>지속피해 5 화염</code> · <code>빗나감: 반감</code> · <code>효과: 임시HP 건강</code> · <code>밀기 2</code> · <code>넘어뜨리기</code> · <code>회복 서지</code> · <code>메모 글</code>. 지속: 내성 · 내다음턴끝(기본) · 내다음턴시작 · 대상다음턴끝 · 조우. 조건이 붙은 효과는 적지 말고 손으로 처리해 주세요.</p>' +
+      '<div class="pas-bar"><button class="mini" data-fxall="1">빈 칸을 추천으로 채우기 (' + nSug + ')</button><span class="hint">적은 파워 ' + Object.keys(cur.fx).length + ' / ' + list.length + (nErr ? ' · 오류 ' + nErr : '') + '</span></div>' + (cards || '<p class="hint">파워가 아직 없어요.</p>');
+    var setFx = function (id, v) { v = String(v || '').replace(/\r/g, '').replace(/\n{2,}/g, '\n').trim(); if (v) cur.fx[id] = v; else delete cur.fx[id]; };
+    bx.onchange = function (ev) { var t = ev.target; if (!t.hasAttribute || !t.hasAttribute('data-fx')) return; setFx(t.getAttribute('data-fx'), t.value); saveChars(); rebuild(); };
+    bx.onclick = function (ev) { var u = ev.target.closest('[data-fxuse]'), al = ev.target.closest('[data-fxall]'); if (!u && !al) return;
+      list.forEach(function (p0) { if (u ? p0.id !== u.getAttribute('data-fxuse') : !!cur.fx[p0.id]) return; var s = F.suggest(p0.sp || {}, !!attackInfo(eff(p0, cur), actx)); if (s.length) setFx(p0.id, s.join('\n')); }); saveChars(); rebuild(); };
+    return bx; }
   /* 패시브 순서 옮기기. kind = 'g' 묶음 | 'i' 효과. to = {g:묶음, i:효과키, after:bool} 로 놓거나 step(±1) 으로 한 칸 */
   function pasMove(kind, id, to, step) {
     if (!cur || !res) return; var pg = cur.pg = cur.pg || {}, P = passiveGroups(cur, res), gids = P.groups.map(function (g) { return g.id; });
@@ -870,6 +891,7 @@
     tabs.push({ key: 'eq', label: '장비', left: 0, n: (cur.equip || []).length });
     var hbEvery = D4EHouse.custom(db), hbAll = (ME.gm || !D4EHouse.gm().hashes.length) ? hbEvery : hbEvery.filter(function (e) { return hbFor(e, cur.name) || (cur.hb || []).indexOf(e.id) >= 0; }); cur.hb = (cur.hb || []).filter(function (id) { return db.byId[id]; });
     tabs.push({ key: 'hb', label: '홈브류', left: 0, n: cur.hb.length + (cur.hbx || []).length });
+    tabs.push({ key: 'fx', label: '자동화', left: 0, n: Object.keys(cur.fx || {}).length });
     tabs.push({ key: 'img', label: '토큰 · 초상 · 스탠딩 · 컷신', left: 0, n: (cur.tok ? 1 : 0) + (cur.face ? 1 : 0) + (cur.stand ? 1 : 0) + (cur.cut ? 1 : 0) });
     if (!tabs.some(function (t) { return t.key === buildTab; })) buildTab = tabs[0].key;
     var bar = document.createElement('div'); bar.className = 'btabs';
@@ -877,6 +899,7 @@
       b.innerHTML = esc(t.label) + (t.left ? '<i>' + t.left + '</i>' : '') + ((t.key === 'eq' || t.key === 'hb' || t.key === 'img') && t.n ? '<em>' + t.n + '</em>' : '');
       b.onclick = function () { buildTab = t.key; localStorage.setItem('d4e_btab', buildTab); renderSelects(); }; bar.appendChild(b); });
     box.appendChild(bar); $('equip').hidden = buildTab !== 'eq';
+    if (buildTab === 'fx') box.appendChild(fxTab());
     if (buildTab === 'img') { var ibx = document.createElement('div'); ibx.className = 'hbpick';
       ibx.innerHTML = '<p class="hint">맵툴 토큰 파일 안에 같이 들어가는 그림이에요. 토큰은 맵 위 말로, 초상은 맵툴 초상화(portrait) 칸과 채팅 얼굴로, 스탠딩은 채팅 대사와 컷인에, 컷신은 치명타 연출에 쓰여요. 넷 다 자르지 않고 통째로 보관해요(토큰 · 초상은 긴 쪽 512, 나머지는 1024).</p>' +
         '<div style="display:flex;flex-wrap:wrap;gap:16px">' + [['tok', '토큰', '맵 위 말로 나가는 그림'], ['face', '초상', '얼굴 위주 상반신 (맵툴 portrait)'], ['stand', '스탠딩', '배경을 지운 전신 그림'], ['cut', '컷신', '치명타 때 띄울 그림']].map(function (k) { var v = cur[k[0]] || '';
@@ -1554,7 +1577,7 @@
         '<div class="tc-row">' + cell('이동', s.speed || 0) + cell('우선권', sg(s.init || 0)) + (pw ? cell('상시', pw.at, 'at pwc" data-u="at') + cell('조우', pw.enc, 'enc pwc" data-u="enc') + cell('일일', pw.day, 'day pwc" data-u="day') + cell('활용', pw.util, 'util pwc" data-u="util') : cell('파워', (s.powers || []).length)) + '</div><div class="tc-pw" hidden></div></div>';
       var acts = document.createElement('div'); acts.className = 'tc-act'; c.appendChild(acts); var card = c, card0 = function () { return card; }; c = acts;
       var built = function () { if (d.set) D4EHouse.apply(db, d.set);
-        var ch = { id: row.id, name: d.name, port: d.port || '', tok: d.tok || '', face: d.face || '', stand: d.stand || '', cut: d.cut || '', hidePw: d.hidePw || [], level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
+        var ch = { id: row.id, name: d.name, port: d.port || '', tok: d.tok || '', face: d.face || '', stand: d.stand || '', cut: d.cut || '', hidePw: d.hidePw || [], fx: d.fx || {}, level: d.level || 1, abilities: d.abilities || {}, choices: d.choices || {}, equip: d.equip || [], grants: d.grants || [], tr: d.tr || {}, ed: d.ed || {}, hb: d.hb || [], hbx: d.hbx || [], pg: d.pg || {}, bio: d.bio || {}, set: d.set || '' }, r = E.build(db, ch); ch.eq = d.eq || {}; return { ch: ch, r: r }; };
       /* 파워 가짓수 칸을 누르면 그 묶음의 파워 이름이 펼쳐지고, 이름을 누르면 파워 카드가 뜬다 */
       var pwBox = card0().querySelector('.tc-pw'), pwOpen = '';
       card0().querySelectorAll('.pwc').forEach(function (el) { el.title = '눌러서 파워 보기'; el.onclick = function () {
@@ -1580,7 +1603,7 @@
           applyDoc(n, d); n.pub = !d.priv; if (d.ownerHash === ME.hash && ME.hash) { delete n.foreign; n.mt = n.sy = d.at || Date.now(); REMOTE[row.id] = { ownerHash: d.ownerHash, at: d.at || 0 }; } else n.foreign = true; SNAP[n.id] = sig(n); cur = n; saveChars(); tab('edit'); toast(n.foreign ? '만들기 화면으로 가져왔어요. 남의 시트라 고친 뒤 「팀에 올리기」를 눌러야 반영돼요' : '만들기 화면으로 가져왔어요. 고치면 저절로 저장돼요'); };
       };
       var b2 = document.createElement('button'); b2.className = 'mini ghost'; b2.textContent = '복제해서 내 것으로';
-      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); cur = n; saveChars(); tab('edit'); };
+      b2.onclick = function () { var n = newChar(); n.name = (d.name || '') + ' (복제)'; n.level = d.level || 1; n.port = d.port || ''; n.abilities = Object.assign(n.abilities, d.abilities || {}); n.choices = JSON.parse(JSON.stringify(d.choices || {})); n.eq = JSON.parse(JSON.stringify(d.eq || {})); n.equip = (d.equip || []).slice(); n.set = d.set || ''; n.setInit = n.set; n.tr = JSON.parse(JSON.stringify(d.tr || {})); n.ed = JSON.parse(JSON.stringify(d.ed || {})); n.hb = (d.hb || []).slice(); n.hbx = JSON.parse(JSON.stringify(d.hbx || [])); n.pg = JSON.parse(JSON.stringify(d.pg || {})); n.fx = JSON.parse(JSON.stringify(d.fx || {})); n.bio = JSON.parse(JSON.stringify(d.bio || {})); cur = n; saveChars(); tab('edit'); };
       c.appendChild(b1); c.appendChild(document.createTextNode(' ')); c.appendChild(b2);
       if (ME.gm || (d.ownerHash ? d.ownerHash === ME.hash : (chars[row.id] || (d.owner && d.owner === ME.name)))) {
         var b3 = document.createElement('button'); b3.className = 'mini ghost'; b3.textContent = '내리기';

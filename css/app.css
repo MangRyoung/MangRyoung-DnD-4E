@@ -530,3 +530,9 @@ body.noscroll{overflow:hidden}
 /* 패시브 순서 옮기기(2026-11-24) */
 .pas-grip{cursor:grab;user-select:none;padding:2px 5px;border-radius:6px;color:var(--mute,#888);font-size:15px;line-height:1}.pas-grip:hover{background:#8882}.pas-grip:active{cursor:grabbing}.pas-mv{padding:1px 6px;font-size:11px;flex:none}.pasl-t .pas-mv,.pasg-h .pas-mv{min-width:0}
 .pas-over{box-shadow:0 -3px 0 0 #e9a93b}.pas-over-b{box-shadow:0 3px 0 0 #e9a93b}
+
+/* 자동화 구문 탭(2026-11-24) */
+.fx-card{border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:8px 10px;margin:8px 0;background:var(--card)}.fx-card.on{border-left-color:#3f9d63}.fx-card.bad{border-left-color:#c0392b}
+.fx-h{margin-bottom:4px}.fx-src{font-size:12.5px;line-height:1.5;opacity:.85}.fx-src b{display:inline-block;min-width:44px;color:var(--mute,#888)}
+.fx-card textarea{width:100%;box-sizing:border-box;margin:6px 0 4px;font-family:inherit;font-size:13.5px}.fx-err{color:#c0392b;font-size:12.5px;margin-bottom:4px}
+.fx-sug{font-size:12.5px;display:flex;flex-wrap:wrap;gap:5px;align-items:center}.fx-sug code,.hbpick p code{padding:1px 6px;border-radius:6px;background:#8882;font-size:12px}
