@@ -79,6 +79,7 @@
     var sk = d.skills.slice().sort(function (x, y) { return x.sort - y.sort; }).map(function (s) { var n = String(s.name).replace(/[",|#]/g, ' '); return [n, s.total, n + ' ' + (s.total >= 0 ? '+' : '') + s.total + (s.trained ? ' ●' : '')]; });
     [['행동판', 'power', 'black', 'yellow', 'HP · 방어 · 파워를 한 창에서'], ['기능', 'skill', 'blue', 'white', '기능 · 능력 판정'], ['상태', 'state', 'maroon', 'white', '피해 · 회복 · 치유 서지 · 내성 · 행동점 · 걸린 효과'], ['패시브', 'passive', 'gray25', 'white', '패시브 모음'], ['설정', 'cfg', 'gray', 'white', '수치 · 이름 · 연출 고치기']].forEach(function (b) {
       macros.push({ label: b[0], group: '0. 행동판', color: b[2], font: b[3], sort: '', command: '[h, macro("sheet@Lib:4E"): currentToken() + "|' + b[1] + '"]', tip: b[4] }); });
+    macros.push({ label: '전투 현황판', group: '0. 행동판', color: 'black', font: 'yellow', sort: '', command: '[h, macro("panel@Lib:4E"): ""]', tip: '차례 · HP · 걸린 효과' });
     macros.push({ label: '채팅 열기', group: '0. 채팅', color: 'yellow', font: 'black', sort: '', command: '[h, macro("input_coco@Lib:Coco"): ""]', tip: '코코챗 입력창' });
     macros.push({ label: '컷인', group: '0. 채팅', color: 'red', font: 'white', sort: '', command: '[h, macro("coco_cutin@Lib:Coco"): currentToken()]', tip: '이 토큰의 컷인' });
     var props = Object.assign({}, d.props); props.pw4e = JSON.stringify(pw); props.pw_used = '[]'; props.sk4e = JSON.stringify(sk);
