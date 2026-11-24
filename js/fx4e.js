@@ -3,6 +3,7 @@
  *   때   : 명중 | 빗나감 | 효과 | 치명타   (안 적으면 공격 파워는 명중, 아니면 효과)
  *   동작 : 상태 멍함,감속 | 지속피해 5 화염 | 반감 | 임시HP 식 | 회복 식 · 회복 서지+식
  *          기타 글 (걸어 두고 지속이 끝나면 풀리는 글 효과: 저항 · 보정 등)
+ *          보정 명중+2,피해+4 (굴림에 실제로 더해짐. AC 인내 반사 의지 모든방어 · 내명중 내피해 = 이 대상에게 내가 칠 때)
  *          내성굴림 [+N] (바로 내성 굴림을 한 번 굴린다. 기본 자신)
  *          밀기 N | 당기기 N | 미끄러뜨리기 N | 순간이동 N | 시프트 N | 넘어뜨리기 | 메모 글
  *   대상 : 대상(기본) | 자신
@@ -21,6 +22,10 @@
   var MOVE = { '밀기': 1, '당기기': 1, '미끄러뜨리기': 1, '순간이동': 1, '시프트': 1 };
   var AB = { '근력': 'str', '힘': 'str', '건강': 'con', '체질': 'con', '민첩': 'dex', '지능': 'int', '지혜': 'wis', '매력': 'cha' };
   var TO = { '대상': 't', '자신': 's', '나': 's' };
+  /* 보정: 맵툴 굴림에 실제로 더해지는 수치. 내명중 · 내피해 = 「이 대상에게 내가 칠 때」(대상에게 건다) */
+  var MODK = { '명중': 'hit', '피해': 'dmg', 'AC': 'AC', 'ac': 'AC', '인내': 'Fort', '반사': 'Reflex', '의지': 'Will', '모든방어': 'all', '내명중': 'ahit', '내피해': 'admg' };
+  var MODL = { hit: '명중', dmg: '피해', AC: 'AC', Fort: '인내', Reflex: '반사', Will: '의지', all: '모든 방어', ahit: '이 대상에게 내 명중', admg: '이 대상에게 내 피해' };
+  function parseMods(t) { var out = [], bad = ''; String(t).split(/[,，]/).filter(Boolean).forEach(function (x) { var m = /^(.+?)([+\-]\d+)$/.exec(x); if (!m || !MODK[m[1]]) { bad = bad || x; return; } out.push([m[1] === 'ac' ? 'AC' : m[1], parseInt(m[2], 10)]); }); return bad ? { bad: bad } : { list: out }; }
 
   function isExpr(s) { return /^[+\-]?(\d+d\d+|\d+|근력|힘|건강|체질|민첩|지능|지혜|매력|레벨|반레벨)([+\-](\d+d\d+|\d+|근력|힘|건강|체질|민첩|지능|지혜|매력|레벨|반레벨))*$/.test(s); }
   /* 식 → 맵툴이 굴릴 글(숫자 · 주사위만). ctx = { str,con,dex,int,wis,cha (수정치), lv } */
@@ -37,6 +42,7 @@
     var dur = null, to = null; for (var guard = 0; guard < 2 && tk.length; guard++) { var last = tk[tk.length - 1], d = DUR_ALIAS[last] || last; if (DUR[d] && !dur) { dur = d; tk.pop(); } else if (TO[last] && !to) { to = TO[last]; tk.pop(); } else break; }
     if (head === '기타') { if (!tk.length) return err('기타 뒤에 글이 없어요'); op.k = 'etc'; op.t = tk.join(' '); op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
     if (head === '내성굴림') { var sb = tk.join(''); if (sb && !/^[+\-]\d+$/.test(sb)) return err('내성굴림 뒤에는 +2 같은 보정만 와요'); op.k = 'sv'; op.b = sb ? parseInt(sb, 10) : 0; op.to = to || 's'; return op; }
+    if (head === '보정') { var pm = parseMods(tk.join('')); if (pm.bad || !pm.list.length) return err('보정을 못 읽었어요' + (pm.bad ? ': ' + pm.bad : '') + ' (명중 피해 AC 인내 반사 의지 모든방어 내명중 내피해 뒤에 +2 같은 수)'); op.k = 'mod'; op.m = pm.list; op.to = to || 't'; op.d = dur || '내다음턴끝'; return op; }
     if (head === '반감') { if (tk.length) return err('반감 뒤에는 아무것도 안 붙어요'); op.w = 'm'; op.k = 'half'; return op; }
     if (head === '넘어뜨리기') { head = '상태'; tk = ['넘어짐']; dur = dur || '_man'; }
     if (head === '상태') { if (!tk.length) return err('상태 이름이 없어요'); var names = tk.join('').split(/[,，]/).filter(Boolean), bad = [];
@@ -54,6 +60,7 @@
     if (o.k === 'st') { if (o.d === '_man' && o.s.length === 1 && o.s[0] === '넘어짐') return pre + '넘어뜨리기' + (o.to === 's' ? ' 자신' : ''); t = '상태 ' + o.s.join(',') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : ''); }
     else if (o.k === 'etc') t = '기타 ' + o.t + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'sv') t = '내성굴림' + (o.b ? ' ' + (o.b > 0 ? '+' : '') + o.b : '') + (o.to === 't' ? ' 대상' : '');
+    else if (o.k === 'mod') t = '보정 ' + o.m.map(function (x) { return x[0] + (x[1] >= 0 ? '+' : '') + x[1]; }).join(',') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내다음턴끝' ? ' ' + o.d : '');
     else if (o.k === 'og') t = '지속피해 ' + o.n + (o.ty ? ' ' + o.ty : '') + (o.to === 's' ? ' 자신' : '') + (o.d !== '내성' ? ' ' + o.d : '');
     else if (o.k === 'thp') t = '임시HP ' + o.v + (o.to === 't' ? ' 대상' : '');
     else if (o.k === 'heal') t = '회복 ' + (o.sg ? '서지' + (o.v ? '+' + o.v : '') : o.v) + (o.to === 't' ? ' 대상' : '');
@@ -69,6 +76,7 @@
       else if (o.k === 'st') o.s.forEach(function (n) { out.push(D(Object.assign({}, b, { k: 'fx', lab: n === '전투불리' ? '전투 불리' : n, st: ST_KEY[n], og: 0, ogt: '' }))); });
       else if (o.k === 'etc') out.push(D(Object.assign(b, { k: 'fx', lab: o.t, st: '', og: 0, ogt: '' })));
       else if (o.k === 'sv') out.push(Object.assign(b, { k: 'sv', b: o.b || 0 }));
+      else if (o.k === 'mod') { var md = { hit: 0, dmg: 0, AC: 0, Fort: 0, Reflex: 0, Will: 0, ahit: 0, admg: 0 }, lab = []; o.m.forEach(function (x) { var k = MODK[x[0]]; if (k === 'all') ['AC', 'Fort', 'Reflex', 'Will'].forEach(function (q) { md[q] += x[1]; }); else md[k] += x[1]; lab.push(MODL[k] + ' ' + (x[1] >= 0 ? '+' : '') + x[1]); }); out.push(D(Object.assign(b, { k: 'fx', lab: lab.join(' · '), st: '', og: 0, ogt: '', mod: md }))); }
       else if (o.k === 'og') out.push(D(Object.assign(b, { k: 'fx', lab: '', st: '', og: o.n, ogt: o.ty || '' })));
       else if (o.k === 'thp') out.push(Object.assign(b, { k: 'thp', v: calc(o.v, ctx) }));
       else if (o.k === 'heal') out.push(Object.assign(b, { k: 'heal', v: o.v ? calc(o.v, ctx) : '0', sg: o.sg ? 1 : 0 }));
@@ -104,16 +112,17 @@
       if (mv) { var n = /^\d+$/.test(mv[2]) ? mv[2] : enExpr(mv[2].replace(/a number of squares equal to/, '')); if (n) push({ push: '밀기', pull: '당기기', slide: '미끄러뜨리기' }[mv[1]] + ' ' + n); }
       /* 글 효과: 저항 · 보정 · 벌점. 「against … / when … / while …」 같은 꼬리가 붙으면 추천하지 않는다 */
       var rs = /\b(you|the target) gains? resist (\d+) to all damage\b/.exec(sen); if (rs) push('기타 저항 ' + rs[2] + (rs[1] === 'you' ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : ''));
-      var bn = /\b(you gain|the target gains|the target takes|each target takes|it takes) an? ([+\-–]\d+) (?:power |racial |feat |item |untyped )?(bonus|penalty) to (attack rolls|damage rolls|all defenses|ac|fortitude|reflex|will|speed|saving throws)(?: defense)?(.*)$/.exec(sen);
-      if (bn && !/\b(against|when|whenever|while)\b/.test(bn[5]) && !/^\s*(with|of|for|on)\b/.test(bn[5])) { var what = { 'attack rolls': '명중', 'damage rolls': '피해', 'all defenses': '모든 방어', ac: 'AC', fortitude: '인내', reflex: '반사', will: '의지', speed: '속도', 'saving throws': '내성 굴림' }[bn[4]]; push('기타 ' + what + ' ' + bn[2].replace('–', '-') + (/^you/.test(bn[1]) ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : '')); }
+      var bn = /\b(you gain|the target gains|the target takes|each target takes|it takes) an? ([+\-–]\d+) (?:power |racial |feat |item |untyped )?(bonus|penalty) to (?:melee |ranged |weapon )?(attack rolls|damage rolls|all defenses|ac|fortitude|reflex|will|speed|saving throws)(?: defense)?(.*)$/.exec(sen);
+      if (bn && !/\b(against|when|whenever|while)\b/.test(bn[5]) && !/^\s*(with|of|for|on)\b/.test(bn[5])) { var what = { 'attack rolls': '명중', 'damage rolls': '피해', 'all defenses': '모든 방어', ac: 'AC', fortitude: '인내', reflex: '반사', will: '의지', speed: '속도', 'saving throws': '내성 굴림' }[bn[4]]; var mk = { '명중': '명중', '피해': '피해', 'AC': 'AC', '인내': '인내', '반사': '반사', '의지': '의지', '모든 방어': '모든방어' }[what], tail = (/^you/.test(bn[1]) ? ' 자신' : '') + (dur && dur !== '내다음턴끝' ? ' ' + dur : ''); push(mk ? '보정 ' + mk + bn[2].replace('–', '-') + tail : '기타 ' + what + ' ' + bn[2].replace('–', '-') + tail); }
       var th = /\b(you|the target) gains? (\d+|temporary hit points equal to [^.,;]+?(?:modifier|level))( temporary hit points)?/.exec(sen); if (th && /temporary hit points/.test(sen)) { var e = /^\d+$/.test(th[2]) ? th[2] : enExpr(th[2].replace(/temporary hit points equal to/, '')); if (e) push('임시HP ' + e + (th[1] === 'you' ? '' : ' 대상')); }
+      var shf = /^you (?:can |may )?shift (\d+) squares?/.exec(sen); if (shf) push('시프트 ' + shf[1] + ' 자신');
       var sv = /\b(you|the target|each target|that ally|the ally)(?: can| may)? makes? a saving throw(?: with a ([+\-–]\d+) (?:power |racial |feat )?bonus)?/.exec(sen); if (sv) push('내성굴림' + (sv[2] ? ' ' + sv[2].replace('–', '-') : '') + (sv[1] === 'you' ? '' : ' 대상'));
       if (/^you (can |may )?spend a healing surge\b/.test(sen) || /^you regain hit points as if you had spent a healing surge/.test(sen)) push('회복 서지');
     });
     return out; }
   function suggest(sp, isAtk) { sp = sp || {}; var out = []; if (isAtk == null) isAtk = !!(sp['Attack'] || sp['Primary Attack']);
     if (isAtk) { out = out.concat(suggestField(sp['Hit'], 'h', true)); if (/half damage/i.test(String(sp['Miss'] || ''))) out.push('빗나감: 반감'); out = out.concat(suggestField(String(sp['Miss'] || '').replace(/half damage( per attack)?(, and)?/i, ''), 'm', true)); }
-    out = out.concat(suggestField(sp['Effect'], 'e', isAtk)); return out; }
+    out = out.concat(suggestField(sp['Effect'], 'e', isAtk)); if (sp['Power'] && !sp['Power Usage']) out = out.concat(suggestField(String(sp['Power']).replace(/^[^.]*\.\s*(?:(?:Minor|Standard|Move|Free|No|Immediate \w+) Action\.\s*)?/i, ''), 'e', false)); return out; }
 
   root.D4EFx = { parse: parse, str: str, compile: compile, suggest: suggest, calc: calc, states: ST.map(function (x) { return x[0]; }), durs: Object.keys(DUR) };
   if (typeof module !== 'undefined') module.exports = root.D4EFx;
